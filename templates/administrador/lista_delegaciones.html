@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delegaciones - Sistema Municipal{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="javascript:void(0);">Noticias</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Delegaciones Municipales</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold" style="color: #8B1D19;">Listado de delegaciones</h4>
+        <button class="btn text-white fw-bold" style="background-color: #C41230;">
+            + Nueva Delegación
+        </button>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Nombre de Delegación</th>
+                    <th scope="col">Dirección</th>
+                    <th scope="col">Encargado/a</th>
+                    <th scope="col" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for delegacion in delegaciones %}
+                <tr>
+                    <th scope="row">{{ delegacion.id_delegacion }}</th>
+                    <td>{{ delegacion.nombre }}</td>
+                    <td>{{ delegacion.calle }} #{{ delegacion.numero_calle }}</td>
+                    <td>Responsable: {{ delegacion.responsable|default:"Sin asignar" }}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary">Ver</button>
+                        <button class="btn btn-sm btn-outline-secondary">Editar</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        No hay delegaciones registradas.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

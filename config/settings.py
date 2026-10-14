@@ -29,10 +29,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'delegacionesApp',
-    'actividadesApp',
-    'agendaApp',
-    'funcionarioApp',
+    'administracionApp',
+    'actividadApp',
+    'monitoreoApp',
+    'tuboApp',
 ]
 
 MIDDLEWARE = [
@@ -73,7 +73,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'municipalidad_db',
         'USER': 'root',       
-        'PASSWORD': '',       
+        'PASSWORD': 'admin',       
         'HOST': '127.0.0.1',  
         'PORT': '3306',      
     }
