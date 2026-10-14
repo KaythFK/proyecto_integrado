@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Actividades - Sistema Municipal{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <!-- Actualizado con el namespace de administracionApp -->
+        <a class="nav-link text-white" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="javascript:void(0);">Actividades</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Actividades</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold" style="color: #8B1D19;">Listado de Actividades</h4>
+        <button class="btn text-white fw-bold" style="background-color: #C41230;">
+            + Nueva Actividad
+        </button>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">Código</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Solicitud / Problema</th>
+                    <th scope="col">Solicitante</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" class="text-center">Evidencias</th>
+                    <th scope="col" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for actividad in actividades %}
+                <tr>
+                    <!-- Actualizado para usar el codigo_unico en lugar del ID numérico puro -->
+                    <th scope="row">{{ actividad.codigo_unico }}</th>
+                    <td>{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                    
+                    <td>
+                        <div class="text-truncate" style="max-width: 250px;">
+                            {{ actividad.solicitud_problema }}
+                        </div>
+                        <a href="javascript:void(0);" data-bs-toggle="modal" data-bs-target="#modalSolicitud{{ actividad.id_actividad }}" class="text-primary small text-decoration-none fw-bold">
+                            Ver solicitud completa
+                        </a>
+                    </td>
+                    
+                    <!-- Lógica condicional para evaluar si es Vecino o Profesional -->
+                    <td>
+                        {% if actividad.solicitante_vecino %}
+                            <strong>{{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}</strong><br>
+                            <span class="badge bg-info text-dark">Vecino</span>
+                            <small class="text-muted d-block">{{ actividad.solicitante_vecino.telefono|default:"Sin teléfono" }}</small>
+                        {% elif actividad.solicitante_profesional %}
+                            <strong>{{ actividad.solicitante_profesional.nombres }} {{ actividad.solicitante_profesional.apellido_paterno }}</strong><br>
+                            <span class="badge bg-warning text-dark">Profesional interno</span>
+                            <small class="text-muted d-block">{{ actividad.solicitante_profesional.telefono|default:"Sin teléfono" }}</small>
+                        {% else %}
+                            <span class="text-muted">Sin registro</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                        <!-- Se usa get_FOO_display para traer el texto legible del ENUM (ej. 'En proceso' en vez de 'EN_PROCESO') -->
+                        <span class="badge bg-secondary">{{ actividad.get_estado_progreso_display }}</span>
+                    </td>
+                    
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#modalEvi{{ actividad.id_actividad }}">
+                            Ver Evidencias
+                        </button>
+                    </td>
+                    
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary mb-1">Modificar</button>
+                        <button class="btn btn-sm btn-outline-danger mb-1">Eliminar</button>
+                    </td>
+                </tr>
+
+                <!-- Modal de Detalle de Solicitud -->
+                <div class="modal fade" id="modalSolicitud{{ actividad.id_actividad }}" tabindex="-1" aria-labelledby="modalLabelSol{{ actividad.id_actividad }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header" style="background-color: #8B1D19; color: white;">
+                                <h5 class="modal-title" id="modalLabelSol{{ actividad.id_actividad }}">
+                                    Detalle de Solicitud {{ actividad.codigo_unico }}
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <h6 class="fw-bold text-secondary">Solicitud / Problema:</h6>
+                                <p class="text-break">{{ actividad.solicitud_problema }}</p>
+                                
+                                <hr>
+                                
+                                <h6 class="fw-bold text-secondary">Acción registrada:</h6>
+                                <p class="text-break">{{ actividad.accion|default:"Sin acción registrada." }}</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Fin del Modal de Solicitud -->
+
+                <!-- Modal de Evidencias -->
+                <div class="modal fade" id="modalEvi{{ actividad.id_actividad }}" tabindex="-1" aria-labelledby="modalLabelEvi{{ actividad.id_actividad }}" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header" style="background-color: #8B1D19; color: white;">
+                                <h5 class="modal-title" id="modalLabelEvi{{ actividad.id_actividad }}">
+                                    Evidencias de {{ actividad.codigo_unico }}
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="list-group">
+                                    {% for evidencia in evidencias %}
+                                        <!-- Se mantiene la lógica de comparación usando las ForeignKey reales de Django -->
+                                        {% if evidencia.id_actividad.id_actividad == actividad.id_actividad %}
+                                            <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 border rounded">
+                                                <div class="d-flex w-100 justify-content-between">
+                                                    <h6 class="mb-1 fw-bold text-secondary">
+                                                        Archivo: <a href="{{ evidencia.archivo_vinculo }}" target="_blank" class="text-primary">{{ evidencia.archivo_vinculo }}</a>
+                                                    </h6>
+                                                    <small class="text-muted">{{ evidencia.fecha|date:"d/m/Y H:i" }}</small>
+                                                </div>
+                                                <div class="d-flex w-100 justify-content-between mt-2">
+                                                    <!-- Removido el ID Carga porque ya no existe en models_2.py -->
+                                                    <span class="badge bg-dark">{{ evidencia.estado_revision }}</span>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Fin del Modal de Evidencias -->
+
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        No hay actividades registradas.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

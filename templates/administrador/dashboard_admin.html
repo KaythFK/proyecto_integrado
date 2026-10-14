@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delegaciones Municipales{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="#">Noticias</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">¡Bienvenido al sistema de gestión de delegaciones municipales!</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-3" style="max-width: 1500px;">
+    
+    <div class="bg-panel-rojo shadow p-2" style="margin-bottom: 60px;">
+        <div id="carruselMunicipal" class="carousel slide" data-bs-ride="carousel">
+            <!-- (El contenido del carrusel se mantiene exactamente igual) -->
+            <div class="carousel-indicators">
+                <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+                <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="1" aria-label="Slide 2"></button>
+                <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="2" aria-label="Slide 3"></button>
+                <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="3" aria-label="Slide 4"></button>
+            </div>
+            <div class="carousel-inner rounded" style="border-radius: 10px !important;">
+                <div class="carousel-item active" data-bs-interval="4000">
+                    <img src="{% static 'images/inicio/permiso_circulacion.png' %}" class="d-block w-100" alt="Permiso de Circulación">
+                </div>
+                <div class="carousel-item" data-bs-interval="4000">
+                    <img src="{% static 'images/inicio/plan_seguridad.png' %}" class="d-block w-100" alt="Plan Comunal de Seguridad Pública">
+                </div>
+                <div class="carousel-item" data-bs-interval="4000">
+                    <img src="{% static 'images/inicio/aseo.png' %}" class="d-block w-100" alt="Derechos de Aseo Domiciliario">
+                </div>
+                <div class="carousel-item" data-bs-interval="4000">
+                    <img src="{% static 'images/inicio/patrimonio.png' %}" class="d-block w-100" alt="La Serena Patrimonio que enamora">
+                </div>
+            </div>
+            <button class="carousel-control-prev" type="button" data-bs-target="#carruselMunicipal" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Anterior</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#carruselMunicipal" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Siguiente</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-panel-rojo shadow">
+        <div class="row g-3 p-2">
+            <div class="col-md-4">
+                <!-- Actualizado con el namespace correcto -->
+                <a href="{% url 'administracionApp:directorio_profesional' %}" class="btn btn-naranja w-100">Funcionarios</a>
+            </div>
+            <div class="col-md-4"><a href="{% url 'tuboApp:tubo' %}" class="btn btn-naranja">Tubo</a></div>
+            <div class="col-md-4"><a href="{% url 'actividadApp:actividades' %}" class="btn btn-naranja">Actividades</a></div>
+            <div class="col-md-4"><button class="btn btn-naranja">Metas</button></div>
+            <div class="col-md-4"><button class="btn btn-naranja">Periodos</button></div>
+            <div class="col-md-4"><button class="btn btn-naranja">Indicadores</button></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
