@@ -38,7 +38,7 @@
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
-                           placeholder="Buscar por código o problema..." 
+                           placeholder="Buscar por código, solicitud o nombre del solicitante..." 
                            value="{{ query|default_if_none:'' }}">
                     <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
                         Buscar
@@ -54,7 +54,6 @@
         </div>
     </div>
 
-    <!-- Tabla -->
     <div class="table-responsive shadow-sm rounded">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-dark">
@@ -113,7 +112,6 @@
                     </td>
                 </tr>
 
-                <!-- Modal de Detalle de Solicitud -->
                 <div class="modal fade" id="modalSolicitud{{ actividad.id_actividad }}" tabindex="-1" aria-labelledby="modalLabelSol{{ actividad.id_actividad }}" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -138,9 +136,7 @@
                         </div>
                     </div>
                 </div>
-                <!-- Fin del Modal de Solicitud -->
 
-                <!-- Modal de Evidencias -->
                 <div class="modal fade" id="modalEvi{{ actividad.id_actividad }}" tabindex="-1" aria-labelledby="modalLabelEvi{{ actividad.id_actividad }}" aria-hidden="true">
                     <div class="modal-dialog modal-lg modal-dialog-scrollable">
                         <div class="modal-content">
@@ -175,7 +171,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- Fin del Modal de Evidencias -->
 
                 {% empty %}
                 <tr>

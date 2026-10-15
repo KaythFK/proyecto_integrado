@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db.models import Q  # Importante para la barra de búsqueda
+from django.db.models import Q
 from administracionApp.models import Delegacion, Profesional
 from actividadApp.models import Actividad 
 
@@ -19,31 +19,32 @@ def inicio(request):
 
 def directorio_profesional(request):
     query = request.GET.get('q')
-    profesionales = Profesional.objects.filter(estado=True)
+    lista_profesionales = Profesional.objects.all()
+
     if query:
-        profesionales = profesionales.filter(
+        lista_profesionales = lista_profesionales.filter(
             Q(rut__icontains=query) |
             Q(nombres__icontains=query) |
             Q(apellido_paterno__icontains=query) |
             Q(correo__icontains=query)
         ).distinct()
+        
     return render(request, 'administrador/lista_profesionales.html', {
-        'profesionales': profesionales,
+        'profesionales': lista_profesionales,
         'query': query
     })
 
 
-def lista_actividades(request):
+def listar_actividades_admin(request):
     query = request.GET.get('q')
-    actividades = Actividad.objects.filter(estado=True).order_by('-fecha')
+    actividades = Actividad.objects.all().order_by('-fecha')
     if query:
         actividades = actividades.filter(
             Q(codigo_unico__icontains=query) |
-            Q(solicitud_problema__icontains=query)
+            Q(solicitud_problema__icontains=query) 
         ).distinct()
-    context = {
+        
+    return render(request, 'administrador/lista_actividades.html', {
         'actividades': actividades,
-        'query': query,
-    }
-    
-    return render(request, 'administrador/lista_actividades.html', context)
+        'query': query
+    })
