@@ -3,7 +3,6 @@ from django.db.models import Q
 from administracionApp.models import Delegacion, Profesional
 from actividadApp.models import Actividad 
 
-# Create your views here.
 
 def delegaciones(request):
     lista_delegaciones = Delegacion.objects.all()

@@ -6,7 +6,6 @@
 {% block menu_lateral %}
 <ul class="nav flex-column gap-4 mt-4">
     <li class="nav-item text-center">
-        <!-- Actualizado con el namespace de administracionApp -->
         <a class="nav-link text-white" href="{% url 'administracionApp:inicio' %}">Inicio</a>
     </li>
     <li class="nav-item text-center">
@@ -25,6 +24,7 @@
 {% block contenido %}
 <div class="container mt-5">
 
+    <!-- Encabezado y botón nuevo -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-bold" style="color: #8B1D19;">Listado de Actividades</h4>
         <button class="btn text-white fw-bold" style="background-color: #C41230;">
