@@ -1,19 +1,60 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block title %}Actividades - sistema municipal {% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="javascript:void(0);">Noticias</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de actividades</h3>
+{% endblock %}
+
 {% block contenido %}
 <div class="container mt-5">
     <div class="row mb-4 align-items-center">
         <div class="col-md-8">
-            <h2 class="fw-bold" style="color: #8B1D19;">Mis Actividades</h2>
-            <p class="text-muted">Gestión y registro de actividades diarias.</p>
+            <h2 class="fw-bold" style="color: #8B1D19;">Mis actividades</h2>
+            <p class="text-muted">Gestión y registro de actividades.</p>
         </div>
         <div class="col-md-4 text-end">
             <a href="{% url 'crear_actividad' %}" class="btn btn-dark fw-bold" style="border: 1px solid #8B1D19;">
-                + Registrar Nueva Actividad
+                + Registrar nueva actividad
             </a>
         </div>
     </div>
+
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="GET" action="{% url 'listar_actividades' %}">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                           placeholder="Buscar por código, problema o acción..." 
+                           value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                        Buscar
+                    </button>
+                    
+>
+                    {% if query %}
+                        <a href="{% url 'listar_actividades' %}" class="btn btn-outline-secondary">
+                            Limpiar
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
 
     {% if messages %}
         {% for message in messages %}
@@ -24,6 +65,7 @@
         {% endfor %}
     {% endif %}
 
+
     <div class="card shadow-sm border-0">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -33,7 +75,7 @@
                             <th>Código</th>
                             <th>Fecha</th>
                             <th>Actividad / Problema</th>
-                            <th>Estado Progreso</th>
+                            <th>Estado progreso</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -65,7 +107,11 @@
                         {% empty %}
                         <tr>
                             <td colspan="5" class="text-center py-4 text-muted">
-                                No tienes actividades registradas actualmente.
+                                {% if query %}
+                                    No se encontraron actividades que coincidan con la búsqueda "<b>{{ query }}</b>".
+                                {% else %}
+                                    No tienes actividades registradas actualmente.
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
