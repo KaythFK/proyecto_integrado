@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block contenido %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            
+            <div class="card shadow border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> Confirmar Desactivación</h5>
+                </div>
+                
+                <div class="card-body p-4 text-center">
+                    <h4 class="text-danger mb-3">¿Estás segura de desactivar este registro?</h4>
+                    
+                    <p class="text-muted">
+                        Estás a punto de desactivar la actividad con el código: <br>
+                        <strong class="fs-5 text-dark">{{ actividad.codigo_unico }}</strong>
+                    </p>
+                    
+                    <div class="alert alert-warning text-start fs-6 shadow-sm">
+                        <strong>Nota de Auditoría:</strong> El registro no será eliminado de la base de datos. Solo se cambiará su estado a inactivo (estado=False) para mantener el historial.
+                    </div>
+
+                    <form method="POST" class="mt-4">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-center gap-3">
+                            <a href="{% url 'listar_actividades' %}" class="btn btn-secondary fw-bold px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-danger fw-bold px-4">Sí, Desactivar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

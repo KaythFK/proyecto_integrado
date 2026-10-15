@@ -43,10 +43,8 @@
                 </tr>
             </thead>
             <tbody>
-                <!-- Corregido: Se usa profesional en profesionales para coincidir con la vista -->
                 {% for profesional in profesionales %}
                 <tr>
-                    <!-- Asumo que el modelo Profesional mantiene estos mismos nombres de atributos -->
                     <th scope="row">{{ profesional.id_profesional }}</th>
                     <td>{{ profesional.nombres }} {{ profesional.apellido_paterno }} {{ profesional.apellido_materno|default_if_none:"" }}</td>
                     <td>{{ profesional.correo }}</td>

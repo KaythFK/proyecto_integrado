@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'actividadApp',
     'monitoreoApp',
     'tuboApp',
+    'usuariosApp',
 ]
 
 MIDDLEWARE = [
@@ -70,12 +71,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'municipalidad_db',
-        'USER': 'root',       
-        'PASSWORD': 'admin',       
-        'HOST': '127.0.0.1',  
-        'PORT': '3306',      
+        'ENGINE': os.getenv('DB_ENGINE'),
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''), 
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
 
