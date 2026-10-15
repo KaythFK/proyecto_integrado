@@ -1,41 +1,23 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Actividades - sistema municipal {% endblock %}
-
-{% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <a class="nav-link text-white" href="{% url 'administracionApp:inicio' %}">Inicio</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white" href="javascript:void(0);">Noticias</a>
-    </li>
-</ul>
-{% endblock %}
-
-{% block cabecera %}
-<h3 class="text-white fw-bold m-0">Gestión de actividades</h3>
-{% endblock %}
-
 {% block contenido %}
 <div class="container mt-5">
     <div class="row mb-4 align-items-center">
         <div class="col-md-8">
-            <h2 class="fw-bold" style="color: #8B1D19;">Mis actividades</h2>
-            <p class="text-muted">Gestión y registro de actividades.</p>
+            <h2 class="fw-bold" style="color: #8B1D19;">Mis Actividades</h2>
+            <p class="text-muted">Gestión y registro de actividades diarias.</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{% url 'crear_actividad' %}" class="btn btn-dark fw-bold" style="border: 1px solid #8B1D19;">
+            <a href="{% url 'actividadApp:crear_actividad' %}" class="btn btn-dark fw-bold" style="border: 1px solid #8B1D19;">
                 + Registrar nueva actividad
             </a>
         </div>
     </div>
 
-
     <div class="row mb-4">
         <div class="col-md-8">
-            <form method="GET" action="{% url 'listar_actividades' %}">
+            <form method="GET" action="{% url 'actividadApp:listar_actividades' %}">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
                            placeholder="Buscar por código, problema o acción..." 
@@ -44,9 +26,8 @@
                         Buscar
                     </button>
                     
->
                     {% if query %}
-                        <a href="{% url 'listar_actividades' %}" class="btn btn-outline-secondary">
+                        <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary">
                             Limpiar
                         </a>
                     {% endif %}
@@ -54,7 +35,6 @@
             </form>
         </div>
     </div>
-
 
     {% if messages %}
         {% for message in messages %}
@@ -65,7 +45,6 @@
         {% endfor %}
     {% endif %}
 
-
     <div class="card shadow-sm border-0">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -75,7 +54,7 @@
                             <th>Código</th>
                             <th>Fecha</th>
                             <th>Actividad / Problema</th>
-                            <th>Estado progreso</th>
+                            <th>Estado Progreso</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -96,10 +75,10 @@
                                 </span>
                             </td>
                             <td class="text-center">
-                                <a href="{% url 'editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                                <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary" title="Editar">
                                     Editar
                                 </a>
-                                <a href="{% url 'desactivar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-danger" title="Desactivar">
+                                <a href="{% url 'actividadApp:desactivar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-danger" title="Desactivar">
                                     Desactivar
                                 </a>
                             </td>

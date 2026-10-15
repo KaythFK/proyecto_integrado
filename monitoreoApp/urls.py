@@ -1,12 +1,9 @@
 from django.urls import path
 from . import views
 
-from django.urls import path
-
-app_name = 'monitoreoApp'
+app_name = 'monitoreoApp' 
 
 urlpatterns = [
-    # Por ahora esta lista queda vacía porque la app es transaccional 
-    # y no tiene vistas ni páginas web asociadas.
-    
+    path('dashboard/', views.dashboard_delegado, name='dashboard_delegado'),
+    path('actividades/', views.actividades_delegacion, name='actividades_delegacion'),
 ]
