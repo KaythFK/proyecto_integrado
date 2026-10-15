@@ -3,12 +3,25 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Actividad
 from .forms import ActividadForm
+from django.db.models import Q
 
 
 #@login_required
 def listar_actividades(request):
+    query = request.GET.get('q')
     actividades = Actividad.objects.filter(estado=True)
-    return render(request, 'funcionario/actividades/listar_actividades.html', {'actividades': actividades})
+    
+    if query:
+        actividades = actividades.filter(
+            Q(codigo_unico__icontains=query) |
+            Q(solicitud_problema__icontains=query) |
+            Q(accion__icontains=query)
+        ).distinct()
+        
+    return render(request, 'funcionario/actividades/listar_actividades.html', {
+        'actividades': actividades,
+        'query': query  
+    })
 
 
 #@login_required
@@ -46,7 +59,6 @@ def desactivar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, pk=id_actividad)
     
     if request.method == 'POST':
-        # Regla estricta: NO usamos actividad.delete(), solo apagamos el switch
         actividad.estado = False
         actividad.save()
         messages.success(request, f'La actividad {actividad.codigo_unico} fue desactivada del sistema.')
