@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'administracionApp:lista_periodos' %}">Periodos</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Administración del Sistema</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow border-0" style="border-radius: 15px;">
+        
+        <div class="card-header text-white px-4 py-3" style="background-color: #8B1D19; border-top-left-radius: 15px; border-top-right-radius: 15px;">
+            <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
+        </div>
+        
+        <div class="card-body p-4 p-md-5">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" novalidate>
+                {% csrf_token %}
+                
+                <h5 class="fw-bold mb-3" style="color: #C41230; border-bottom: 2px solid #C41230; padding-bottom: 8px;">
+                    Configuración del Periodo
+                </h5>
+                <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
+                    
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label fw-bold text-dark">Nombre del Periodo *</label>
+                        {{ form.nombre }}
+                        {% for error in form.nombre.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold text-dark">Versión de Parámetros *</label>
+                        {{ form.version_parametros }}
+                        {% for error in form.version_parametros.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-12"><hr class="text-muted my-2"></div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold text-dark">Fecha de Inicio *</label>
+                        {{ form.fecha_inicio }}
+                        {% for error in form.fecha_inicio.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold text-dark">Fecha de Término *</label>
+                        {{ form.fecha_termino }}
+                        {% for error in form.fecha_termino.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold text-dark">Días Computables *</label>
+                        {{ form.dias_computables }}
+                        {% for error in form.dias_computables.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-12"><hr class="text-muted my-2"></div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Umbral Regular *</label>
+                        {{ form.umbral_regular }}
+                        {% for error in form.umbral_regular.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Umbral de Excelencia *</label>
+                        {{ form.umbral_exelencia }}
+                        {% for error in form.umbral_exelencia.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <a href="{% url 'administracionApp:lista_periodos' %}" class="btn btn-secondary px-4 py-2 fw-bold">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold" style="background-color: #C41230;">
+                        Guardar Periodo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

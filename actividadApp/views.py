@@ -4,9 +4,11 @@ from django.contrib import messages
 from .models import Actividad
 from .forms import ActividadForm
 from django.db.models import Q
+from usuariosApp.decorators import role_required
 
 
 #@login_required
+#@role_required('profesional')
 def listar_actividades(request):
     query = request.GET.get('q')
     actividades = Actividad.objects.filter(estado=True)
@@ -25,6 +27,7 @@ def listar_actividades(request):
 
 
 #@login_required
+#@role_required('profesional')
 def crear_actividad(request):
     if request.method == 'POST':
         form = ActividadForm(request.POST)
@@ -39,6 +42,7 @@ def crear_actividad(request):
 
 
 #@login_required
+#@role_required('profesional')
 def editar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
     
@@ -55,6 +59,7 @@ def editar_actividad(request, id_actividad):
 
 
 #@login_required
+#@role_required('profesional')
 def desactivar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, pk=id_actividad)
     
@@ -67,6 +72,7 @@ def desactivar_actividad(request, id_actividad):
     return render(request, 'funcionario/actividades/confirmar_desactivar.html', {'actividad': actividad})
 
 #@login_required
+#@role_required('profesional')
 def crear_actividad(request):
     if request.method == 'POST':
         form = ActividadForm(request.POST)

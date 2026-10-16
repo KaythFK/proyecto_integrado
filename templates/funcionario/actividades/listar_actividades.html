@@ -26,7 +26,7 @@
             <p class="text-muted">Gestión y registro de actividades.</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{% url 'crear_actividad' %}" class="btn btn-dark fw-bold" style="border: 1px solid #8B1D19;">
+            <a href="{% url 'actividadApp:crear_actividad' %}" class="btn btn-dark fw-bold" style="border: 1px solid #8B1D19;">
                 + Registrar nueva actividad
             </a>
         </div>
@@ -35,11 +35,11 @@
 
     <div class="row mb-4">
         <div class="col-md-8">
-            <form method="GET" action="{% url 'listar_actividades' %}">
+            <form method="GET" action="{% url 'actividadApp:listar_actividades' %}">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
-                           placeholder="Buscar por código, problema o acción..." 
-                           value="{{ query|default_if_none:'' }}">
+                        placeholder="Buscar por código, problema o acción..." 
+                        value="{{ query|default_if_none:'' }}">
                     <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
                         Buscar
                     </button>
