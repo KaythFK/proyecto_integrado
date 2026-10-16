@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard General - SGR Coordinación{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'tuboApp:dashboard_coordinador' %}">Visión global</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'tuboApp:listar_todas' %}">Todas las actividades</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Coordinación General SGR</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+    <h4 class="fw-bold mb-4" style="color: #8B1D19;">Resumen municipal (Todas las delegaciones)</h4>
+    <p class="text-muted mb-5">Panel de control y métricas globales de La Serena.</p>
+
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #1a202c !important; border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Total registros</h6>
+                <h1 class="display-4 fw-bold text-dark m-0">{{ total }}</h1>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #198754 !important; border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Finalizadas</h6>
+                <h1 class="display-4 fw-bold text-success m-0">{{ finalizadas }}</h1>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #ffc107 !important; border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">En proceso</h6>
+                <h1 class="display-4 fw-bold text-warning m-0">{{ en_proceso }}</h1>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #6c757d !important; border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Pendientes</h6>
+                <h1 class="display-4 fw-bold text-secondary m-0">{{ pendientes }}</h1>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
