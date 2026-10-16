@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Actividades del Equipo - SGR{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'monitoreoApp:dashboard_delegado' %}">Mi delegación</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:actividades_delegacion' %}">Actividades del equipo</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Supervisión de actividades</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+    <h4 class="fw-bold mb-4" style="color: #8B1D19;">Registro de intervenciones territoriales</h4>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="GET" action="">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                           placeholder="Buscar por código, problema o acción..." 
+                           value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                        Buscar
+                    </button>
+                    {% if query %}
+                        <a href="?" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-dark" style="background-color: #1a202c;">
+                        <tr>
+                            <th>Código</th>
+                            <th>Fecha</th>
+                            <th>Solicitud / Problema</th>
+                            <th>Estado Progreso</th>
+                            <th class="text-center">Auditoría</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    
+                        {% for actividad in actividades %}
+                        <tr>
+                            <td class="fw-bold">{{ actividad.codigo_unico }}</td>
+                            <td>{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{{ actividad.solicitud_problema|truncatechars:60 }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if actividad.estado_progreso == 'FINALIZADA' %} bg-success 
+                                    {% elif actividad.estado_progreso == 'EN_PROCESO' %} bg-warning text-dark
+                                    {% else %} bg-secondary {% endif %}">
+                                    {{ actividad.get_estado_progreso_display }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-dark px-3 rounded-3 btn-detalle"
+                                        data-codigo="{{ actividad.codigo_unico }}"
+                                        data-fecha="{{ actividad.fecha|date:'d/m/Y H:i' }}"
+                                        data-estado="{{ actividad.get_estado_progreso_display }}"
+                                        data-problema="{{ actividad.solicitud_problema }}"
+                                        data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
+                                        title="Ver evidencias y detalles">
+                                    Ver Detalle
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                {% if query %}
+                                    No se encontraron actividades del equipo que coincidan con "{{ query }}".
+                                {% else %}
+                                    El equipo aún no ha registrado actividades.
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetalleActividad" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" style="background-color: #1a202c;">
+                <h5 class="modal-title fw-bold">Auditoría de Actividad: <span id="detCodigo" class="text-warning"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-start p-4">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="text-muted mb-1 small fw-bold">Fecha y Hora de Registro</p>
+                        <p class="fs-6" id="detFecha"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="text-muted mb-1 small fw-bold">Estado Actual</p>
+                        <p class="fs-6 fw-bold" id="detEstado"></p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <p class="text-muted mb-1 small fw-bold">Solicitud / Problema Reportado</p>
+                    <div class="p-3 bg-light rounded-3 border text-dark" id="detProblema" style="min-height: 80px;"></div>
+                </div>
+                <div class="mb-2">
+                    <p class="text-muted mb-1 small fw-bold">Acción Realizada</p>
+                    <div class="p-3 bg-light rounded-3 border text-dark" id="detAccion" style="min-height: 80px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light justify-content-end">
+                <button type="button" class="btn btn-dark px-4 fw-bold rounded-3" data-bs-dismiss="modal">Cerrar Visor</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleActividad'));
+    const elementos = {
+        codigo: document.getElementById('detCodigo'),
+        fecha: document.getElementById('detFecha'),
+        estado: document.getElementById('detEstado'),
+        problema: document.getElementById('detProblema'),
+        accion: document.getElementById('detAccion')
+    };
+
+    document.querySelectorAll('.btn-detalle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            elementos.codigo.textContent = this.dataset.codigo;
+            elementos.fecha.textContent = this.dataset.fecha;
+            elementos.estado.textContent = this.dataset.estado;
+            elementos.problema.textContent = this.dataset.problema;
+            elementos.accion.textContent = this.dataset.accion;
+            
+            elementos.estado.className = "fs-6 fw-bold";
+            if (this.dataset.estado === 'FINALIZADA') {
+                elementos.estado.classList.add('text-success');
+            } else if (this.dataset.estado === 'EN_PROCESO') {
+                elementos.estado.classList.add('text-warning');
+            } else {
+                elementos.estado.classList.add('text-secondary');
+            }
+
+            modalDetalle.show();
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -11,7 +11,7 @@ from .forms import ActividadForm
 #@login_required
 def listar_actividades(request):
     query = request.GET.get('q')
-    actividades = Actividad.objects.filter(estado=True)
+    actividades = Actividad.objects.all().order_by('-id_actividad') 
     
     if query:
         actividades = actividades.filter(
@@ -24,7 +24,7 @@ def listar_actividades(request):
         'actividades': actividades,
         'query': query  
     })
-
+    
 #@login_required
 def crear_actividad(request):
     if request.method == 'POST':
@@ -56,13 +56,10 @@ def editar_actividad(request, id_actividad):
     return render(request, 'funcionario/actividades/form_actividad.html', {'form': form, 'titulo': 'Editar Actividad'})
 
 #@login_required
-def desactivar_actividad(request, id_actividad):
-    actividad = get_object_or_404(Actividad, pk=id_actividad)
-    if request.method == 'POST':
-        # Regla estricta: NO usamos actividad.delete(), solo apagamos el switch
-        actividad.estado = False
-        actividad.save()
-        messages.success(request, f'La actividad {actividad.codigo_unico} fue desactivada del sistema.')
-        return redirect('actividadApp:listar_actividades')
-        
-    return render(request, 'funcionario/actividades/confirmar_desactivar.html', {'actividad': actividad})
+def desactivar_actividad(request, codigo_unico):
+    actividad = get_object_or_404(Actividad, codigo_unico=codigo_unico)
+    actividad.estado = not actividad.estado 
+    actividad.save()
+    
+    messages.success(request, f'Estado de la actividad actualizado.')
+    return redirect(request.META.get('HTTP_REFERER', '/')) 
