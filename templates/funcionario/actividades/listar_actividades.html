@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
 {% load static %}
 
+{% block title %}Panel de actividades{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Panel de actividades</h3>
+{% endblock %}
+
 {% block contenido %}
 <div class="container mt-5">
     <div class="row mb-4 align-items-center">
@@ -9,7 +15,7 @@
             <p class="text-muted">Gestión y registro de actividades diarias.</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{% url 'actividadApp:crear_actividad' %}" class="btn btn-dark fw-bold" style="border: 1px solid #8B1D19;">
+            <a href="{% url 'actividadApp:crear_actividad' %}" class="btn fw-bold text-white shadow-sm" style="background-color: #8B1D19; border: 1px solid #701714;">
                 + Registrar nueva actividad
             </a>
         </div>
@@ -75,12 +81,19 @@
                                 </span>
                             </td>
                             <td class="text-center">
-                                <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary" title="Editar">
-                                    Editar
-                                </a>
-                                <a href="{% url 'actividadApp:desactivar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-danger" title="Desactivar">
-                                    Desactivar
-                                </a>
+                                <div class="d-flex justify-content-center align-items-center gap-3">
+                                    <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary px-3" style="border-radius: 6px;">
+                                        Editar
+                                    </a>
+                                    
+                                    <div class="form-check form-switch m-0 fs-5">
+                                        <input class="form-check-input switch-estado" type="checkbox" role="switch"
+                                               data-url="{% url 'actividadApp:desactivar_actividad' actividad.codigo_unico %}"
+                                               data-codigo="{{ actividad.codigo_unico }}"
+                                               data-estado="{% if actividad.estado %}true{% else %}false{% endif %}"
+                                               {% if actividad.estado %}checked{% endif %} style="cursor: pointer;">
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
@@ -100,4 +113,62 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalConfirmacion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header text-white" id="modalHeaderBg">
+        <h5 class="modal-title fw-bold" id="modalTituloTexto">Confirmar Acción</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <p class="mb-2 text-secondary" id="modalSubtexto">¿Estás seguro de realizar esta acción?</p>
+        <h4 id="modalNombreItem" class="fw-bold text-dark">ACT-000</h4>
+      </div>
+      <div class="modal-footer justify-content-center bg-light">
+        <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
+        <a href="#" class="btn px-4 fw-bold text-white" id="btnConfirmarModal" style="border-radius: 8px;">Sí, continuar</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const switches = document.querySelectorAll('.switch-estado');
+    const modalConfirmacion = new bootstrap.Modal(document.getElementById('modalConfirmacion'));
+    const btnConfirmarModal = document.getElementById('btnConfirmarModal');
+    const modalHeaderBg = document.getElementById('modalHeaderBg');
+    const modalTituloTexto = document.getElementById('modalTituloTexto');
+    const modalSubtexto = document.getElementById('modalSubtexto');
+    const modalNombreItem = document.getElementById('modalNombreItem');
+
+    switches.forEach(interruptor => {
+        interruptor.addEventListener('change', function (e) {
+            this.checked = !this.checked; 
+            const estaActivo = this.checked; 
+            const urlAccion = this.getAttribute('data-url') || '#';
+            const codigoActividad = this.getAttribute('data-codigo') || 'ACT-2026-ABC123';
+            modalNombreItem.textContent = codigoActividad;
+            btnConfirmarModal.href = urlAccion;
+            if (estaActivo) {
+                modalHeaderBg.style.backgroundColor = '#A91D22'; 
+                modalTituloTexto.textContent = "Desactivar Actividad";
+                modalSubtexto.textContent = "¿Desea desactivar esta actividad?";
+                btnConfirmarModal.className = "btn px-4 fw-bold text-white";
+                btnConfirmarModal.style.backgroundColor = '#A91D22';
+                btnConfirmarModal.textContent = "Sí, Desactivar";
+            } else {
+                modalHeaderBg.style.backgroundColor = '#198754'; 
+                modalTituloTexto.textContent = "Reactivar Actividad";
+                modalSubtexto.textContent = "¿Deseas reactivar esta actividad?";
+                btnConfirmarModal.className = "btn px-4 fw-bold text-white";
+                btnConfirmarModal.style.backgroundColor = '#198754';
+                btnConfirmarModal.textContent = "Sí, Reactivar";
+            }
+            modalConfirmacion.show();
+        });
+    });
+});
+</script>
 {% endblock %}
