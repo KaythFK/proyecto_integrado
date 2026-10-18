@@ -9,6 +9,26 @@ from .models import Actividad
 from .forms import ActividadForm
 
 #@login_required
+def dashboard_funcionario(request):
+    mis_actividades = Actividad.objects.filter(estado=True)
+    total = mis_actividades.count()
+    pendientes = mis_actividades.filter(estado_progreso='Pendiente').count()
+    en_proceso = mis_actividades.filter(estado_progreso='En Proceso').count()
+    casos_en_tubo = mis_actividades.filter(en_tubo=True).count()
+    sin_evidencia = mis_actividades.filter(evidencia__isnull=True).exclude(estado_progreso='Finalizada').count()
+    tareas_prioritarias = mis_actividades.exclude(estado_progreso='Finalizada').order_by('-fecha')[:5]
+    context = {
+        'total': total,
+        'pendientes': pendientes,
+        'en_proceso': en_proceso,
+        'casos_en_tubo': casos_en_tubo,
+        'sin_evidencia': sin_evidencia,
+        'tareas_prioritarias': tareas_prioritarias,
+    }
+    return render(request, 'funcionario/dashboard_funcionario.html', context)
+
+
+#@login_required
 def listar_actividades(request):
     query = request.GET.get('q')
     actividades = Actividad.objects.all().order_by('-id_actividad') 
@@ -20,7 +40,7 @@ def listar_actividades(request):
             Q(accion__icontains=query)
         ).distinct()
         
-    return render(request, 'funcionario/actividades/listar_actividades.html', {
+    return render(request, 'funcionario/listar_actividades.html', {
         'actividades': actividades,
         'query': query  
     })
@@ -30,16 +50,19 @@ def crear_actividad(request):
     if request.method == 'POST':
         form = ActividadForm(request.POST)
         if form.is_valid():
-            actividad = form.save(commit=False)
-            codigo_generado = f"ACT-{datetime.now().year}-{uuid.uuid4().hex[:6].upper()}"
-            actividad.codigo_unico = codigo_generado
-            actividad.estado = True 
-            actividad.save()
-            messages.success(request, f'Actividad {codigo_generado} registrada exitosamente.')
-            return redirect('actividadApp:listar_actividades')
+            nueva_actividad = form.save(commit=False)
+            año_actual = datetime.now().year
+            codigo_random = str(uuid.uuid4()).split('-')[0][:6].upper() 
+            nueva_actividad.codigo_unico = f"ACT-{año_actual}-{codigo_random}"
+            nueva_actividad.save()
+            return redirect('actividadApp:listar_actividades') 
     else:
         form = ActividadForm()
-    return render(request, 'funcionario/actividades/form_actividad.html', {'form': form, 'titulo': 'Crear Actividad'})
+    context = {
+        'form': form,
+        'titulo': 'Crear Nueva Actividad',
+    }
+    return render(request, 'funcionario/form_actividad.html', context)
 
 #@login_required
 def editar_actividad(request, id_actividad):
@@ -53,7 +76,7 @@ def editar_actividad(request, id_actividad):
     else:
         form = ActividadForm(instance=actividad)
         
-    return render(request, 'funcionario/actividades/form_actividad.html', {'form': form, 'titulo': 'Editar Actividad'})
+    return render(request, 'funcionario/form_actividad.html', {'form': form, 'titulo': 'Editar Actividad'})
 
 #@login_required
 def desactivar_actividad(request, codigo_unico):
@@ -63,3 +86,4 @@ def desactivar_actividad(request, codigo_unico):
     
     messages.success(request, f'Estado de la actividad actualizado.')
     return redirect(request.META.get('HTTP_REFERER', '/')) 
+

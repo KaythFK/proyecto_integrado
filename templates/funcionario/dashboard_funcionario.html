@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mi Panel - SGR{% endblock %}
+
+{% block menu_lateral %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_funcionario' %}">Mi panel</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="#">Mi perfil</a>
+        </li>
+    </ul>
+
+    <div class="mt-5">
+        <hr class="border-white mx-4" style="opacity: 0.3;">
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item text-center">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="#">
+                    Cerrar sesión
+                </a>
+            </li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Mi panel operativo</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1" style="color: #8B1D19;">Resumen de mis gestiones</h4>
+            <p class="text-muted mb-0">Control de estados, evidencias y casos en tubo.</p>
+        </div>
+        <div>
+            <a href="{% url 'actividadApp:crear_actividad' %}" class="btn text-white fw-bold shadow-sm" style="background-color: #C41230; border-radius: 8px;">
+                + Registrar Actividad
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-5">
+        <div class="col-md-4">
+            <div class="card shadow-sm text-center py-3" style="border: 0 !important; border-bottom: 5px solid #6c757d !important; border-radius: 10px;">
+                <div class="card-body">
+                    <h6 class="text-muted fw-bold text-uppercase mb-3" style="font-size: 13px; letter-spacing: 0.5px;">Pendientes</h6>
+                    <h2 class="fw-bold mb-0" style="color: #6c757d; font-size: 42px;">{{ pendientes|default:"0" }}</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm text-center py-3" style="border: 0 !important; border-bottom: 5px solid #ffc107 !important; border-radius: 10px;">
+                <div class="card-body">
+                    <h6 class="text-muted fw-bold text-uppercase mb-3" style="font-size: 13px; letter-spacing: 0.5px;">En Proceso</h6>
+                    <h2 class="fw-bold mb-0" style="color: #ffc107; font-size: 42px;">{{ en_proceso|default:"0" }}</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm text-center py-3" style="border: 0 !important; border-bottom: 5px solid #8B1D19 !important; border-radius: 10px;">
+                <div class="card-body">
+                    <h6 class="text-muted fw-bold text-uppercase mb-3" style="font-size: 13px; letter-spacing: 0.5px;">Prioridad "En Tubo"</h6>
+                    <h2 class="fw-bold mb-0" style="color: #8B1D19; font-size: 42px;">{{ casos_en_tubo|default:"0" }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold m-0" style="color: #1a202c;">Actividades que requieren atención</h6>
+            <span class="badge" style="background-color: #C41230;">{{ sin_evidencia|default:"0" }} Sin evidencia</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle m-0">
+                    <thead class="table-dark" style="background-color: #1a202c;">
+                        <tr>
+                            <th class="px-4">Código</th>
+                            <th>Solicitud / Problema</th>
+                            <th>Progreso</th>
+                            <th class="text-center">En Tubo</th>
+                            <th class="text-center px-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tarea in tareas_prioritarias %}
+                        <tr>
+                            <td class="fw-bold text-muted px-4">{{ tarea.codigo_unico }}</td>
+                            <td>{{ tarea.solicitud_problema|truncatechars:50 }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ tarea.estado_progreso }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if tarea.en_tubo %}
+                                    <span class="badge bg-danger">Sí</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center px-4">
+                                <a href="{% url 'actividadApp:editar_actividad' tarea.id_actividad %}" class="btn btn-sm btn-outline-dark fw-bold" style="border-radius: 6px;">
+                                    Gestionar
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                No hay actividades activas.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
