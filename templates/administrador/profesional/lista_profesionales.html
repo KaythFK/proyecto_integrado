@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Directorio de Profesionales{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Profesionales</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+    <!-- Cabecera y Botón Nuevo -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold" style="color: #8B1D19;">Directorio de Profesionales</h4>
+        <a href="{% url 'administracionApp:crear_profesional' %}" class="btn text-white fw-bold" style="background-color: #C41230;">
+            + Nuevo Profesional
+        </a>
+    </div>
+
+    <!-- Alertas -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Buscador -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="GET" action="{% url 'administracionApp:directorio_profesional' %}">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                        placeholder="Buscar por RUT, nombre o correo..." 
+                        value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                        Buscar
+                    </button>
+                    {% if query %}
+                        <a href="{% url 'administracionApp:directorio_profesional' %}" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-responsive shadow-sm rounded mb-5">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">RUT</th>
+                    <th scope="col">Nombre Completo</th>
+                    <th scope="col">Correo (Usuario)</th>
+                    <th scope="col">Cargo</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for profesional in profesionales %}
+                <tr>
+                    <td class="fw-bold">{{ profesional.rut }}</td>
+                    <td>{{ profesional.nombres }} {{ profesional.apellido_paterno }}</td>
+                    <td>{{ profesional.correo }}</td>
+                    <td>{{ profesional.id_cargo.nombre|default:"No asignado" }}</td>
+                    <td>
+                        {% if profesional.estado %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-3">
+                            
+                            <a href="{% url 'administracionApp:editar_profesional' profesional.id_profesional %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
+                                Editar
+                            </a>
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if profesional.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if profesional.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                </span>
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                           {% if profesional.estado %}checked{% endif %}
+                                           onclick="confirmarCambio(event, '{{ profesional.id_profesional }}', '{{ profesional.nombres }} {{ profesional.apellido_paterno }}', '{{ profesional.estado }}')">
+                                </div>
+                            </div>
+
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No hay profesionales registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL Y SCRIPT UBICADOS AL FINAL DEL BLOQUE -->
+<!-- ========================================== -->
+
+<!-- Modal -->
+<div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderEstado">
+                <h5 class="modal-title fw-bold" id="modalTituloEstado">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
+                <strong class="fs-4 text-dark" id="modalNombreProf"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstado" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarEstado">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script -->
+<script>
+function confirmarCambio(event, id, nombre, estadoActualStr) {
+    event.preventDefault(); // Evita que el switch se mueva solo
+    
+    const estaActivo = estadoActualStr === 'True';
+    // Reemplazamos el '0' en la URL por el ID real del profesional
+    const actionUrl = "{% url 'administracionApp:cambiar_estado_profesional' 0 %}".replace('0', id);
+    
+    const header = document.getElementById('modalHeaderEstado');
+    const titulo = document.getElementById('modalTituloEstado');
+    const mensaje = document.getElementById('modalMensajeEstado');
+    const nombreStr = document.getElementById('modalNombreProf');
+    const btn = document.getElementById('btnConfirmarEstado');
+    const form = document.getElementById('formCambiarEstado');
+    
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230'; // Rojo
+        titulo.innerText = 'Desactivar Profesional';
+        mensaje.innerText = '¿Estás segura/o de desactivar el acceso al sistema de:';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754'; // Verde
+        titulo.innerText = 'Reactivar Profesional';
+        mensaje.innerText = '¿Deseas restaurar el acceso al sistema de:';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Restaurar';
+    }
+    
+    nombreStr.innerText = nombre;
+    form.action = actionUrl;
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalEstado'));
+    modal.show();
+}
+</script>
+
+{% endblock %}

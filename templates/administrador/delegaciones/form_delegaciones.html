@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Dependencias</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow border-0" style="border-radius: 15px;">
+        
+        <div class="card-header text-white px-4 py-3" style="background-color: #8B1D19; border-top-left-radius: 15px; border-top-right-radius: 15px;">
+            <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
+        </div>
+        
+        <div class="card-body p-4 p-md-5">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" novalidate>
+                {% csrf_token %}
+                
+                <h5 class="fw-bold mb-3" style="color: #C41230; border-bottom: 2px solid #C41230; padding-bottom: 8px;">
+                    Información General de la Delegación
+                </h5>
+                <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Nombre de la Delegación *</label>
+                        {{ form.nombre }}
+                        {% for error in form.nombre.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Territorio Asignado *</label>
+                        {{ form.territorio }}
+                        {% for error in form.territorio.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="col-12"><hr class="text-muted mb-4 mt-2"></div>
+                    
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label fw-bold text-dark">Dirección (Calle)</label>
+                        {{ form.calle }}
+                        {% for error in form.calle.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label fw-bold text-dark">Número</label>
+                        {{ form.numero_calle }}
+                        {% for error in form.numero_calle.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="col-12"><hr class="text-muted mb-4 mt-2"></div>
+
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label fw-bold text-dark">Profesional Responsable (Opcional)</label>
+                        {{ form.responsable }}
+                        {% for error in form.responsable.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <a href="{% url 'administracionApp:delegaciones' %}" class="btn btn-secondary px-4 py-2 fw-bold">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold" style="background-color: #C41230;">
+                        Guardar Delegación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

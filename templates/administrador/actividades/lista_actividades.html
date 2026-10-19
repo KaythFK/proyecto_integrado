@@ -11,9 +11,6 @@
     <li class="nav-item text-center">
         <a class="nav-link text-white" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
     </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="javascript:void(0);">Actividades</a>
-    </li>
 </ul>
 {% endblock %}
 
@@ -27,9 +24,9 @@
     <!-- Encabezado y botón nuevo -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-bold" style="color: #8B1D19;">Listado de Actividades</h4>
-        <button class="btn text-white fw-bold" style="background-color: #C41230;">
+        <a href="{% url 'administracionApp:crear_actividad' %}" class="btn text-white fw-bold" style="background-color: #C41230;">
             + Nueva Actividad
-        </button>
+        </a>
     </div>
 
     <!-- Barra de Búsqueda -->
@@ -38,8 +35,8 @@
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
-                           placeholder="Buscar por código, solicitud o nombre del solicitante..." 
-                           value="{{ query|default_if_none:'' }}">
+                        placeholder="Buscar por código o problema..." 
+                        value="{{ query|default_if_none:'' }}">
                     <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
                         Buscar
                     </button>
@@ -107,8 +104,26 @@
                     </td>
                     
                     <td class="text-center">
-                        <button class="btn btn-sm btn-outline-primary mb-1">Modificar</button>
-                        <button class="btn btn-sm btn-outline-danger mb-1">Eliminar</button>
+                        <div class="d-flex justify-content-center align-items-center gap-3">
+                            
+                            <a href="{% url 'administracionApp:admin_editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
+                                Modificar
+                            </a>
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if actividad.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                </span>
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                           {% if actividad.estado %}checked{% endif %}
+                                           onclick="confirmarCambio(event, '{{ actividad.id_actividad }}', '{{ actividad.codigo_unico }}', '{{ actividad.estado }}')">
+                                </div>
+                            </div>
+                            
+                        </div>
                     </td>
                 </tr>
 
@@ -188,4 +203,65 @@
     </div>
 
 </div>
+
+<!-- ========================================== -->
+<!-- MODAL Y SCRIPT DE ESTADO -->
+<!-- ========================================== -->
+
+<!-- Modal -->
+<div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderEstado">
+                <h5 class="modal-title fw-bold" id="modalTituloEstado">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
+                <strong class="fs-4 text-dark" id="modalNombre"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstado" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarEstado">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambio(event, id, codigo, estadoActualStr) {
+    event.preventDefault();
+    const estaActivo = estadoActualStr === 'True';
+    const actionUrl = "{% url 'administracionApp:desactivar_actividad' 0 %}".replace('0', id);
+    
+    const header = document.getElementById('modalHeaderEstado');
+    const titulo = document.getElementById('modalTituloEstado');
+    const mensaje = document.getElementById('modalMensajeEstado');
+    const nombreStr = document.getElementById('modalNombre');
+    const btn = document.getElementById('btnConfirmarEstado');
+    const form = document.getElementById('formCambiarEstado');
+    
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Desactivar Actividad';
+        mensaje.innerText = '¿Estás segura de inhabilitar la actividad:';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Reactivar Actividad';
+        mensaje.innerText = '¿Deseas restaurar la actividad:';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+    
+    nombreStr.innerText = codigo;
+    form.action = actionUrl;
+    
+    new bootstrap.Modal(document.getElementById('modalEstado')).show();
+}
+</script>
 {% endblock %}

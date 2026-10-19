@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Directorio de Vecinos{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión Ciudadana</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold" style="color: #8B1D19;">Directorio de Vecinos</h4>
+        <a href="{% url 'administracionApp:crear_vecino' %}" class="btn text-white fw-bold" style="background-color: #C41230;">
+            + Inscribir Vecino
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="GET" action="{% url 'administracionApp:lista_vecinos' %}">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                        placeholder="Buscar por RUT, nombre o apellido..." 
+                        value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                        Buscar
+                    </button>
+                    {% if query %}
+                        <a href="{% url 'administracionApp:lista_vecinos' %}" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded mb-5">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">RUT</th>
+                    <th scope="col">Nombre Completo</th>
+                    <th scope="col">Contacto</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vecino in vecinos %}
+                <tr>
+                    <td class="fw-bold">{{ vecino.rut }}</td>
+                    <td>{{ vecino.nombres }} {{ vecino.apellido_paterno }} {{ vecino.apellido_materno|default_if_none:"" }}</td>
+                    <td>
+                        <small>
+                            <i class="bi bi-envelope"></i> {{ vecino.correo }} <br>
+                            {% if vecino.telefono %}<i class="bi bi-telephone"></i> {{ vecino.telefono }}{% endif %}
+                        </small>
+                    </td>
+                    <td>
+                        {% if vecino.estado %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-3">
+                            
+                            <a href="{% url 'administracionApp:editar_vecino' vecino.id_vecino %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
+                                Editar
+                            </a>
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if vecino.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if vecino.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                </span>
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                           {% if vecino.estado %}checked{% endif %}
+                                           onclick="confirmarCambio(event, '{{ vecino.id_vecino }}', '{{ vecino.nombres }} {{ vecino.apellido_paterno }}', '{{ vecino.estado }}')">
+                                </div>
+                            </div>
+                            
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">No hay vecinos registrados en el sistema.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderEstado">
+                <h5 class="modal-title fw-bold" id="modalTituloEstado">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
+                <strong class="fs-4 text-dark" id="modalNombre"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstado" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarEstado">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambio(event, id, nombre, estadoActualStr) {
+    event.preventDefault();
+    const estaActivo = estadoActualStr === 'True';
+    const actionUrl = "{% url 'administracionApp:cambiar_estado_vecino' 0 %}".replace('0', id);
+    
+    const header = document.getElementById('modalHeaderEstado');
+    const titulo = document.getElementById('modalTituloEstado');
+    const mensaje = document.getElementById('modalMensajeEstado');
+    const nombreStr = document.getElementById('modalNombre');
+    const btn = document.getElementById('btnConfirmarEstado');
+    const form = document.getElementById('formCambiarEstado');
+    
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Desactivar Registro';
+        mensaje.innerText = '¿Estás segura de inhabilitar al vecino:';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Reactivar Registro';
+        mensaje.innerText = '¿Deseas restaurar al vecino:';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+    
+    nombreStr.innerText = nombre;
+    form.action = actionUrl;
+    
+    new bootstrap.Modal(document.getElementById('modalEstado')).show();
+}
+</script>
+{% endblock %}

@@ -1,4 +1,6 @@
+
 from django.db import models
+from django.contrib.auth.models import User
 
 # Create your models here.
 class Profesional(models.Model):
@@ -12,7 +14,7 @@ class Profesional(models.Model):
     correo = models.CharField(unique=True, max_length=150)
     id_cargo = models.ForeignKey('Cargo', models.DO_NOTHING, db_column='id_cargo')
     id_delegacion = models.ForeignKey('Delegacion', models.DO_NOTHING, db_column='id_delegacion')
-    id_rol = models.ForeignKey('CatalogoRoles', models.DO_NOTHING, db_column='id_rol')
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return f"{self.nombres} {self.apellido_paterno}"

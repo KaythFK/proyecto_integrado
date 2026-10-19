@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Panel de Catálogos{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'administracionApp:directorio_profesional' %}">Profesionales</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión General de Catálogos</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5 mb-5">
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- PESTAÑAS DE NAVEGACIÓN -->
+    <ul class="nav nav-tabs fw-bold" id="tabsCatalogos" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activa == 'servicio' %}active text-danger border-bottom-0{% else %}text-secondary{% endif %}" 
+                    data-bs-toggle="tab" data-bs-target="#tab-servicio" type="button">Servicios</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activa == 'item' %}active text-danger border-bottom-0{% else %}text-secondary{% endif %}" 
+                    data-bs-toggle="tab" data-bs-target="#tab-item" type="button">Ítems</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activa == 'area' %}active text-danger border-bottom-0{% else %}text-secondary{% endif %}" 
+                    data-bs-toggle="tab" data-bs-target="#tab-area" type="button">Áreas de Apoyo</button>
+        </li>
+    </ul>
+
+    <!-- CONTENEDOR DE TABLAS -->
+    <div class="tab-content border border-top-0 bg-white p-4 rounded-bottom shadow-sm">
+        
+        <!-- PESTAÑA 1: SERVICIOS -->
+        <div class="tab-pane fade {% if tab_activa == 'servicio' %}show active{% endif %}" id="tab-servicio">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold" style="color: #8B1D19;">Catálogo de Servicios</h5>
+                <!-- AQUÍ ENVIAMOS 'servicio' AL JAVASCRIPT -->
+                <button class="btn text-white fw-bold" style="background-color: #C41230;" onclick="abrirModalCatalogo('crear', 'servicio', '', '')">
+                    + Nuevo Servicio
+                </button>
+            </div>
+            <table class="table table-hover align-middle border">
+                <thead class="table-light"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
+                <tbody>
+                    {% for serv in servicios %}
+                    <tr>
+                        <td>#{{ serv.id_servicios }}</td>
+                        <td class="fw-bold">{{ serv.nombre }}</td>
+                        <td>{% if serv.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center align-items-center gap-3">
+                                <button class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}')">Editar</button>
+                                
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="badge mb-1 {% if serv.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                        {% if serv.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    </span>
+                                    <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                        <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if serv.estado %}checked{% endif %}
+                                        onclick="abrirModalEstado(event, 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}', '{{ serv.estado }}')">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %} <tr><td colspan="4" class="text-center text-muted">No hay registros.</td></tr> {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PESTAÑA 2: ÍTEMS -->
+        <div class="tab-pane fade {% if tab_activa == 'item' %}show active{% endif %}" id="tab-item">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold" style="color: #8B1D19;">Catálogo de Ítems</h5>
+                <!-- AQUÍ ENVIAMOS 'item' AL JAVASCRIPT -->
+                <button class="btn text-white fw-bold" style="background-color: #C41230;" onclick="abrirModalCatalogo('crear', 'item', '', '')">
+                    + Nuevo Ítem
+                </button>
+            </div>
+            <table class="table table-hover align-middle border">
+                <thead class="table-light"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
+                <tbody>
+                    {% for it in items %}
+                    <tr>
+                        <td>#{{ it.id_item }}</td>
+                        <td class="fw-bold">{{ it.nombre }}</td>
+                        <td>{% if it.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center align-items-center gap-3">
+                                <button class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre }}')">Editar</button>
+                                
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="badge mb-1 {% if it.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                        {% if it.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    </span>
+                                    <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                        <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if it.estado %}checked{% endif %}
+                                        onclick="abrirModalEstado(event, 'item', '{{ it.id_item }}', '{{ it.nombre }}', '{{ it.estado }}')">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %} <tr><td colspan="4" class="text-center text-muted">No hay registros.</td></tr> {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PESTAÑA 3: ÁREAS DE APOYO -->
+        <div class="tab-pane fade {% if tab_activa == 'area' %}show active{% endif %}" id="tab-area">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold" style="color: #8B1D19;">Catálogo de Áreas de Apoyo</h5>
+                <!-- AQUÍ ENVIAMOS 'area' AL JAVASCRIPT -->
+                <button class="btn text-white fw-bold" style="background-color: #C41230;" onclick="abrirModalCatalogo('crear', 'area', '', '')">
+                    + Nueva Área
+                </button>
+            </div>
+            <table class="table table-hover align-middle border">
+                <thead class="table-light"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
+                <tbody>
+                    {% for ar in areas %}
+                    <tr>
+                        <td>#{{ ar.id_area_apoyo }}</td>
+                        <td class="fw-bold">{{ ar.nombre }}</td>
+                        <td>{% if ar.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center align-items-center gap-3">
+                                <button class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}')">Editar</button>
+                                
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="badge mb-1 {% if ar.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                        {% if ar.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    </span>
+                                    <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                        <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if ar.estado %}checked{% endif %}
+                                        onclick="abrirModalEstado(event, 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}', '{{ ar.estado }}')">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %} <tr><td colspan="4" class="text-center text-muted">No hay registros.</td></tr> {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODALES Y CAJAS INVISIBLES -->
+<!-- ========================================== -->
+
+<!-- Modal para Crear/Editar -->
+<div class="modal fade" id="modalCatalogo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header text-white" style="background-color: #8B1D19;">
+                <h5 class="modal-title fw-bold" id="tituloModalCatalogo">Gestión de Registro</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'administracionApp:gestionar_catalogo' %}">
+                {% csrf_token %}
+                <input type="hidden" name="accion" id="inputAccion">
+                <input type="hidden" name="tipo" id="inputTipo">
+                <input type="hidden" name="id_obj" id="inputIdObj">
+
+                <div class="modal-body p-4">
+                    <label class="fw-bold mb-2">Nombre *</label>
+                    <input type="text" name="nombre" id="inputNombre" class="form-control" required minlength="3" maxlength="45">
+                </div>
+                <div class="modal-footer border-0 pb-4 d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn text-white px-4 fw-bold" style="background-color: #C41230;">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Cambiar Estado -->
+<div class="modal fade" id="modalEstadoCatalogos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header text-white" id="headerEstado">
+                <h5 class="modal-title fw-bold" id="tituloEstado">Confirmar</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="mensajeEstado"></p>
+                <strong class="fs-4 text-dark" id="nombreEstado"></strong>
+            </div>
+            <div class="modal-footer border-0 pb-4 d-flex justify-content-center gap-2">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                <form method="POST" action="{% url 'administracionApp:gestionar_catalogo' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="estado">
+                    <input type="hidden" name="tipo" id="inputTipoEstado">
+                    <input type="hidden" name="id_obj" id="inputIdEstado">
+                    <button type="submit" class="btn text-white px-4 fw-bold" id="btnConfirmarEstado">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function abrirModalCatalogo(accion, tipo, id_obj, nombre_actual) {
+    document.getElementById('inputAccion').value = accion;
+    document.getElementById('inputTipo').value = tipo; 
+    document.getElementById('inputIdObj').value = id_obj;
+    document.getElementById('inputNombre').value = nombre_actual;
+    
+    document.getElementById('tituloModalCatalogo').innerText = (accion === 'crear') ? 'Nuevo Registro' : 'Editar Registro';
+    new bootstrap.Modal(document.getElementById('modalCatalogo')).show();
+}
+
+function abrirModalEstado(event, tipo, id_obj, nombre, estadoStr) {
+    event.preventDefault(); 
+    const activo = (estadoStr === 'True');
+    
+    document.getElementById('inputTipoEstado').value = tipo; 
+    document.getElementById('inputIdEstado').value = id_obj;
+    document.getElementById('nombreEstado').innerText = nombre;
+    
+    const header = document.getElementById('headerEstado');
+    const btn = document.getElementById('btnConfirmarEstado');
+    
+    if (activo) {
+        header.style.backgroundColor = '#C41230';
+        btn.style.backgroundColor = '#C41230';
+        document.getElementById('tituloEstado').innerText = 'Desactivar Registro';
+        document.getElementById('mensajeEstado').innerText = '¿Estás segura de inhabilitar:';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        btn.style.backgroundColor = '#198754';
+        document.getElementById('tituloEstado').innerText = 'Reactivar Registro';
+        document.getElementById('mensajeEstado').innerText = '¿Deseas restaurar:';
+        btn.innerText = 'Sí, Reactivar';
+    }
+    new bootstrap.Modal(document.getElementById('modalEstadoCatalogos')).show();
+}
+</script>
+{% endblock %}
