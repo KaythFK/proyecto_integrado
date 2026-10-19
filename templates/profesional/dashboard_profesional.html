@@ -1,0 +1,327 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Panel Profesional - SGR{% endblock %}
+
+{% block menu_lateral %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="#">Mi perfil</a>
+        </li>
+    </ul>
+
+    <div class="mt-5">
+        <hr class="border-white mx-4" style="opacity: 0.3;">
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item text-center">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="#">
+                    Cerrar sesión
+                </a>
+            </li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block cabecera %}
+<div class="w-100 text-center">
+    <h3 class="text-white fw-bold m-0">
+        Bienvenid{% if profesional_actual.genero == 'F' %}a{% else %}o{% endif %} 
+        {{ profesional_actual.nombre|default:request.user.username }} 
+        a tu panel operativo
+    </h3>
+</div>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold m-0" style="color: #8B1D19;">Tablero de Desempeño y Operaciones</h4>
+            <small class="text-muted">Visualización de avance, compromisos y evidencias </small>
+        </div>
+        <a href="{% url 'actividadApp:registrar_actividad' %}" class="btn btn-dark fw-bold px-4 py-2 shadow-sm" style="border-radius: 8px;">
+            + Nueva Actividad
+        </a>
+    </div>
+    
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-left: 5px solid {% if semaforo == 'VERDE' %}#198754{% elif semaforo == 'AMBAR' %}#d97706{% else %}#dc3545{% endif %} !important; border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.8rem;">Estado Global</h6>
+                <h3 class="fw-bold m-0 {% if semaforo == 'VERDE' %}text-success{% elif semaforo == 'AMBAR' %}text-warning{% else %}text-danger{% endif %}">
+                    {{ semaforo|default:"SIN DATOS" }}
+                </h3>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card shadow-sm border-0 py-3 px-4 h-100 d-flex flex-column justify-content-center" style="border-radius: 10px;">
+                <div class="text-center mb-1">
+                    <h6 class="text-muted fw-bold text-uppercase m-0" style="font-size: 0.8rem;">Cumplimiento del Periodo</h6>
+                </div>
+                
+                <div class="position-relative d-flex justify-content-center align-items-center mt-2" style="height: 110px;">
+                    <canvas id="graficoCumplimiento"></canvas>
+                    
+                    <div class="position-absolute d-flex flex-column align-items-center justify-content-center" style="top: 0; bottom: 0; left: 0; right: 0; pointer-events: none;">
+                        <span class="fw-bold text-dark" style="font-size: 1.8rem; line-height: 1;">{{ porcentaje_avance|default:"0" }}%</span>
+                        <span class="text-muted" style="font-size: 0.65rem; text-transform: uppercase;">cumplimiento</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Actividades -->
+        <div class="col-md-2">
+            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.8rem;">Actividades</h6>
+                <h3 class="fw-bold text-dark m-0">{{ total_asignadas|default:"0" }}</h3>
+            </div>
+        </div>
+        
+        <!-- Evidencias Aprobadas -->
+        <div class="col-md-2">
+            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.8rem;">Evidencias</h6>
+                <h3 class="fw-bold text-success m-0">{{ evidencias_registradas|default:"0" }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- NIVEL 2: AGENDA COLECTIVA / TUBO (RF-016) -->
+    <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
+        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold m-0" style="color: #1a202c;"><i class="bi bi-calendar-event me-2"></i>Mis Compromisos (Tubo)</h6>
+            {% if total_proximos_vencer > 0 %}
+                <span class="badge bg-danger rounded-pill">{{ total_proximos_vencer }} Próximo(s) a vencer</span>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle m-0" style="font-size: 0.9rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4">Vencimiento</th>
+                            <th>Territorio</th>
+                            <th>Compromiso / Solicitante</th>
+                            <th>Estado</th>
+                            <th class="text-center px-4">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for compromiso in compromisos_tubo %}
+                        <tr>
+                            <td class="px-4 fw-bold {% if compromiso.esta_vencido %}text-danger{% endif %}">
+                                {{ compromiso.fecha_comprometida|date:"d M Y" }}
+                            </td>
+                            <td>{{ compromiso.territorio }}</td>
+                            <td>
+                                {{ compromiso.descripcion }}<br>
+                                <small class="text-muted">Req: {{ compromiso.solicitante }}</small>
+                            </td>
+                            <td>
+                                <span class="badge {% if compromiso.estado_progreso == 'PENDIENTE' %}bg-warning text-dark{% elif compromiso.estado_progreso == 'REALIZADO' %}bg-success{% elif compromiso.estado_progreso == 'EN_PROCESO' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                    {{ compromiso.get_estado_progreso_display }}
+                                </span>
+                            </td>
+                            <td class="text-center px-4">
+                                <!-- Botón que lanza el modal enviando los datos del compromiso -->
+                                <button type="button" class="btn btn-sm btn-outline-dark fw-bold" style="border-radius: 6px;"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modalActualizarTubo"
+                                        data-bs-id="{{ compromiso.id_compromiso }}"
+                                        data-bs-estado="{{ compromiso.estado_progreso }}"
+                                        data-bs-desc="{{ compromiso.descripcion|truncatechars:40 }}">
+                                    Actualizar
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                No tienes compromisos asignados en el tubo de trabajo.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
+        <div class="card-header bg-white border-bottom py-3">
+            <h6 class="fw-bold m-0" style="color: #1a202c;"><i class="bi bi-list-task me-2"></i>Historial de Actividades Registradas</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle m-0" style="font-size: 0.95rem;">
+                    <thead class="table-dark" style="background-color: #1a202c;">
+                        <tr>
+                            <th class="px-4">Código Único</th>
+                            <th>Solicitud / Problema</th>
+                            <th>Estado Actividad</th>
+                            <th>Estado Evidencia</th>
+                            <th class="text-center px-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for actividad in actividades_asignadas %}
+                        <tr>
+                            <td class="fw-bold text-muted px-4">{{ actividad.codigo_unico }}</td>
+                            <td>
+                                <span class="badge bg-secondary mb-1">Actividad</span><br>
+                                {{ actividad.solicitud_problema|truncatechars:45 }}
+                            </td>
+                            <td>
+                                <span class="badge bg-warning text-dark">{{ actividad.get_estado_progreso_display }}</span>
+                            </td>
+                            <td>
+                                {% if actividad.estado_evidencia == 'SIN_EVIDENCIA' %}
+                                    <span class="badge bg-secondary">Sin respaldo</span>
+                                {% elif actividad.estado_evidencia == 'PENDIENTE' %}
+                                    <span class="badge bg-info text-dark">Revisión Pendiente</span>
+                                {% elif actividad.estado_evidencia == 'APROBADO' %}
+                                    <span class="badge bg-success">Aprobada</span>
+                                {% elif actividad.estado_evidencia == 'RECHAZADO' %}
+                                    <span class="badge bg-danger">Rechazada</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Sin respaldo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center px-4">
+                                {% if actividad.estado_evidencia == 'APROBADO' %}
+                                    <button class="btn btn-sm btn-outline-success fw-bold w-100" style="border-radius: 6px;" disabled>Completado</button>
+                                {% elif actividad.estado_evidencia == 'RECHAZADO' %}
+                                    <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm btn-danger fw-bold w-100" style="border-radius: 6px;" title="Corregir">Corregir</a>
+                                {% else %}
+                                    <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm btn-success fw-bold w-100" style="border-radius: 6px;" title="Adjuntar">+ Evidencia</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                No tienes actividades registradas. Haz clic en "+ Nueva Actividad" para comenzar.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalActualizarTubo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      
+      <div class="modal-header text-white" style="background-color: #1a202c;">
+        <h5 class="modal-title fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Actualizar Compromiso</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <form id="formActualizarTubo" method="POST" action="">
+          {% csrf_token %}
+          <div class="modal-body p-4">
+            <p class="text-muted mb-4">Actualizando el estado del requerimiento:<br><strong id="modalTuboDesc" class="text-dark"></strong></p>
+            
+            <label class="fw-bold mb-2 text-dark">Fase de Progreso Actual:</label>
+            <select name="estado_progreso" class="form-select shadow-sm" id="selectEstadoTubo" style="border-color: #ced4da;">
+                <option value="INGRESADO">Ingresado (Por agendar)</option>
+                <option value="PENDIENTE">Pendiente (Agendado)</option>
+                <option value="EN_PROCESO">En Proceso (En ejecución)</option>
+                <option value="REALIZADO">Realizado (Finalizado)</option>
+            </select>
+            <div class="form-text mt-2">Si marcas el compromiso como "Realizado", se registrará la fecha de término automáticamente.</div>
+          </div>
+          
+          <div class="modal-footer bg-light justify-content-end">
+            <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal" style="border-radius: 6px;">Cancelar</button>
+            <button type="submit" class="btn text-white px-4 fw-bold" style="background-color: #8B1D19; border-radius: 6px;">Guardar Estado</button>
+          </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalActualizar = document.getElementById('modalActualizarTubo');
+    if (modalActualizar) {
+        modalActualizar.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const idCompromiso = button.getAttribute('data-bs-id');
+            const estadoActual = button.getAttribute('data-bs-estado');
+            const descripcion = button.getAttribute('data-bs-desc');
+            document.getElementById('modalTuboDesc').textContent = descripcion;
+            document.getElementById('selectEstadoTubo').value = estadoActual;
+            const form = document.getElementById('formActualizarTubo');
+            const urlBase = "{% url 'actividadApp:actualizar_estado_tubo' 999999 %}";
+            form.action = urlBase.replace('999999', idCompromiso);
+        });
+    }
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const ctx = document.getElementById('graficoCumplimiento');
+    
+    if (ctx) {
+        const avance = parseInt("{{ porcentaje_avance|default:'0' }}");
+        const resto = 100 - avance > 0 ? 100 - avance : 0;
+        const semaforo = "{{ semaforo|default:'VERDE' }}";
+        
+        let colorPrimario = '#198754'; 
+        
+        if (semaforo === 'ROJO') {
+            colorPrimario = '#dc3545'; 
+        } else if (semaforo === 'AMBAR') {
+            colorPrimario = '#d97706'; 
+        }
+        const esCero = avance === 0;
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Cumplido', 'Pendiente'],
+                datasets: [{
+                    data: esCero ? [0, 100] : [avance, resto],
+                    backgroundColor: esCero ? ['#f3f4f6', '#f3f4f6'] : [colorPrimario, '#f3f4f6'],
+                    borderWidth: 0,
+                    cutout: '78%', 
+                    borderRadius: esCero ? 0 : 10 
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }, 
+                    tooltip: { enabled: false } 
+                },
+                animation: {
+                    animateScale: true,
+                    animateRotate: true
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

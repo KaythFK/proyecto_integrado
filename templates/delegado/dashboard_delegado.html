@@ -4,14 +4,28 @@
 {% block title %}Panel de control - SGR{% endblock %}
 
 {% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:dashboard_delegado' %}">Mi delegación</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white" href="{% url 'monitoreoApp:actividades_delegacion' %}">Actividades del equipo</a>
-    </li>
-</ul>
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:dashboard_delegado' %}">Mi delegación</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'monitoreoApp:actividades_delegacion' %}">Actividades del equipo</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="#">Mi perfil</a>
+        </li>
+    </ul>
+
+    <div class="mt-5">
+        <hr class="border-white mx-4" style="opacity: 0.3;">
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item text-center">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="#">
+                    Cerrar sesión
+                </a>
+            </li>
+        </ul>
+    </div>
 {% endblock %}
 
 {% block cabecera %}
@@ -22,31 +36,25 @@
 <div class="container mt-5">
     <h4 class="fw-bold mb-4" style="color: #8B1D19;">Resumen de mi delegación</h4>
     
-    <div class="row">
-        <div class="col-md-4 mb-3">
-            <div class="card shadow-sm border-0" style="background-color: #fab8b8b2;">
-                <div class="card-body text-center">
-                    <h5 class="card-title text-dark fw-bold">Total registradas</h5>
-                    <h2 class="display-4 fw-bold" style="color: #492b29;">{{ total_actividades }}</h2>
-                </div>
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #1a202c !important; border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Total registradas</h6>
+                <h1 class="display-4 fw-bold text-dark m-0">{{ total_actividades }}</h1>
             </div>
         </div>
         
-        <div class="col-md-4 mb-3">
-            <div class="card shadow-sm border-0" style="background-color: #ffe8cd;">
-                <div class="card-body text-center">
-                    <h5 class="card-title text-dark fw-bold">En proceso</h5>
-                    <h2 class="display-4 fw-bold text-warning" style="color: #856404 !important;">{{ en_proceso }}</h2>
-                </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #ffc107 !important; border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">En proceso</h6>
+                <h1 class="display-4 fw-bold text-warning m-0">{{ en_proceso }}</h1>
             </div>
         </div>
         
-        <div class="col-md-4 mb-3">
-            <div class="card shadow-sm border-0" style="background-color: #d1e7dd;">
-                <div class="card-body text-center">
-                    <h5 class="card-title text-dark fw-bold">Finalizadas</h5>
-                    <h2 class="display-4 fw-bold text-success" style="color: #0f5132 !important;">{{ finalizadas }}</h2>
-                </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #198754 !important; border-radius: 10px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Finalizadas</h6>
+                <h1 class="display-4 fw-bold text-success m-0">{{ finalizadas }}</h1>
             </div>
         </div>
     </div>
