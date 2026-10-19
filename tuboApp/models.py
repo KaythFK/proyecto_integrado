@@ -1,6 +1,6 @@
 from django.db import models
+from datetime import date 
 
-# Create your models here.
 class Compromiso(models.Model):
 
     OPCIONES_ESTADO_PROGRESO= [
@@ -26,6 +26,23 @@ class Compromiso(models.Model):
 
     class Meta:
         db_table = 'compromiso'
+
+
+    @property
+    def esta_vencido(self):
+        if self.estado_progreso == 'REALIZADO':
+            return False
+        if not self.fecha_comprometida:
+            return False
+        return date.today() > self.fecha_comprometida
+
+    @property
+    def descripcion(self):
+        return self.id_actividad.solicitud_problema
+
+    @property
+    def solicitante(self):
+        return self.id_actividad.solicitante_vecino or self.id_actividad.solicitante_profesional or "No especificado"
 
 class ObservacionCompromiso(models.Model):
     id_observacioncomp = models.AutoField(primary_key=True)

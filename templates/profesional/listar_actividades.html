@@ -6,7 +6,10 @@
 {% block menu_lateral %}
     <ul class="nav flex-column gap-3 mt-5">
         <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_funcionario' %}">Mi panel</a>
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a>
         </li>
         <li class="nav-item text-center">
             <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
@@ -36,11 +39,11 @@
 <div class="container mt-5">
     <div class="row mb-4 align-items-center">
         <div class="col-md-8">
-            <h2 class="fw-bold" style="color: #8B1D19;">Mis Actividades</h2>
+            <h2 class="fw-bold" style="color: #8B1D19;">Actividades</h2>
             <p class="text-muted">Gestión y registro de actividades diarias.</p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{% url 'actividadApp:crear_actividad' %}" class="btn fw-bold text-white shadow-sm" style="background-color: #C41230; border: 1px solid #701714;">
+            <a href="{% url 'actividadApp:registrar_actividad' %}" class="btn fw-bold text-white shadow-sm" style="background-color: #C41230; border: 1px solid #701714;">
                 + Registrar nueva actividad
             </a>
         </div>

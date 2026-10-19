@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Registrar Evidencia - SGR{% endblock %}
+
+{% block menu_lateral %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="#">Mi perfil</a>
+        </li>
+    </ul>
+
+    <div class="mt-5">
+        <hr class="border-white mx-4" style="opacity: 0.3;">
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item text-center">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="#">
+                    Cerrar sesión
+                </a>
+            </li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Registro de Evidencias</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5 mb-5" style="max-width: 800px;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold m-0" style="color: #8B1D19;">Adjuntar documentación técnica</h4>
+        <a href="{% url 'actividadApp:dashboard_profesional' %}" class="btn btn-outline-secondary btn-sm fw-bold" style="border-radius: 8px;">
+            Volver al panel
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
+        <div class="card-header bg-white border-bottom py-3">
+            <h6 class="fw-bold m-0" style="color: #1a202c;">Actividad #{{ actividad_id }}</h6>
+        </div>
+        
+        <div class="card-body p-4 bg-light">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <label for="archivo_adjunto" class="form-label fw-bold text-dark">Archivo o Fotografía adjunta <span class="text-danger">*</span></label>
+                    <input class="form-control form-control-lg" type="file" id="archivo_adjunto" name="archivo_adjunto" required style="border-radius: 8px;">
+                    <div class="form-text">Formatos permitidos: JPG, PNG, PDF, DOCX.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="anotaciones" class="form-label fw-bold text-dark">Anotaciones u observaciones técnicas</label>
+                    <textarea class="form-control" id="anotaciones" name="anotaciones" rows="5" placeholder="Describe los detalles de la evidencia encontrada o la resolución aplicada..." style="border-radius: 8px; resize: none;"></textarea>
+                </div>
+
+                <hr class="my-4 text-muted">
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" class="btn btn-success fw-bold px-5 py-2" style="border-radius: 8px;">
+                        Guardar Evidencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
