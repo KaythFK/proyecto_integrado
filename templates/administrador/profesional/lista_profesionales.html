@@ -69,7 +69,7 @@
             </thead>
             <tbody>
                 {% for profesional in profesionales %}
-                <tr class="{% if not profesional.estado %}table-secondary text-muted{% endif %}">
+                <tr>
                     <td class="fw-bold">{{ profesional.rut }}</td>
                     <td>{{ profesional.nombres }} {{ profesional.apellido_paterno }}</td>
                     <td>{{ profesional.correo }}</td>
@@ -83,15 +83,24 @@
                     </td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3">
-                            <a href="{% url 'administracionApp:editar_profesional' profesional.id_profesional %}" class="btn btn-sm btn-outline-primary">
+                            
+                            <a href="{% url 'administracionApp:editar_profesional' profesional.id_profesional %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
                                 Editar
                             </a>
-                            <!-- Interruptor (Switch) -->
-                            <div class="form-check form-switch mb-0">
-                                <input class="form-check-input" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;"
-                                    {% if profesional.estado %}checked{% endif %}
-                                    onclick="confirmarCambio(event, '{{ profesional.id_profesional }}', '{{ profesional.nombres }} {{ profesional.apellido_paterno }}', '{{ profesional.estado }}')">
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if profesional.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if profesional.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                </span>
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                           {% if profesional.estado %}checked{% endif %}
+                                           onclick="confirmarCambio(event, '{{ profesional.id_profesional }}', '{{ profesional.nombres }} {{ profesional.apellido_paterno }}', '{{ profesional.estado }}')">
+                                </div>
                             </div>
+
                         </div>
                     </td>
                 </tr>

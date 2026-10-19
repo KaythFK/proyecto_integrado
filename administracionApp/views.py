@@ -3,6 +3,7 @@ from django.db.models import Q  # Importante para la barra de búsqueda
 from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo
 from actividadApp.models import Actividad 
 from administracionApp.forms import ProfesionalForm, UsuarioSeguridadForm, DelegacionForm, CargoForm
+from actividadApp.forms import ActividadForm
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
 from usuariosApp.decorators import role_required
@@ -11,13 +12,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User, Group
 import secrets
 import string
-
+from django.urls import reverse
+from actividadApp.models import Actividad
 
 def main(request):
     return render(request, 'main.html')
 
-@role_required('Administrador')
-@login_required
+#@role_required('Administrador')
+#@login_required
 def inicio(request):
     return render(request, 'administrador/dashboard_admin.html')
 
@@ -26,22 +28,90 @@ def generar_clave_segura(longitud=10):
     return ''.join(secrets.choice(alfabeto) for _ in range(longitud))
 
 
+
+
 #@role_required('administrador')
 #@login_required
 def lista_actividades(request):
     query = request.GET.get('q')
-    actividades = Actividad.objects.filter(estado=True).order_by('-fecha')
+    # .all() permite al administrador ver tanto las habilitadas como deshabilitadas
+    actividades = Actividad.objects.all().order_by('-fecha')
+    
     if query:
         actividades = actividades.filter(
             Q(codigo_unico__icontains=query) |
             Q(solicitud_problema__icontains=query)
         ).distinct()
+        
     context = {
         'actividades': actividades,
         'query': query,
     }
+    return render(request, 'administrador/actividades/lista_actividades.html', context)
+
+#@role_required('administrador')
+#@login_required
+def crear_actividad(request):
+    if request.method == 'POST':
+        # Se incluye request.FILES por si el formulario maneja subida de evidencias
+        form = ActividadForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                actividad = form.save(commit=False)
+                actividad.estado = True
+                actividad.save()
+                messages.success(request, 'La actividad fue registrada con éxito en el sistema.')
+                return redirect('administracionApp:actividades') # Ajusta el namespace si es necesario
+            except Exception as e:
+                messages.error(request, f'Error al guardar en base de datos: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores marcados en el formulario.')
+    else:
+        form = ActividadForm()
+        
+    return render(request, 'administrador/actividades/form_actividades.html', {
+        'form': form,
+        'titulo': 'Registrar Nueva Actividad'
+    })
+
+#@role_required('administrador')
+#@login_required
+def editar_actividad(request, id_actividad):
+    actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
     
-    return render(request, 'administrador/lista_actividades.html', context)
+    if request.method == 'POST':
+        form = ActividadForm(request.POST, request.FILES, instance=actividad)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, f'La actividad {actividad.codigo_unico} fue actualizada correctamente.')
+                return redirect('administracionApp:actividades')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+    else:
+        form = ActividadForm(instance=actividad)
+        
+    return render(request, 'administrador/actividades/form_actividad.html', {
+        'form': form,
+        'titulo': f'Editar Actividad {actividad.codigo_unico}'
+    })
+
+#@role_required('administrador')
+#@login_required
+def desactivar_actividad(request, id_actividad):
+    if request.method == 'POST':
+        actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+        
+        with transaction.atomic():
+            nuevo_estado = not actividad.estado
+            actividad.estado = nuevo_estado
+            actividad.save()
+                
+        accion = "habilitada" if nuevo_estado else "deshabilitada"
+        messages.success(request, f'La actividad {actividad.codigo_unico} fue {accion}.')
+        
+    # Cambia 'administracionApp:actividades' según tu configuración de urls.py
+    return redirect('administracionApp:actividades')
 
 #@role_required('administrador')
 #@login_required
@@ -353,8 +423,6 @@ def cambiar_estado_cargo(request, id_cargo):
         
     return redirect('administracionApp:lista_cargos')
 
-from .models import CatalagoServicio, CatalogoRoles, CatalagoItem, CatalagoAreaApoyo
-from django.urls import reverse
 
 # 1. Vista para cargar la pantalla con las pestañas
 def panel_catalogos(request):

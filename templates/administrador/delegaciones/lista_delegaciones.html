@@ -68,7 +68,7 @@
             </thead>
             <tbody>
                 {% for delegacion in delegaciones %}
-                <tr class="{% if not delegacion.estado %}table-secondary text-muted{% endif %}">
+                <tr>
                     <td class="fw-bold">{{ delegacion.nombre }}</td>
                     <td>{{ delegacion.territorio }}</td>
                     <td>
@@ -94,14 +94,24 @@
                     </td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3">
-                            <a href="{% url 'administracionApp:editar_delegacion' delegacion.id_delegacion %}" class="btn btn-sm btn-outline-primary">
+                            
+                            <a href="{% url 'administracionApp:editar_delegacion' delegacion.id_delegacion %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
                                 Editar
                             </a>
-                            <div class="form-check form-switch mb-0">
-                                <input class="form-check-input" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;"
-                                    {% if delegacion.estado %}checked{% endif %}
-                                    onclick="confirmarCambio(event, '{{ delegacion.id_delegacion }}', '{{ delegacion.nombre }}', '{{ delegacion.estado }}')">
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if delegacion.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if delegacion.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                </span>
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                           {% if delegacion.estado %}checked{% endif %}
+                                           onclick="confirmarCambio(event, '{{ delegacion.id_delegacion }}', '{{ delegacion.nombre }}', '{{ delegacion.estado }}')">
+                                </div>
                             </div>
+                            
                         </div>
                     </td>
                 </tr>

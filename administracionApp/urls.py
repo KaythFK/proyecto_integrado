@@ -6,7 +6,10 @@ app_name = 'administracionApp'
 urlpatterns = [
     path('', views.main, name='main'),
     path('inicio/', views.inicio, name='inicio'),   
-    path('actividades/', views.lista_actividades, name='actividades'),
+    path('admin-actividades/', views.lista_actividades, name='admin-actividades'),
+    path('admin-actividades/crear/', views.crear_actividad, name='crear_actividad'),
+    path('admin-actividades/editar/<int:id_actividad>/', views.editar_actividad, name='editar_actividad'),
+    path('admin-actividades/estado/<int:id_actividad>/', views.desactivar_actividad, name='desactivar_actividad'),
     #Profesionales
     path('profesionales/', views.directorio_profesional, name='directorio_profesional'),
     path('profesionales/crear/', views.crear_profesional, name='crear_profesional'),

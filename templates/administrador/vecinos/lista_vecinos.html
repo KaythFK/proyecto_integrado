@@ -64,7 +64,7 @@
             </thead>
             <tbody>
                 {% for vecino in vecinos %}
-                <tr class="{% if not vecino.estado %}table-secondary text-muted{% endif %}">
+                <tr>
                     <td class="fw-bold">{{ vecino.rut }}</td>
                     <td>{{ vecino.nombres }} {{ vecino.apellido_paterno }} {{ vecino.apellido_materno|default_if_none:"" }}</td>
                     <td>
@@ -82,12 +82,24 @@
                     </td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3">
-                            <a href="{% url 'administracionApp:editar_vecino' vecino.id_vecino %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                            <div class="form-check form-switch mb-0">
-                                <input class="form-check-input" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;"
-                                    {% if vecino.estado %}checked{% endif %}
-                                    onclick="confirmarCambio(event, '{{ vecino.id_vecino }}', '{{ vecino.nombres }} {{ vecino.apellido_paterno }}', '{{ vecino.estado }}')">
+                            
+                            <a href="{% url 'administracionApp:editar_vecino' vecino.id_vecino %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
+                                Editar
+                            </a>
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if vecino.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if vecino.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                </span>
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                           {% if vecino.estado %}checked{% endif %}
+                                           onclick="confirmarCambio(event, '{{ vecino.id_vecino }}', '{{ vecino.nombres }} {{ vecino.apellido_paterno }}', '{{ vecino.estado }}')">
+                                </div>
                             </div>
+                            
                         </div>
                     </td>
                 </tr>

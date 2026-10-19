@@ -89,14 +89,25 @@
                     </td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3">
-                            <a href="{% url 'administracionApp:editar_cargo' cargo.id_cargo %}" class="btn btn-sm btn-outline-primary">
+                            
+                            <a href="{% url 'administracionApp:editar_cargo' cargo.id_cargo %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
                                 Editar
                             </a>
-                            <div class="form-check form-switch mb-0">
-                                <input class="form-check-input" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;"
-                                    {% if cargo.estado %}checked{% endif %}
-                                    onclick="confirmarCambio(event, '{{ cargo.id_cargo }}', '{{ cargo.nombre }}', '{{ cargo.estado }}')">
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <!-- CAMBIO APLICADO AQUÍ: Uso de badge para replicar la imagen -->
+                                <span class="badge mb-1 {% if cargo.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if cargo.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                </span>
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                           {% if cargo.estado %}checked{% endif %}
+                                           onclick="confirmarCambio(event, '{{ cargo.id_cargo }}', '{{ cargo.nombre }}', '{{ cargo.estado }}')">
+                                </div>
                             </div>
+                            
                         </div>
                     </td>
                 </tr>

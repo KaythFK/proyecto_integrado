@@ -62,16 +62,22 @@
                 <thead class="table-light"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
                 <tbody>
                     {% for serv in servicios %}
-                    <tr class="{% if not serv.estado %}text-muted{% endif %}">
+                    <tr>
                         <td>#{{ serv.id_servicios }}</td>
                         <td class="fw-bold">{{ serv.nombre }}</td>
                         <td>{% if serv.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                         <td class="text-center">
                             <div class="d-flex justify-content-center align-items-center gap-3">
-                                <button class="btn btn-sm btn-outline-primary" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}')">Editar</button>
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" role="switch" style="cursor:pointer;" {% if serv.estado %}checked{% endif %}
-                                    onclick="abrirModalEstado(event, 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}', '{{ serv.estado }}')">
+                                <button class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}')">Editar</button>
+                                
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="badge mb-1 {% if serv.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                        {% if serv.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    </span>
+                                    <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                        <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if serv.estado %}checked{% endif %}
+                                        onclick="abrirModalEstado(event, 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}', '{{ serv.estado }}')">
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -94,16 +100,22 @@
                 <thead class="table-light"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
                 <tbody>
                     {% for it in items %}
-                    <tr class="{% if not it.estado %}text-muted{% endif %}">
+                    <tr>
                         <td>#{{ it.id_item }}</td>
                         <td class="fw-bold">{{ it.nombre }}</td>
                         <td>{% if it.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                         <td class="text-center">
                             <div class="d-flex justify-content-center align-items-center gap-3">
-                                <button class="btn btn-sm btn-outline-primary" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre }}')">Editar</button>
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" role="switch" style="cursor:pointer;" {% if it.estado %}checked{% endif %}
-                                    onclick="abrirModalEstado(event, 'item', '{{ it.id_item }}', '{{ it.nombre }}', '{{ it.estado }}')">
+                                <button class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre }}')">Editar</button>
+                                
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="badge mb-1 {% if it.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                        {% if it.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    </span>
+                                    <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                        <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if it.estado %}checked{% endif %}
+                                        onclick="abrirModalEstado(event, 'item', '{{ it.id_item }}', '{{ it.nombre }}', '{{ it.estado }}')">
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -126,16 +138,22 @@
                 <thead class="table-light"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
                 <tbody>
                     {% for ar in areas %}
-                    <tr class="{% if not ar.estado %}text-muted{% endif %}">
+                    <tr>
                         <td>#{{ ar.id_area_apoyo }}</td>
                         <td class="fw-bold">{{ ar.nombre }}</td>
                         <td>{% if ar.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                         <td class="text-center">
                             <div class="d-flex justify-content-center align-items-center gap-3">
-                                <button class="btn btn-sm btn-outline-primary" onclick="abrirModalCatalogo('editar', 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}')">Editar</button>
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" role="switch" style="cursor:pointer;" {% if ar.estado %}checked{% endif %}
-                                    onclick="abrirModalEstado(event, 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}', '{{ ar.estado }}')">
+                                <button class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}')">Editar</button>
+                                
+                                <div class="d-flex flex-column align-items-center">
+                                    <span class="badge mb-1 {% if ar.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                        {% if ar.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    </span>
+                                    <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                        <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if ar.estado %}checked{% endif %}
+                                        onclick="abrirModalEstado(event, 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}', '{{ ar.estado }}')">
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -161,7 +179,6 @@
             </div>
             <form method="POST" action="{% url 'administracionApp:gestionar_catalogo' %}">
                 {% csrf_token %}
-                <!-- ¡AQUÍ ESTÁ LA MAGIA! LAS CAJAS INVISIBLES -->
                 <input type="hidden" name="accion" id="inputAccion">
                 <input type="hidden" name="tipo" id="inputTipo">
                 <input type="hidden" name="id_obj" id="inputIdObj">
@@ -195,7 +212,6 @@
                 <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
                 <form method="POST" action="{% url 'administracionApp:gestionar_catalogo' %}">
                     {% csrf_token %}
-                    <!-- CAJAS INVISIBLES DEL ESTADO -->
                     <input type="hidden" name="accion" value="estado">
                     <input type="hidden" name="tipo" id="inputTipoEstado">
                     <input type="hidden" name="id_obj" id="inputIdEstado">
@@ -207,10 +223,9 @@
 </div>
 
 <script>
-// El JavaScript lee el botón que apretaste y llena las cajas invisibles
 function abrirModalCatalogo(accion, tipo, id_obj, nombre_actual) {
     document.getElementById('inputAccion').value = accion;
-    document.getElementById('inputTipo').value = tipo; // Mete 'servicio', 'item' o 'area'
+    document.getElementById('inputTipo').value = tipo; 
     document.getElementById('inputIdObj').value = id_obj;
     document.getElementById('inputNombre').value = nombre_actual;
     
@@ -222,7 +237,7 @@ function abrirModalEstado(event, tipo, id_obj, nombre, estadoStr) {
     event.preventDefault(); 
     const activo = (estadoStr === 'True');
     
-    document.getElementById('inputTipoEstado').value = tipo; // Mete 'servicio', 'item' o 'area'
+    document.getElementById('inputTipoEstado').value = tipo; 
     document.getElementById('inputIdEstado').value = id_obj;
     document.getElementById('nombreEstado').innerText = nombre;
     
