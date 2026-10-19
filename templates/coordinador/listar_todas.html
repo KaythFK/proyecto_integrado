@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Todas las actividades - SGR Coordinación{% endblock %}
+
+{% block menu_lateral %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'tuboApp:dashboard_coordinador' %}">Visión global</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'tuboApp:listar_todas' %}">Todas las actividades</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="#">Mi perfil</a>
+        </li>
+    </ul>
+
+    <div class="mt-5">
+        <hr class="border-white mx-4" style="opacity: 0.3;">
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item text-center">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="#">
+                    Cerrar sesión
+                </a>
+            </li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Coordinación general SGR</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+    <h4 class="fw-bold mb-4" style="color: #8B1D19;">Directorio global de actividades</h4>
+
+    <div class="card shadow-sm border-0 p-3 mb-4">
+        <form method="GET" action="{% url 'tuboApp:listar_todas' %}" class="row g-2 align-items-center">
+            <div class="col-md-6">
+                <input type="text" name="q" class="form-control" placeholder="Buscar por código o problema en toda la ciudad..." value="{{ query|default_if_none:'' }}">
+            </div>
+            <div class="col-md-3">
+                <select name="estado" class="form-select">
+                    <option value="">Todos los Estados</option>
+                    <option value="FINALIZADA" {% if estado_filtro == 'FINALIZADA' %}selected{% endif %}>Finalizada</option>
+                    <option value="EN_PROCESO" {% if estado_filtro == 'EN_PROCESO' %}selected{% endif %}>En Proceso</option>
+                    <option value="PENDIENTE" {% if estado_filtro == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn text-white w-100 fw-bold" type="submit" style="background-color: #8B1D19;">Filtrar</button>
+                {% if query or estado_filtro %}
+                    <a href="{% url 'tuboApp:listar_todas' %}" class="btn btn-outline-secondary">Limpiar</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-dark" style="background-color: #1a202c;">
+                        <tr>
+                            <th>Código</th>
+                            <th>Fecha</th>
+                            <th>Problema</th>
+                            <th>Estado progreso</th>
+                            <th class="text-center">Auditoría global</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    
+                        {% for actividad in actividades %}
+                        <tr>
+                            <td class="fw-bold">{{ actividad.codigo_unico }}</td>
+                            <td>{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{{ actividad.solicitud_problema|truncatechars:50 }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if actividad.estado_progreso == 'FINALIZADA' %} bg-success 
+                                    {% elif actividad.estado_progreso == 'EN_PROCESO' %} bg-warning text-dark
+                                    {% else %} bg-secondary {% endif %}">
+                                    {{ actividad.get_estado_progreso_display }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-dark px-3 rounded-3 btn-detalle"
+                                        data-codigo="{{ actividad.codigo_unico }}"
+                                        data-fecha="{{ actividad.fecha|date:'d/m/Y H:i' }}"
+                                        data-estado="{{ actividad.get_estado_progreso_display }}"
+                                        data-problema="{{ actividad.solicitud_problema }}"
+                                        data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
+                                        title="Revisar detalles completos">
+                                    Ver Detalle
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">No hay registros de actividades en el municipio.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalDetalleActividad" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" style="background-color: #1a202c;">
+                <h5 class="modal-title fw-bold">Auditoría Global: <span id="detCodigo" class="text-warning"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-start p-4">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="text-muted mb-1 small fw-bold">Fecha y hora de registro</p>
+                        <p class="fs-6" id="detFecha"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="text-muted mb-1 small fw-bold">Estado actual</p>
+                        <p class="fs-6 fw-bold" id="detEstado"></p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <p class="text-muted mb-1 small fw-bold">Solicitud / Problema reportado</p>
+                    <div class="p-3 bg-light rounded-3 border text-dark" id="detProblema" style="min-height: 80px;"></div>
+                </div>
+                <div class="mb-2">
+                    <p class="text-muted mb-1 small fw-bold">Acción realizada</p>
+                    <div class="p-3 bg-light rounded-3 border text-dark" id="detAccion" style="min-height: 80px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light justify-content-end">
+                <button type="button" class="btn btn-dark px-4 fw-bold rounded-3" data-bs-dismiss="modal">Cerrar visor</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const modalDetalle = new bootstrap.Modal(document.getElementById('modalDetalleActividad'));
+    const elementos = {
+        codigo: document.getElementById('detCodigo'),
+        fecha: document.getElementById('detFecha'),
+        estado: document.getElementById('detEstado'),
+        problema: document.getElementById('detProblema'),
+        accion: document.getElementById('detAccion')
+    };
+
+    document.querySelectorAll('.btn-detalle').forEach(btn => {
+        btn.addEventListener('click', function() {
+            elementos.codigo.textContent = this.dataset.codigo;
+            elementos.fecha.textContent = this.dataset.fecha;
+            elementos.estado.textContent = this.dataset.estado;
+            elementos.problema.textContent = this.dataset.problema;
+            elementos.accion.textContent = this.dataset.accion;
+            
+            elementos.estado.className = "fs-6 fw-bold";
+            if (this.dataset.estado.toUpperCase() === 'FINALIZADA') {
+                elementos.estado.classList.add('text-success');
+            } else if (this.dataset.estado.toUpperCase() === 'EN PROCESO' || this.dataset.estado.toUpperCase() === 'EN_PROCESO') {
+                elementos.estado.classList.add('text-warning');
+            } else {
+                elementos.estado.classList.add('text-secondary');
+            }
+
+            modalDetalle.show();
+        });
+    });
+});
+</script>
+{% endblock %}

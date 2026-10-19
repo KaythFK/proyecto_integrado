@@ -121,7 +121,7 @@ def directorio_profesional(request):
     profesionales = Profesional.objects.all().select_related('usuario', 'id_cargo', 'id_delegacion')
     
     if query:
-        profesionales = profesionales.filter(
+        lista_profesionales = lista_profesionales.filter(
             Q(rut__icontains=query) |
             Q(nombres__icontains=query) |
             Q(apellido_paterno__icontains=query) |

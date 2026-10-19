@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Directorio de Profesionales{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:inicio' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white" href="javascript:void(0);">Noticias</a>
+    </li>
+</ul>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Personal</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold" style="color: #8B1D19;">Directorio de Profesionales</h4>
+        <button class="btn text-white fw-bold" style="background-color: #C41230;">
+            + Nuevo Profesional
+        </button>
+    </div>
+
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="GET" action="">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                        placeholder="Buscar por RUT, nombre, apellido o correo..." 
+                        value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                        Buscar
+                    </button>
+                    
+                    {% if query %}
+                        <a href="?" class="btn btn-outline-secondary">
+                            Limpiar
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Nombre Completo</th>
+                    <th scope="col">Correo Corporativo</th>
+                    <th scope="col">Cargo</th>
+                    <th scope="col">Delegación</th>
+                    <th scope="col" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for profesional in profesionales %}
+                <tr>
+                    <th scope="row">{{ profesional.id_profesional }}</th>
+                    <td>{{ profesional.nombres }} {{ profesional.apellido_paterno }} {{ profesional.apellido_materno|default_if_none:"" }}</td>
+                    <td>{{ profesional.correo }}</td>
+                    <td>{{ profesional.id_cargo.nombre|default:"No asignado" }}</td>
+                    <td>{{ profesional.id_delegacion.nombre|default:"No asignada" }}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary">Ver</button>
+                        <button class="btn btn-sm btn-outline-secondary">Editar</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        {% if query %}
+                            No se encontraron profesionales que coincidan con la búsqueda "<b>{{ query }}</b>".
+                        {% else %}
+                            No hay profesionales registrados en el sistema.
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

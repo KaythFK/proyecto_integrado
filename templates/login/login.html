@@ -20,7 +20,7 @@
                         <h5 class="card-title fw-bold">Delegaciones Municipales</h5>
                         <p class="card-text mb-4">Sistema de gestión municipal y control de actividades.</p>
                         
-                        <form method="POST" action="{% url 'login' %}">
+                        <form method="POST" action="{% url 'usuariosApp:login' %}">
                             {% csrf_token %}
                             
                             {% if messages %}

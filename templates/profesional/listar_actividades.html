@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Panel de actividades{% endblock %}
+
+{% block menu_lateral %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white" style="opacity: 0.8;" href="#">Mi perfil</a>
+        </li>
+    </ul>
+
+    <div class="mt-5">
+        <hr class="border-white mx-4" style="opacity: 0.3;">
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item text-center">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="#">
+                    Cerrar sesión
+                </a>
+            </li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Panel de actividades</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h2 class="fw-bold" style="color: #8B1D19;">Actividades</h2>
+            <p class="text-muted">Gestión y registro de actividades diarias.</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'actividadApp:registrar_actividad' %}" class="btn fw-bold text-white shadow-sm" style="background-color: #C41230; border: 1px solid #701714;">
+                + Registrar nueva actividad
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="GET" action="{% url 'actividadApp:listar_actividades' %}">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                           placeholder="Buscar por código, problema o acción..." 
+                           value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                        Buscar
+                    </button>
+                    
+                    {% if query %}
+                        <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary">
+                            Limpiar
+                        </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0">
+                    <thead class="table-dark" style="background-color: #1a202c;">
+                        <tr>
+                            <th>Código</th>
+                            <th>Fecha</th>
+                            <th>Actividad / Problema</th>
+                            <th>Estado Progreso</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for actividad in actividades %}
+                        <tr>
+                            <td class="fw-bold">{{ actividad.codigo_unico }}</td>
+                            <td>{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                {{ actividad.solicitud_problema|truncatechars:50 }}
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if actividad.estado_progreso == 'FINALIZADA' %} bg-success 
+                                    {% elif actividad.estado_progreso == 'EN_PROCESO' %} bg-warning text-dark
+                                    {% else %} bg-secondary {% endif %}">
+                                    {{ actividad.get_estado_progreso_display }}
+                                </span>
+                            </td>
+                            
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-3">
+                                    
+                                    <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary px-3 mt-3" style="border-radius: 6px;">
+                                        Editar
+                                    </a>
+                                    
+                                    <div class="d-flex flex-column align-items-center">
+
+                                        <small class="fw-bold mb-1 {% if actividad.estado %}text-success{% else %}text-danger{% endif %}" style="font-size: 0.75rem;">
+                                            {% if actividad.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                        </small>
+
+                                        <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                            <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                                   style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                                   data-bs-toggle="modal" 
+                                                   data-bs-target="#modalConfirmacion"
+                                                   data-bs-url="{% url 'actividadApp:desactivar_actividad' actividad.codigo_unico %}"
+                                                   data-bs-codigo="{{ actividad.codigo_unico }}"
+                                                   data-bs-accion="{% if actividad.estado %}desactivar{% else %}reactivar{% endif %}"
+                                                   {% if actividad.estado %}checked{% endif %}
+                                                   onchange="this.checked = !this.checked;"> 
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </td>
+
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                {% if query %}
+                                    No se encontraron actividades que coincidan con la búsqueda "<b>{{ query }}</b>".
+                                {% else %}
+                                    No tienes actividades registradas actualmente.
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalConfirmacion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header text-white" id="modalHeaderBg">
+        <h5 class="modal-title fw-bold" id="modalTituloTexto">Confirmar Acción</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <p class="mb-2 text-secondary" id="modalSubtexto">¿Estás seguro de realizar esta acción?</p>
+        <h4 id="modalNombreItem" class="fw-bold text-dark">ACT-000</h4>
+      </div>
+      <div class="modal-footer justify-content-center bg-light">
+        <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
+        <a href="#" class="btn px-4 fw-bold text-white" id="btnConfirmarModal" style="border-radius: 8px;">Sí, continuar</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalConfirmacion = document.getElementById('modalConfirmacion');
+    
+    if (modalConfirmacion) {
+        modalConfirmacion.addEventListener('show.bs.modal', function (event) {
+            const switchBtn = event.relatedTarget;
+            const accion = switchBtn.getAttribute('data-bs-accion');
+            const esDesactivar = accion === 'desactivar';
+
+            document.getElementById('modalNombreItem').textContent = switchBtn.getAttribute('data-bs-codigo');
+            document.getElementById('modalTituloTexto').textContent = esDesactivar ? 'Desactivar Actividad' : 'Reactivar Actividad';
+            document.getElementById('modalSubtexto').textContent = esDesactivar ? '¿Deseas desactivar esta actividad?' : '¿Deseas reactivar esta actividad?';
+            
+            const btnConfirmar = document.getElementById('btnConfirmarModal');
+            btnConfirmar.href = switchBtn.getAttribute('data-bs-url');
+            btnConfirmar.textContent = esDesactivar ? 'Sí, Desactivar' : 'Sí, Reactivar';
+            
+            const colorHeader = esDesactivar ? 'bg-danger' : 'bg-success';
+            const colorBtn = esDesactivar ? 'btn-danger' : 'btn-success';
+            
+            document.getElementById('modalHeaderBg').className = `modal-header text-white ${colorHeader}`;
+            btnConfirmar.className = `btn px-4 fw-bold text-white ${colorBtn}`;
+        });
+    }
+});
+</script>
+{% endblock %}
