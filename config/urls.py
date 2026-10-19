@@ -11,5 +11,5 @@ urlpatterns = [
     path('actividades/', include('actividadApp.urls')),
     path('monitoreo/', include('monitoreoApp.urls')), 
     path('usuarios/', include('usuariosApp.urls')),
-    path('', RedirectView.as_view(pattern_name='login', permanent=False))
+    path('', RedirectView.as_view(pattern_name='usuariosApp:login'), name='raiz'),
 ]
