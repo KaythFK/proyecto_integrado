@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mi Perfil - SGR{% endblock %}
+
+{% block cabecera %}
+<div class="w-100 text-center">
+    <h3 class="text-white fw-bold m-0">Mi Perfil y Seguridad</h3>
+</div>
+{% endblock %}
+
+{% block menu_lateral %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{{ url_retorno }}">Volver al tablero</a>
+        </li>
+    </ul>
+
+    <div class="mt-5">
+        <hr class="border-white mx-4" style="opacity: 0.3;">
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item text-center">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                    Cerrar sesión
+                </a>
+            </li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5 mb-5" style="max-width: 1000px;">
+    <div class="row g-4">
+        
+        <!-- TARJETA DE INFORMACIÓN DEL PROFESIONAL -->
+        <div class="col-md-5">
+            <div class="card shadow border-0 h-100" style="border-radius: 12px; border-top: 5px solid #8B1D19 !important;">
+                <div class="card-body text-center p-4">
+                    
+                    <!-- FOTO DE PERFIL Y FORMULARIO -->
+                    <div class="mb-3">
+                        {% if foto_url %}
+                            <img src="{{ foto_url }}" alt="Mi Foto" class="rounded-circle shadow-sm" style="width: 150px; height: 150px; object-fit: cover; border: 4px solid #1a202c;">
+                        {% else %}
+                            <i class="bi bi-person-circle" style="font-size: 5rem; color: #1a202c;"></i>
+                        {% endif %}
+                    </div>
+                    
+                    <form method="POST" enctype="multipart/form-data" class="mb-4">
+                        {% csrf_token %}
+                        <div class="input-group input-group-sm px-3">
+                            <input type="file" name="nueva_foto" class="form-control" accept="image/*" required>
+                            <button type="submit" class="btn btn-outline-dark fw-bold">Subir</button>
+                        </div>
+                    </form>
+                    <!-- FIN FOTO DE PERFIL -->
+
+                    <h4 class="fw-bold m-0 text-dark">
+                        {{ profesional.nombres|default:request.user.username }} {{ profesional.apellido_paterno|default:'' }}
+                    </h4>
+                    <p class="text-muted mt-1 mb-2">{{ profesional.id_cargo.nombre|default:'Cargo no asignado' }}</p>
+                    
+                    <span class="badge bg-secondary mb-4 p-2">{{ profesional.id_delegacion.nombre|default:'Sin delegación' }}</span>
+                    
+                    <hr class="mb-4">
+                    
+                    <div class="text-start" style="font-size: 0.95rem;">
+                        <p class="mb-2"><strong style="color: #1a202c;">RUT:</strong> <span class="text-muted float-end">{{ profesional.rut|default:'N/A' }}</span></p>
+                        <p class="mb-2"><strong style="color: #1a202c;">Correo:</strong> <span class="text-muted float-end">{{ profesional.correo|default:request.user.email }}</span></p>
+                        <p class="mb-2"><strong style="color: #1a202c;">Rol en Sistema:</strong> 
+                            <span class="text-muted float-end">
+                                {% for grupo in request.user.groups.all %}
+                                    {{ grupo.name }}{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL DE CAMBIO DE CONTRASEÑA -->
+        <div class="col-md-7">
+            <div class="card shadow border-0 h-100" style="border-radius: 12px;">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="fw-bold m-0" style="color: #1a202c;"><i class="bi bi-shield-lock me-2"></i>Seguridad y Acceso</h5>
+                </div>
+                <div class="card-body p-4">
+                    
+                    <div class="alert mb-4" style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 8px;">
+                        <i class="bi bi-info-circle-fill me-2"></i> <strong>Requisitos de contraseña:</strong><br>
+                        <small>Mínimo 8 caracteres, al menos 1 mayúscula y 1 símbolo especial (!@#$%^&*).</small>
+                    </div>
+
+                    <form id="formCambioClave" method="POST" action="">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4 position-relative">
+                            <label class="form-label fw-bold text-dark small">Nueva Contraseña</label>
+                            <input type="password" class="form-control" id="nueva_clave" name="nueva_clave" required style="border-radius: 8px;">
+                            <div class="invalid-feedback fw-bold" id="error_clave"></div>
+                        </div>
+
+                        <div class="mb-5 position-relative">
+                            <label class="form-label fw-bold text-dark small">Repetir Nueva Contraseña</label>
+                            <input type="password" class="form-control" id="confirmar_clave" name="confirmar_clave" required style="border-radius: 8px;">
+                            <div class="invalid-feedback fw-bold">Las contraseñas no coinciden.</div>
+                        </div>
+
+                        <button type="button" id="btnGuardarClave" class="btn text-white w-100 fw-bold py-2 shadow-sm" style="background-color: #8B1D19; border-radius: 8px;">
+                            Actualizar Contraseña
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<!-- Lógica de Validación y SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnGuardar = document.getElementById('btnGuardarClave');
+        const form = document.getElementById('formCambioClave');
+        const inputClave = document.getElementById('nueva_clave');
+        const inputConf = document.getElementById('confirmar_clave');
+        
+        btnGuardar.addEventListener('click', function(e) {
+            const clave = inputClave.value;
+            const conf = inputConf.value;
+            
+            // 1. Resetear estados visuales
+            inputClave.classList.remove('is-invalid');
+            inputConf.classList.remove('is-invalid');
+            
+            // 2. Validaciones estrictas
+            let errores = [];
+            const tieneMayuscula = /[A-Z]/.test(clave);
+            const tieneSimbolo = /[!@#$%^&*(),.?":{}|<>]/.test(clave);
+            
+            if (clave.length < 8) errores.push("mínimo 8 caracteres");
+            if (!tieneMayuscula) errores.push("una mayúscula");
+            if (!tieneSimbolo) errores.push("un símbolo");
+            
+            // Si la clave no cumple, mostramos el error abajo del input
+            if (errores.length > 0) {
+                inputClave.classList.add('is-invalid');
+                document.getElementById('error_clave').innerText = "Le falta: " + errores.join(', ');
+                return;
+            }
+            
+            // Si las claves no son exactamente iguales
+            if (clave !== conf) {
+                inputConf.classList.add('is-invalid');
+                return;
+            }
+
+            // 3. Confirmación con SweetAlert2 si todo está perfecto
+            Swal.fire({
+                title: '¿Confirmar cambio?',
+                text: "Si continúas, la nueva contraseña reemplazará a la temporal inmediatamente.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#8B1D19', // Rojo SGR
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, cambiar contraseña',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

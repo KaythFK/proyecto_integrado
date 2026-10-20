@@ -118,7 +118,15 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Indica a @login_required a qué ruta enviar a los usuarios no autenticados
+LOGIN_URL = 'usuariosApp:login'
+
+# URL por defecto a la que redirigir si no hay un parámetro 'next'
+LOGIN_REDIRECT_URL = 'inicio'

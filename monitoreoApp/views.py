@@ -2,6 +2,11 @@ from django.shortcuts import render
 from actividadApp.models import Actividad
 from django.db.models import Q
 
+from usuariosApp.decorators import role_required
+from django.contrib.auth.decorators import login_required
+
+@login_required
+@role_required('Delegado')
 def dashboard_delegado(request):
     actividades_recientes = Actividad.objects.filter(estado=True).order_by('-fecha')[:5]
     total_actividades = Actividad.objects.filter(estado=True).count()
@@ -18,6 +23,8 @@ def dashboard_delegado(request):
     
     return render(request, 'delegado/dashboard_delegado.html', context)
 
+@login_required
+@role_required('Delegado')
 def actividades_delegacion(request):
     query = request.GET.get('q')
     actividades = Actividad.objects.filter(estado=True).order_by('-fecha')

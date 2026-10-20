@@ -15,15 +15,16 @@
             <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
         </li>
         <li class="nav-item text-center">
-            <a class="nav-link text-white" style="opacity: 0.8;" href="#">Mi perfil</a>
+            <a class="nav-link text-white" style="opacity: 0.8;" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
         </li>
+
     </ul>
 
     <div class="mt-5">
         <hr class="border-white mx-4" style="opacity: 0.3;">
         <ul class="nav flex-column mt-4">
             <li class="nav-item text-center">
-                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="#">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
                     Cerrar sesión
                 </a>
             </li>
@@ -35,7 +36,7 @@
 <div class="w-100 text-center">
     <h3 class="text-white fw-bold m-0">
         Bienvenid{% if profesional_actual.genero == 'F' %}a{% else %}o{% endif %} 
-        {{ profesional_actual.nombre|default:request.user.username }} 
+        {{ profesional_actual.nombres }} {{ profesional_actual.apellido_paterno }}
         a tu panel operativo
     </h3>
 </div>

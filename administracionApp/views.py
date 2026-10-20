@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from django.db.models import Q  # Importante para la barra de búsqueda
-from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo
-from actividadApp.models import Actividad 
-from administracionApp.forms import ProfesionalForm, UsuarioSeguridadForm, DelegacionForm, CargoForm
+from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo
+from actividadApp.models import Actividad
+from administracionApp.forms import ProfesionalForm, UsuarioSeguridadForm, DelegacionForm, CargoForm, VecinoForm
 from actividadApp.forms import ActividadForm
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
@@ -13,14 +13,16 @@ from django.contrib.auth.models import User, Group
 import secrets
 import string
 from django.urls import reverse
-from actividadApp.models import Actividad
+
+
+
 
 def main(request):
     return render(request, 'main.html')
 
-#@role_required('Administrador')
-#@login_required
-def inicio(request):
+@role_required('Administrador')
+@login_required
+def dashboard_admin(request):
     return render(request, 'administrador/dashboard_admin.html')
 
 def generar_clave_segura(longitud=10):
@@ -30,8 +32,8 @@ def generar_clave_segura(longitud=10):
 
 
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def lista_actividades(request):
     query = request.GET.get('q')
     # .all() permite al administrador ver tanto las habilitadas como deshabilitadas
@@ -49,8 +51,8 @@ def lista_actividades(request):
     }
     return render(request, 'administrador/actividades/lista_actividades.html', context)
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def crear_actividad(request):
     if request.method == 'POST':
         # Se incluye request.FILES por si el formulario maneja subida de evidencias
@@ -74,8 +76,8 @@ def crear_actividad(request):
         'titulo': 'Registrar Nueva Actividad'
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def editar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
     
@@ -96,8 +98,8 @@ def editar_actividad(request, id_actividad):
         'titulo': f'Editar Actividad {actividad.codigo_unico}'
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def desactivar_actividad(request, id_actividad):
     if request.method == 'POST':
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
@@ -113,15 +115,17 @@ def desactivar_actividad(request, id_actividad):
     # Cambia 'administracionApp:actividades' según tu configuración de urls.py
     return redirect('administracionApp:actividades')
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def directorio_profesional(request):
     query = request.GET.get('q')
-    # Quitamos el filtro de estado para ver a los inactivos en la lista
+    
+    # Se llama "profesionales"
     profesionales = Profesional.objects.all().select_related('usuario', 'id_cargo', 'id_delegacion')
     
     if query:
-        lista_profesionales = lista_profesionales.filter(
+        # Reemplazamos "lista_profesionales" por "profesionales" para filtrar sobre la misma variable
+        profesionales = profesionales.filter(
             Q(rut__icontains=query) |
             Q(nombres__icontains=query) |
             Q(apellido_paterno__icontains=query) |
@@ -129,12 +133,12 @@ def directorio_profesional(request):
         ).distinct()
         
     return render(request, 'administrador/profesional/lista_profesionales.html', {
-        'profesionales': profesionales,
+        'profesionales': profesionales, # Así el HTML recibe la lista filtrada correctamente
         'query': query
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def crear_profesional(request):
     if request.method == 'POST':
         form_usuario = UsuarioSeguridadForm(request.POST)
@@ -143,10 +147,10 @@ def crear_profesional(request):
         if form_usuario.is_valid() and form_profesional.is_valid():
             try:
                 with transaction.atomic():
-                    email = form_usuario.cleaned_data['email']
+                    # Forzamos el correo a minúsculas y sin espacios
+                    email = form_usuario.cleaned_data['email'].lower().strip()
                     grupo_seleccionado = form_usuario.cleaned_data['rol']
                     
-                    # 1. Crear el User con clave criptográfica compatible con Django 5.2
                     clave_temporal = generar_clave_segura(10)
                     nuevo_usuario = User.objects.create_user(
                         username=email,
@@ -154,20 +158,24 @@ def crear_profesional(request):
                         password=clave_temporal
                     )
                     
-                    # 2. Asignar el rol (Group) seleccionado en el formulario
                     nuevo_usuario.groups.add(grupo_seleccionado)
                     
-                    # 3. Crear y enlazar el Profesional
                     profesional = form_profesional.save(commit=False)
                     profesional.usuario = nuevo_usuario
                     profesional.correo = email
                     profesional.estado = True
                     profesional.save()
                     
+                    # --- NUEVO CÓDIGO PARA LA FOTO ---
+                    foto_archivo = request.FILES.get('foto_perfil')
+                    if foto_archivo:
+                        FotoPerfil.objects.create(usuario=nuevo_usuario, foto=foto_archivo)
+                    # ---------------------------------
+                    
                     messages.success(
                         request, 
                         f'Profesional {profesional.nombres} creado con rol "{grupo_seleccionado.name}". '
-                        f'Usuario: {email} | Clave temporal: {clave_temporal}'
+                        f'Usuario: {email} | Clave temporal: [{clave_temporal}]'
                     )
                     return redirect('administracionApp:directorio_profesional')
             except Exception as e:
@@ -184,8 +192,9 @@ def crear_profesional(request):
         'titulo': 'Registrar Nuevo Profesional'
     })
 
-#@role_required('administrador')
-#@login_required
+
+@role_required('Administrador')
+@login_required
 def editar_profesional(request, id_profesional):
     profesional = get_object_or_404(Profesional, id_profesional=id_profesional)
     usuario_asociado = profesional.usuario
@@ -197,10 +206,9 @@ def editar_profesional(request, id_profesional):
         if form_usuario.is_valid() and form_profesional.is_valid():
             try:
                 with transaction.atomic():
-                    email = form_usuario.cleaned_data['email']
+                    email = form_usuario.cleaned_data['email'].lower().strip()
                     nuevo_grupo = form_usuario.cleaned_data['rol']
                     
-                    # Si el profesional aún no tenía usuario (por registros antiguos), se lo creamos
                     if not usuario_asociado:
                         clave_temporal = generar_clave_segura(10)
                         usuario_asociado = User.objects.create_user(
@@ -214,14 +222,21 @@ def editar_profesional(request, id_profesional):
                         usuario_asociado.email = email
                         usuario_asociado.save()
                     
-                    # Actualizamos sus permisos limpiando el rol anterior y asignando el nuevo
                     usuario_asociado.groups.clear()
                     usuario_asociado.groups.add(nuevo_grupo)
                     
-                    # Guardamos los cambios del perfil laboral
                     prof_actualizado = form_profesional.save(commit=False)
                     prof_actualizado.correo = email
                     prof_actualizado.save()
+                    
+                    # --- NUEVO CÓDIGO PARA LA FOTO ---
+                    foto_archivo = request.FILES.get('foto_perfil')
+                    if foto_archivo:
+                        # get_or_create previene errores si el profesional antiguo no tenía tabla de foto
+                        perfil_foto, creado = FotoPerfil.objects.get_or_create(usuario=usuario_asociado)
+                        perfil_foto.foto = foto_archivo
+                        perfil_foto.save()
+                    # ---------------------------------
                     
                     messages.success(request, f'Datos y permisos de {profesional.nombres} actualizados correctamente.')
                     return redirect('administracionApp:directorio_profesional')
@@ -230,7 +245,6 @@ def editar_profesional(request, id_profesional):
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        # Inicializamos con los datos actuales del profesional y su usuario
         initial_user = {'email': profesional.correo} if not usuario_asociado else None
         form_usuario = UsuarioSeguridadForm(instance=usuario_asociado, initial=initial_user)
         form_profesional = ProfesionalForm(instance=profesional)
@@ -241,8 +255,8 @@ def editar_profesional(request, id_profesional):
         'titulo': 'Editar Profesional y Permisos'
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def cambiar_estado_profesional(request, id_profesional):
     if request.method == 'POST':
         profesional = get_object_or_404(Profesional, id_profesional=id_profesional)
@@ -264,8 +278,8 @@ def cambiar_estado_profesional(request, id_profesional):
     return redirect('administracionApp:directorio_profesional')
 
 ### VIEWS PARA DELEGACIONES ###
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def delegaciones(request):
     query = request.GET.get('q')
     # Traemos todas, incluyendo las inactivas para el switch, y optimizamos la consulta del responsable
@@ -283,8 +297,8 @@ def delegaciones(request):
         'query': query
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def crear_delegacion(request):
     if request.method == 'POST':
         form = DelegacionForm(request.POST)
@@ -307,8 +321,8 @@ def crear_delegacion(request):
         'titulo': 'Registrar Nueva Delegación'
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def editar_delegacion(request, id_delegacion):
     delegacion = get_object_or_404(Delegacion, id_delegacion=id_delegacion)
     
@@ -329,8 +343,8 @@ def editar_delegacion(request, id_delegacion):
         'titulo': 'Editar Delegación'
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def cambiar_estado_delegacion(request, id_delegacion):
     if request.method == 'POST':
         delegacion = get_object_or_404(Delegacion, id_delegacion=id_delegacion)
@@ -347,8 +361,8 @@ def cambiar_estado_delegacion(request, id_delegacion):
 
 # --- CRUD DE CARGOS ---
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def lista_cargos(request):
     query = request.GET.get('q')
     cargos = Cargo.objects.all()
@@ -361,8 +375,8 @@ def lista_cargos(request):
         'query': query
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def crear_cargo(request):
     if request.method == 'POST':
         form = CargoForm(request.POST)
@@ -385,8 +399,8 @@ def crear_cargo(request):
         'titulo': 'Registrar Nuevo Cargo'
     })
 
-#@role_required('administrador')
-#@login_required    
+@role_required('Administrador')
+@login_required    
 def editar_cargo(request, id_cargo):
     cargo = get_object_or_404(Cargo, id_cargo=id_cargo)
     
@@ -407,8 +421,8 @@ def editar_cargo(request, id_cargo):
         'titulo': 'Editar Cargo'
     })
 
-#@role_required('administrador')
-#@login_required
+@role_required('Administrador')
+@login_required
 def cambiar_estado_cargo(request, id_cargo):
     if request.method == 'POST':
         cargo = get_object_or_404(Cargo, id_cargo=id_cargo)
@@ -424,22 +438,10 @@ def cambiar_estado_cargo(request, id_cargo):
     return redirect('administracionApp:lista_cargos')
 
 
-# 1. Vista para cargar la pantalla con las pestañas
-def panel_catalogos(request):
-    # Obtenemos la pestaña activa (por defecto será 'servicio')
-    tab_activa = request.GET.get('tab', 'servicio')
-    
-    context = {
-        'servicios': CatalagoServicio.objects.all(),
-        'roles': CatalogoRoles.objects.all(),
-        'items': CatalagoItem.objects.all(),
-        'areas': CatalagoAreaApoyo.objects.all(),
-        'tab_activa': tab_activa
-    }
-    return render(request, 'administrador/catalogos/panel_catalogos.html', context)
-
 
 # 1. Dibuja la pantalla y las tablas
+@role_required('Administrador')
+@login_required
 def panel_catalogos(request):
     # La URL nos dirá en qué pestaña estábamos (ej: ?tab=item)
     tab_activa = request.GET.get('tab', 'servicio')
@@ -453,6 +455,8 @@ def panel_catalogos(request):
     return render(request, 'administrador/catalogos/panel_catalogos.html', context)
 
 # 2. Recibe los datos del modal oculto y decide a qué tabla enviarlos
+@role_required('Administrador')
+@login_required
 def gestionar_catalogo(request):
     if request.method == 'POST':
         accion = request.POST.get('accion') # 'crear', 'editar' o 'estado'
@@ -510,6 +514,8 @@ from .models import Periodo
 
 # --- CRUD DE PERIODOS ---
 
+@role_required('Administrador')
+@login_required
 def lista_periodos(request):
     query = request.GET.get('q')
     periodos = Periodo.objects.all().order_by('-fecha_inicio')
@@ -522,6 +528,8 @@ def lista_periodos(request):
         'query': query
     })
 
+@role_required('Administrador')
+@login_required
 def crear_periodo(request):
     if request.method == 'POST':
         form = PeriodoForm(request.POST)
@@ -544,6 +552,8 @@ def crear_periodo(request):
         'titulo': 'Registrar Nuevo Periodo'
     })
 
+@role_required('Administrador')
+@login_required
 def editar_periodo(request, id_periodo):
     periodo = get_object_or_404(Periodo, id_periodo=id_periodo)
     
@@ -564,6 +574,8 @@ def editar_periodo(request, id_periodo):
         'titulo': 'Editar Periodo'
     })
 
+@role_required('Administrador')
+@login_required
 def cambiar_estado_periodo(request, id_periodo):
     if request.method == 'POST':
         periodo = get_object_or_404(Periodo, id_periodo=id_periodo)
@@ -579,12 +591,9 @@ def cambiar_estado_periodo(request, id_periodo):
     return redirect('administracionApp:lista_periodos')
 
 
-from django.db.models import Q
-from .models import Vecino
-from administracionApp.forms import VecinoForm # O asegúrate de importarlo donde tengas tus forms
 
-# --- CRUD DE VECINOS ---
-
+@role_required('Administrador')
+@login_required
 def lista_vecinos(request):
     query = request.GET.get('q')
     vecinos = Vecino.objects.all().order_by('nombres')
@@ -602,6 +611,8 @@ def lista_vecinos(request):
         'query': query
     })
 
+@role_required('Administrador')
+@login_required
 def crear_vecino(request):
     if request.method == 'POST':
         form = VecinoForm(request.POST)
@@ -624,6 +635,8 @@ def crear_vecino(request):
         'titulo': 'Registrar Nuevo Vecino'
     })
 
+@role_required('Administrador')
+@login_required
 def editar_vecino(request, id_vecino):
     vecino = get_object_or_404(Vecino, id_vecino=id_vecino)
     
@@ -644,6 +657,8 @@ def editar_vecino(request, id_vecino):
         'titulo': 'Editar Información del Vecino'
     })
 
+@role_required('Administrador')
+@login_required
 def cambiar_estado_vecino(request, id_vecino):
     if request.method == 'POST':
         vecino = get_object_or_404(Vecino, id_vecino=id_vecino)
