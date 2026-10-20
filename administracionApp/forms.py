@@ -69,6 +69,10 @@ class ProfesionalForm(forms.ModelForm):
     # 2. VALIDACIÓN DEL RUT (Módulo 11 y Duplicidad)
     def clean_rut(self):
         rut_sucio = self.cleaned_data.get('rut', '')
+        # Si viene vacío, lo dejamos pasar para que la validación 'required' del formulario haga su trabajo
+        if not rut_sucio:
+            return rut_sucio
+            
         rut_limpio = rut_sucio.replace('.', '').replace('-', '').upper().strip()
         
         if not re.match(r'^\d{7,8}[0-9K]$', rut_limpio):
@@ -77,6 +81,7 @@ class ProfesionalForm(forms.ModelForm):
         cuerpo = rut_limpio[:-1]
         dv_ingresado = rut_limpio[-1]
         
+        # Algoritmo Módulo 11
         suma = 0
         multiplicador = 2
         for d in reversed(cuerpo):
@@ -90,16 +95,20 @@ class ProfesionalForm(forms.ModelForm):
         if dv_ingresado != dv_calculado:
             raise forms.ValidationError("El RUT no es válido (dígito verificador incorrecto).")
             
-        # Validar que no choque con otro profesional al editar
-        qs = Profesional.objects.filter(rut=rut_limpio)
+        # 1. DAR FORMATO OFICIAL: Puntos para miles y guion
+        cuerpo_con_puntos = f"{int(cuerpo):,}".replace(',', '.')
+        rut_oficial = f"{cuerpo_con_puntos}-{dv_ingresado}"
+            
+        # 2. Validar duplicidad
+        qs = Profesional.objects.filter(rut=rut_oficial)
         if self.instance and self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
             
         if qs.exists():
             raise forms.ValidationError("Este RUT ya se encuentra registrado en el sistema.")
             
-        return f"{cuerpo}-{dv_ingresado}"
-
+        # 3. Retornar el RUT oficial para guardarlo en la BD
+        return rut_oficial
 
 class DelegacionForm(forms.ModelForm):
     class Meta:
