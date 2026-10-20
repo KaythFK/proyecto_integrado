@@ -1,8 +1,9 @@
 from django.shortcuts import render
 from django.db.models import Count, Q
-from actividadApp.models import Actividad 
+from actividadApp.models import Actividad
+from usuariosApp.decorators import role_required 
 from .models import Compromiso, ObservacionCompromiso
-
+from django.contrib.auth.decorators import login_required
 def agenda(request):
     compromisos = Compromiso.objects.all()
     observaciones = ObservacionCompromiso.objects.all()
@@ -13,7 +14,8 @@ def agenda(request):
     return render(request, 'administrador/lista_tubo.html', context)
 
 
-#@login_required
+@login_required
+@role_required('Coordinador')
 def dashboard_coordinador(request):
     total_actividades = Actividad.objects.count()
     finalizadas = Actividad.objects.filter(estado_progreso='FINALIZADA').count()
@@ -28,7 +30,8 @@ def dashboard_coordinador(request):
     }
     return render(request, 'coordinador/dashboard_coordinador.html', context)
 
-#@login_required
+@login_required
+@role_required('Coordinador')
 def listar_todas_actividades(request):
     query = request.GET.get('q')
     estado_filtro = request.GET.get('estado')

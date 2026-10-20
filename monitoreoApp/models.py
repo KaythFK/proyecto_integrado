@@ -34,8 +34,8 @@ class Meta(models.Model):
     ponderador = models.DecimalField(max_digits=5, decimal_places=2)
     id_item = models.ForeignKey('administracionApp.CatalagoItem', models.DO_NOTHING, db_column='id_item')
     id_periodo = models.ForeignKey('administracionApp.Periodo', models.DO_NOTHING, db_column='id_periodo')
-    id_cargo = models.ForeignKey('administracionApp.Cargo', models.DO_NOTHING, db_column='id_cargo')
-    id_funcionario = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_funcionario')
+    id_cargo = models.ForeignKey('administracionApp.Cargo', models.DO_NOTHING, db_column='id_cargo', blank=True, null=True)
+    id_funcionario = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_funcionario', blank=True, null=True)
     estado = models.BooleanField(default=True)
 
     def __str__(self):

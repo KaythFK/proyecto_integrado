@@ -2,6 +2,9 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+import os
+from django.utils import timezone
+
 # Create your models here.
 class Profesional(models.Model):
     id_profesional = models.AutoField(primary_key=True)
@@ -162,3 +165,16 @@ class CatalagoAreaApoyo(models.Model):
     class Meta:
         db_table = 'catalago_area_apoyo'
         verbose_name_plural = 'Catalogo Area Apoyo'
+
+
+def generarNombreFoto(instance, filename):
+    extension = os.path.splitext(filename)[1][1:]
+    ruta = 'fotos_perfil'
+    fecha = timezone.now().strftime("%d%m%Y_%H%M%S")
+    return os.path.join(ruta, f"{fecha}.{extension}")
+
+# Creamos una tablita exclusiva para las fotos de todos los usuarios
+class FotoPerfil(models.Model):
+    # El OneToOneField es como una llave foránea estricta: un usuario = una foto
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='foto_perfil')
+    foto = models.ImageField(upload_to=generarNombreFoto, null=True, default='fotos_perfil/default.png')

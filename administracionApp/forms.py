@@ -1,11 +1,15 @@
+import re
 from django import forms
 from django.contrib.auth.models import User, Group
 from .models import Profesional, Delegacion, Cargo, Periodo, Vecino
 
 class UsuarioSeguridadForm(forms.ModelForm):
-    # Sobrescribimos el campo nativo 'groups' de User para elegir 1 rol en un Select
+    # 1. LISTA ESTRICTA DE ROLES: Solo estos aparecerán en el sistema.
+    ROLES_OFICIALES = ['Administrador', 'Profesional', 'Coordinador', 'Delegado']
+
     rol = forms.ModelChoiceField(
-        queryset=Group.objects.all(),
+        # Filtramos la consulta para ignorar roles antiguos o basura
+        queryset=Group.objects.filter(name__in=ROLES_OFICIALES).order_by('name'),
         empty_label="Seleccione un rol en el sistema...",
         label="Rol / Nivel de Permisos",
         widget=forms.Select(attrs={'class': 'form-select', 'required': True})
@@ -27,14 +31,12 @@ class UsuarioSeguridadForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Asegura que los roles base existan automáticamente sin usar /admin
-        roles_sistema = ['Administrador', 'Funcionario', 'Supervisor']
-        for nombre_rol in roles_sistema:
+        # Nos aseguramos de que solo se creen los roles oficiales si es que no existen
+        for nombre_rol in self.ROLES_OFICIALES:
             Group.objects.get_or_create(name=nombre_rol)
         
-        self.fields['rol'].queryset = Group.objects.all().order_by('name')
+        self.fields['rol'].queryset = Group.objects.filter(name__in=self.ROLES_OFICIALES).order_by('name')
 
-        # Si estamos editando un usuario existente, pre-seleccionamos su rol actual
         if self.instance and self.instance.pk:
             grupo_actual = self.instance.groups.first()
             if grupo_actual:
@@ -64,16 +66,50 @@ class ProfesionalForm(forms.ModelForm):
             'id_delegacion': forms.Select(attrs={'class': 'form-select'}),
         }
 
+    # 2. VALIDACIÓN DEL RUT (Módulo 11 y Duplicidad)
+    def clean_rut(self):
+        rut_sucio = self.cleaned_data.get('rut', '')
+        rut_limpio = rut_sucio.replace('.', '').replace('-', '').upper().strip()
+        
+        if not re.match(r'^\d{7,8}[0-9K]$', rut_limpio):
+            raise forms.ValidationError("Formato inválido. Ingresa un RUT válido.")
+        
+        cuerpo = rut_limpio[:-1]
+        dv_ingresado = rut_limpio[-1]
+        
+        suma = 0
+        multiplicador = 2
+        for d in reversed(cuerpo):
+            suma += int(d) * multiplicador
+            multiplicador = multiplicador + 1 if multiplicador < 7 else 2
+            
+        dv_calculado = str(11 - (suma % 11))
+        if dv_calculado == '11': dv_calculado = '0'
+        if dv_calculado == '10': dv_calculado = 'K'
+        
+        if dv_ingresado != dv_calculado:
+            raise forms.ValidationError("El RUT no es válido (dígito verificador incorrecto).")
+            
+        # Validar que no choque con otro profesional al editar
+        qs = Profesional.objects.filter(rut=rut_limpio)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+            
+        if qs.exists():
+            raise forms.ValidationError("Este RUT ya se encuentra registrado en el sistema.")
+            
+        return f"{cuerpo}-{dv_ingresado}"
+
+
 class DelegacionForm(forms.ModelForm):
     class Meta:
         model = Delegacion
         exclude = ['estado']
         widgets = {
-            # Agregamos validaciones Frontend: minlength y patrones
             'nombre': forms.TextInput(attrs={
                 'class': 'form-control', 
                 'placeholder': 'Ej: Delegación Centro',
-                'minlength': '4'  # No permite guardar "A", "AB"
+                'minlength': '4'
             }),
             'territorio': forms.TextInput(attrs={
                 'class': 'form-control', 
@@ -83,7 +119,6 @@ class DelegacionForm(forms.ModelForm):
                 'class': 'form-control', 
                 'placeholder': 'Ej: Arturo Prat'
             }),
-            # Agregamos validación Frontend: min="1"
             'numero_calle': forms.NumberInput(attrs={
                 'class': 'form-control', 
                 'placeholder': 'Ej: 451',
@@ -92,25 +127,17 @@ class DelegacionForm(forms.ModelForm):
             'responsable': forms.Select(attrs={'class': 'form-select'}),
         }
 
-    # Validación Backend 1: Evitar nombres duplicados (ignorando mayúsculas/minúsculas)
     def clean_nombre(self):
         nombre = self.cleaned_data.get('nombre')
-        # Buscamos si existe otra delegación con el mismo nombre (iexact ignora mayúsculas)
         qs = Delegacion.objects.filter(nombre__iexact=nombre)
-        
-        # Si estamos editando, excluimos la delegación actual de la búsqueda
         if self.instance and self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
-            
         if qs.exists():
             raise forms.ValidationError("Ya existe una delegación registrada con este nombre.")
-            
         return nombre
 
-    # Validación Backend 2: Asegurar que el número de calle sea lógico
     def clean_numero_calle(self):
         numero = self.cleaned_data.get('numero_calle')
-        # Validamos que no metan números negativos o cero
         if numero is not None and numero <= 0:
             raise forms.ValidationError("El número de la dirección debe ser mayor a cero.")
         return numero
@@ -119,7 +146,7 @@ class DelegacionForm(forms.ModelForm):
 class CargoForm(forms.ModelForm):
     class Meta:
         model = Cargo
-        exclude = ['estado'] # El estado lo maneja el switch
+        exclude = ['estado']
         widgets = {
             'nombre': forms.TextInput(attrs={
                 'class': 'form-control', 
@@ -133,7 +160,6 @@ class CargoForm(forms.ModelForm):
             }),
         }
 
-    # Validación 1: Evitar cargos con el mismo nombre
     def clean_nombre(self):
         nombre = self.cleaned_data.get('nombre')
         qs = Cargo.objects.filter(nombre__iexact=nombre)
@@ -143,7 +169,6 @@ class CargoForm(forms.ModelForm):
             raise forms.ValidationError("Ya existe un cargo registrado con este nombre.")
         return nombre
 
-    # Validación 2: Vigencia lógica
     def clean_vigencia(self):
         vigencia = self.cleaned_data.get('vigencia')
         if vigencia is not None and vigencia <= 0:
@@ -181,18 +206,15 @@ class PeriodoForm(forms.ModelForm):
         umbral_regular = cleaned_data.get('umbral_regular')
         umbral_exelencia = cleaned_data.get('umbral_exelencia')
 
-        # Validación 1: Fechas lógicas
         if fecha_inicio and fecha_termino:
             if fecha_termino <= fecha_inicio:
                 self.add_error('fecha_termino', "La fecha de término debe ser posterior a la fecha de inicio.")
 
-        # Validación 2: Umbrales lógicos
         if umbral_regular is not None and umbral_exelencia is not None:
             if umbral_regular >= umbral_exelencia:
                 self.add_error('umbral_exelencia', "El umbral de excelencia debe ser mayor al umbral regular.")
 
         return cleaned_data
-
 
 
 class VecinoForm(forms.ModelForm):
