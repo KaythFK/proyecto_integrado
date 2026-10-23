@@ -6,13 +6,19 @@ from django.contrib.auth.decorators import login_required
 from administracionApp.models import Profesional
 import re
 from django.urls import reverse
+from django.contrib.auth.models import User
+from administracionApp.models import Profesional, FotoPerfil 
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+import re
 
 def login_view(request):
-    # 1. Si ya tiene sesión activa, lo redirigimos
+    
     if request.user.is_authenticated:
         return redirect('administracionApp:dashboard_admin') 
 
-    # 2. Si el usuario intenta iniciar sesión
+
     if request.method == 'POST':
         usuario = request.POST.get('username')
         contrasena = request.POST.get('password')
@@ -22,47 +28,40 @@ def login_view(request):
             return render(request, 'login/login.html')
 
         user = authenticate(request, username=usuario, password=contrasena)
-
+        
         if user is not None:
-            if user.is_active:
-                login(request, user)
-                
-                # Leemos los roles del usuario directamente de sus Grupos en Django
-                roles = [grupo.name.upper() for grupo in user.groups.all()]
-                
-                # Evaluamos hacia dónde redirigir según el ROL o si es superusuario
-                if user.is_superuser or any('ADMINISTRADOR' in rol for rol in roles):
-                    return redirect('administracionApp:dashboard_admin') 
-                    
-                elif any('DELEGADO' in rol for rol in roles):
-                    return redirect('monitoreoApp:dashboard_delegado')
-                    
-                elif any('COORDINADOR' in rol for rol in roles):
-                    return redirect('tuboApp:dashboard_coordinador')
-                
-                elif any('PROFESIONAL' in rol for rol in roles):
-                    return redirect('actividadApp:dashboard_profesional')
-                    
-                else:
-                    return redirect('lista_actividades') 
-            else:
-                messages.error(request, 'Esta cuenta se encuentra desactivada por auditoría.')
-        else:
-            messages.error(request, 'Usuario o contraseña incorrectos.')
+            login(request, user)
             
-    # 3. LA LÍNEA CLAVE: Si entra por primera vez (GET), le mostramos el formulario
+            roles = [grupo.name.upper() for grupo in user.groups.all()]
+            
+            if user.is_superuser or any('ADMINISTRADOR' in rol for rol in roles):
+                return redirect('administracionApp:dashboard_admin')  
+            elif any('DELEGADO' in rol for rol in roles):
+                return redirect('monitoreoApp:dashboard_delegado')  
+            elif any('COORDINADOR' in rol for rol in roles):
+                return redirect('tuboApp:dashboard_coordinador')
+            elif any('PROFESIONAL' in rol for rol in roles):
+                return redirect('actividadApp:dashboard_profesional')
+            else:
+                return redirect('lista_actividades') 
+                
+        else:
+            try:
+                usuario_db = User.objects.get(username=usuario)
+                
+                if not usuario_db.is_active and usuario_db.check_password(contrasena):
+                    messages.error(request, 'Esta cuenta se encuentra desactivada por auditoría.')
+                else:
+                    messages.error(request, 'Usuario o contraseña incorrectos.')
+                    
+            except User.DoesNotExist:
+                messages.error(request, 'Usuario o contraseña incorrectos.')
+                
     return render(request, 'login/login.html')
 
 def logout_view(request):
     logout(request)
     return redirect('usuariosApp:login')
-
-
-from administracionApp.models import Profesional, FotoPerfil # <-- Importamos la nueva tabla
-from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-import re
 
 
 @login_required
