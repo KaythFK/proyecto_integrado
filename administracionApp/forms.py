@@ -160,7 +160,8 @@ class CargoForm(forms.ModelForm):
             'nombre': forms.TextInput(attrs={
                 'class': 'form-control', 
                 'placeholder': 'Ej: Supervisor de Obras',
-                'minlength': '3'
+                'minlength': '3',
+                'required': True  # <-- 1. Bloqueo en el navegador HTML
             }),
             'vigencia': forms.NumberInput(attrs={
                 'class': 'form-control', 
@@ -171,6 +172,11 @@ class CargoForm(forms.ModelForm):
 
     def clean_nombre(self):
         nombre = self.cleaned_data.get('nombre')
+        
+        # <-- 2. Bloqueo estricto en el servidor
+        if not nombre or nombre.strip() == '':
+            raise forms.ValidationError("El nombre del cargo es obligatorio y no puede estar vacío.")
+            
         qs = Cargo.objects.filter(nombre__iexact=nombre)
         if self.instance and self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
@@ -183,7 +189,6 @@ class CargoForm(forms.ModelForm):
         if vigencia is not None and vigencia <= 0:
             raise forms.ValidationError("La vigencia (en meses) debe ser mayor a cero.")
         return vigencia
-
 
 class PeriodoForm(forms.ModelForm):
     class Meta:
@@ -256,3 +261,4 @@ class VecinoForm(forms.ModelForm):
         if qs.exists():
             raise forms.ValidationError("Este correo ya está en uso por otro vecino.")
         return correo
+
