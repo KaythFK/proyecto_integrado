@@ -175,6 +175,8 @@ def generarNombreFoto(instance, filename):
 
 # Creamos una tablita exclusiva para las fotos de todos los usuarios
 class FotoPerfil(models.Model):
-    # El OneToOneField es como una llave foránea estricta: un usuario = una foto
     usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='foto_perfil')
     foto = models.ImageField(upload_to=generarNombreFoto, null=True, default='fotos_perfil/default.png')
+
+    class Meta:
+        db_table = 'administracionapp_fotoperfil'
