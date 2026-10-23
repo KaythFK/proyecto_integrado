@@ -459,12 +459,11 @@ def panel_catalogos(request):
 @login_required
 def gestionar_catalogo(request):
     if request.method == 'POST':
-        accion = request.POST.get('accion') # 'crear', 'editar' o 'estado'
-        tipo = request.POST.get('tipo')     # 'servicio', 'item' o 'area'
-        id_obj = request.POST.get('id_obj') # ID del registro
-        nombre = request.POST.get('nombre') # Lo que el usuario escribió
+        accion = request.POST.get('accion')
+        tipo = request.POST.get('tipo')
+        id_obj = request.POST.get('id_obj')
+        nombre = request.POST.get('nombre')
         
-        # El cerebro de la operación: vincula el texto con el Modelo real
         modelos = {
             'servicio': CatalagoServicio,
             'item': CatalagoItem,
@@ -480,7 +479,14 @@ def gestionar_catalogo(request):
                         if ModeloActivo.objects.filter(nombre__iexact=nombre).exists():
                             messages.error(request, f'Error: Ya existe un registro llamado "{nombre}".')
                         else:
-                            ModeloActivo.objects.create(nombre=nombre, estado=True)
+                            # 1. Se instancia sin guardar
+                            nuevo_registro = ModeloActivo(nombre=nombre, estado=True)
+                            
+                            # 2. SE APLICA EL ARREGLO: full_clean() lee el max_length real de tu modelo y limpia el dato
+                            nuevo_registro.full_clean() 
+                            
+                            # 3. Se guarda de forma segura
+                            nuevo_registro.save()
                             messages.success(request, 'Registro creado con éxito.')
 
                     elif accion == 'editar':
@@ -489,6 +495,8 @@ def gestionar_catalogo(request):
                             messages.error(request, f'Error: No puedes renombrarlo a "{nombre}" porque ya existe otro igual.')
                         else:
                             obj.nombre = nombre
+                            # SE APLICA EL ARREGLO TAMBIÉN EN LA EDICIÓN
+                            obj.full_clean() 
                             obj.save()
                             messages.success(request, 'Registro actualizado correctamente.')
 
@@ -500,9 +508,10 @@ def gestionar_catalogo(request):
                         messages.success(request, f'El registro fue {txt}.')
 
             except Exception as e:
-                messages.error(request, f'Error del sistema: {str(e)}')
+                # Si full_clean() detecta que el nombre es muy largo, arroja el error aquí pacíficamente
+                messages.error(request, f'Error de validación: {str(e)}')
                 
-        # Redirigimos a la pantalla principal, pero recargando la pestaña correcta
+        # Retornos correctos para evitar el error "None"
         base_url = reverse('administracionApp:panel_catalogos')
         return redirect(f"{base_url}?tab={tipo}")
         
@@ -672,3 +681,4 @@ def cambiar_estado_vecino(request, id_vecino):
         messages.success(request, f'El registro de "{vecino.nombres} {vecino.apellido_paterno}" fue {accion}.')
         
     return redirect('administracionApp:lista_vecinos')
+
