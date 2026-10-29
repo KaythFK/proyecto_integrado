@@ -9,6 +9,16 @@
         <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
     </li>
 </ul>
+<div class="mt-5">
+    <hr class="border-white mx-4" style="opacity: 0.3;">
+    <ul class="nav flex-column mt-4">
+        <li class="nav-item text-center">
+            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                Cerrar sesión
+            </a>
+        </li>
+    </ul>
+</div>
 {% endblock %}
 
 {% block cabecera %}
