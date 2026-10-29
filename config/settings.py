@@ -130,3 +130,9 @@ LOGIN_URL = 'usuariosApp:login'
 
 # URL por defecto a la que redirigir si no hay un parámetro 'next'
 LOGIN_REDIRECT_URL = 'inicio'
+
+
+PASSWORD_RESET_TIMEOUT = 60 * 5
+
+
+PHPMAILER_SCRIPT = os.getenv('PHPMAILER_SCRIPT', '')

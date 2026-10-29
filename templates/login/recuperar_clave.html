@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperar Contraseña - Portal Municipal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="d-flex align-items-center min-vh-100" style="background-color: #ffffff;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-4">
+
+                <div class="card text-center shadow-lg" style="background-color: #8B1D19; border: 3px solid black; color: white;">
+                    <img src="{% static 'images/logo_blanco.png' %}" class="card-img-top p-4" alt="Logo">
+
+                    <div class="card-body mb-2">
+                        <h5 class="card-title fw-bold">Recuperar Contraseña</h5>
+
+                        {% if enviado %}
+                            <div class="alert alert-success text-dark text-start" role="alert">
+                                <small>
+                                    Si el correo está registrado, recibirás un enlace para restablecer tu contraseña.
+                                    Revisa también la carpeta de spam.
+                                </small>
+                            </div>
+                        {% else %}
+                            <p class="card-text mb-4">Ingresa el correo de tu cuenta y te enviaremos un enlace para crear una nueva contraseña.</p>
+
+                            <form method="POST" action="{% url 'usuariosApp:recuperar_clave' %}">
+                                {% csrf_token %}
+
+                                {% for message in messages %}
+                                    <div class="alert alert-warning py-2 px-2 mb-3 text-dark text-start" role="alert">
+                                        <small>{{ message }}</small>
+                                    </div>
+                                {% endfor %}
+
+                                <div class="mb-4 text-start">
+                                    <label for="{{ form.correo.id_for_label }}" class="form-label small fw-bold">{{ form.correo.label }}</label>
+                                    {{ form.correo }}
+                                    {% for error in form.correo.errors %}
+                                        <small class="text-warning">{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+
+                                <button type="submit" class="btn btn-dark w-100 fw-bold" style="border: 1px solid white;">Enviar enlace</button>
+                            </form>
+                        {% endif %}
+
+                        <a href="{% url 'usuariosApp:login' %}" class="d-block mt-3 small text-white">Volver al inicio de sesión</a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</body>
+</html>
