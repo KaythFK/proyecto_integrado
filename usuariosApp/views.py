@@ -12,6 +12,14 @@ from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 import re
+import os
+from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
+from django.db.models import Q
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from .correo import enviar_correo
+from .forms import RecuperarClaveForm, RestablecerClaveForm
 
 def login_view(request):
     
@@ -119,3 +127,63 @@ def mi_perfil(request):
         'foto_url': foto_url,
         'url_retorno': url_retorno  
     })
+
+# ==========================================
+# RECUPERACIÓN DE CONTRASEÑA (TOKEN + PHPMAILER)
+# ==========================================
+
+def recuperar_clave(request):
+    enviado = False
+
+    if request.method == 'POST':
+        form = RecuperarClaveForm(request.POST)
+        if form.is_valid():
+            correo = form.cleaned_data['correo']
+            usuario = User.objects.filter(
+                Q(email__iexact=correo) | Q(username__iexact=correo), is_active=True
+            ).first()
+
+            # Si el correo no existe mostramos el mismo mensaje, para no revelar qué cuentas existen
+            if usuario is not None:
+                uidb64 = urlsafe_base64_encode(force_bytes(usuario.pk))
+                token = default_token_generator.make_token(usuario)
+                ruta = reverse('usuariosApp:restablecer_clave', args=[uidb64, token])
+
+                # SITIO_URL permite fijar el dominio/IP pública de AWS si el servidor está detrás de un proxy
+                sitio_url = os.getenv('SITIO_URL')
+                enlace = sitio_url.rstrip('/') + ruta if sitio_url else request.build_absolute_uri(ruta)
+
+                if not enviar_correo(usuario.email or usuario.username, enlace):
+                    messages.error(request, 'No se pudo enviar el correo. Intenta nuevamente más tarde.')
+                    return render(request, 'login/recuperar_clave.html', {'form': form, 'enviado': False})
+
+            enviado = True
+    else:
+        form = RecuperarClaveForm()
+
+    return render(request, 'login/recuperar_clave.html', {'form': form, 'enviado': enviado})
+
+
+def restablecer_clave(request, uidb64, token):
+    # 1. Recuperar el usuario a partir del identificador del enlace
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        usuario = User.objects.get(pk=uid, is_active=True)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        usuario = None
+
+    # 2. Validar el token (expira y deja de servir apenas se cambia la contraseña)
+    if usuario is None or not default_token_generator.check_token(usuario, token):
+        return render(request, 'login/restablecer_clave.html', {'token_valido': False})
+
+    # 3. Establecer la nueva contraseña
+    if request.method == 'POST':
+        form = RestablecerClaveForm(usuario, request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Tu contraseña fue restablecida con éxito. Ya puedes iniciar sesión.')
+            return redirect('usuariosApp:login')
+    else:
+        form = RestablecerClaveForm(usuario)
+
+    return render(request, 'login/restablecer_clave.html', {'token_valido': True, 'form': form})
