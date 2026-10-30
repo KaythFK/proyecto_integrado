@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">Gestión Ciudadana</h3>
+<h3 class="text-white fw-bold m-0 text-center">Gestión Ciudadana</h3>
 {% endblock %}
 
 {% block contenido %}
@@ -53,8 +53,8 @@
                     Datos Personales
                 </h5>
                 <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
-                    
-                    <div class="col-md-4 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-4 en PC -->
+                    <div class="col-12 col-md-4 mb-3">
                         <label class="form-label fw-bold text-dark">RUT *</label>
                         {{ form.rut }}
                         {% for error in form.rut.errors %}
@@ -62,7 +62,8 @@
                         {% endfor %}
                     </div>
                     
-                    <div class="col-md-8 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-8 en PC -->
+                    <div class="col-12 col-md-8 mb-3">
                         <label class="form-label fw-bold text-dark">Nombres *</label>
                         {{ form.nombres }}
                         {% for error in form.nombres.errors %}
@@ -70,7 +71,8 @@
                         {% endfor %}
                     </div>
 
-                    <div class="col-md-6 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-6 en PC -->
+                    <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Apellido Paterno *</label>
                         {{ form.apellido_paterno }}
                         {% for error in form.apellido_paterno.errors %}
@@ -78,7 +80,8 @@
                         {% endfor %}
                     </div>
                     
-                    <div class="col-md-6 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-6 en PC -->
+                    <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Apellido Materno</label>
                         {{ form.apellido_materno }}
                         {% for error in form.apellido_materno.errors %}
@@ -91,7 +94,8 @@
                     Información de Contacto
                 </h5>
                 <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
-                    <div class="col-md-6 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-6 en PC -->
+                    <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Correo Electrónico *</label>
                         {{ form.correo }}
                         {% for error in form.correo.errors %}
@@ -99,7 +103,8 @@
                         {% endfor %}
                     </div>
                     
-                    <div class="col-md-6 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-6 en PC -->
+                    <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Teléfono</label>
                         {{ form.telefono }}
                         {% for error in form.telefono.errors %}
@@ -108,11 +113,12 @@
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-end gap-3 mt-4">
-                    <a href="{% url 'administracionApp:lista_vecinos' %}" class="btn btn-secondary px-4 py-2 fw-bold">
+                <!-- Ajuste responsivo: botones a 100% de ancho en celulares y alineados a la derecha en PC -->
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
+                    <a href="{% url 'administracionApp:lista_vecinos' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold" style="background-color: #C41230;">
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto" style="background-color: #C41230;">
                         Guardar Vecino
                     </button>
                 </div>

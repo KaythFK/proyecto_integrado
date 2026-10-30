@@ -31,17 +31,18 @@
 {% block contenido %}
 <div class="container mt-5">
 
-    <!-- Encabezado y botón nuevo -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold" style="color: #8B1D19;">Listado de Actividades</h4>
-        <a href="{% url 'administracionApp:crear_actividad' %}" class="btn text-white fw-bold" style="background-color: #C41230;">
+    <!-- Cambio: d-flex flex-column flex-md-row evita que el botón choque con el título en móviles -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <h4 class="fw-bold m-0" style="color: #8B1D19;">Listado de Actividades</h4>
+        <a href="{% url 'administracionApp:crear_actividad' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center" style="background-color: #C41230;">
             + Nueva Actividad
         </a>
     </div>
 
     <!-- Barra de Búsqueda -->
     <div class="row mb-4">
-        <div class="col-md-8">
+        <!-- Cambio: col-12 para ocupar el ancho total en móviles -->
+        <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
@@ -108,15 +109,16 @@
                     </td>
                     
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#modalEvi{{ actividad.id_actividad }}">
+                        <button type="button" class="btn btn-sm btn-info text-white text-nowrap" data-bs-toggle="modal" data-bs-target="#modalEvi{{ actividad.id_actividad }}">
                             Ver Evidencias
                         </button>
                     </td>
                     
                     <td class="text-center">
-                        <div class="d-flex justify-content-center align-items-center gap-3">
+                        <!-- Se cambia flex-wrap por flex-nowrap, y se quita el mt-md-4 que desalineaba el botón -->
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             
-                            <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
+                            <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary px-3" style="border-radius: 6px;">
                             Modificar
                             </a>
                             
@@ -127,9 +129,9 @@
 
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                     <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
-                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
-                                           {% if actividad.estado %}checked{% endif %}
-                                           onclick="confirmarCambio(event, '{{ actividad.id_actividad }}', '{{ actividad.codigo_unico }}', '{{ actividad.estado }}')">
+                                        style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                        {% if actividad.estado %}checked{% endif %}
+                                        onclick="confirmarCambio(event, '{{ actividad.id_actividad }}', '{{ actividad.codigo_unico }}', '{{ actividad.estado }}')">
                                 </div>
                             </div>
                             
@@ -176,11 +178,12 @@
                                     {% for evidencia in evidencias %}
                                         {% if evidencia.id_actividad.id_actividad == actividad.id_actividad %}
                                             <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 border rounded">
-                                                <div class="d-flex w-100 justify-content-between">
+                                                <div class="d-flex flex-column flex-sm-row w-100 justify-content-between">
                                                     <h6 class="mb-1 fw-bold text-secondary">
-                                                        Archivo: <a href="{{ evidencia.archivo_vinculo }}" target="_blank" class="text-primary">{{ evidencia.archivo_vinculo }}</a>
+                                                        <!-- Cambio: text-break para evitar que los enlaces largos rompan el modal en móviles -->
+                                                        Archivo: <a href="{{ evidencia.archivo_vinculo }}" target="_blank" class="text-primary text-break">{{ evidencia.archivo_vinculo }}</a>
                                                     </h6>
-                                                    <small class="text-muted">{{ evidencia.fecha|date:"d/m/Y H:i" }}</small>
+                                                    <small class="text-muted mt-2 mt-sm-0">{{ evidencia.fecha|date:"d/m/Y H:i" }}</small>
                                                 </div>
                                                 <div class="d-flex w-100 justify-content-between mt-2">
                                                     <span class="badge bg-dark">{{ evidencia.estado_revision }}</span>
@@ -214,11 +217,7 @@
 
 </div>
 
-<!-- ========================================== -->
-<!-- MODAL Y SCRIPT DE ESTADO -->
-<!-- ========================================== -->
-
-<!-- Modal -->
+<!-- Modal Estado (Sin cambios mayores, ya era responsivo) -->
 <div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -228,9 +227,9 @@
             </div>
             <div class="modal-body p-4 text-center">
                 <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
-                <strong class="fs-4 text-dark" id="modalNombre"></strong>
+                <strong class="fs-4 text-dark text-break" id="modalNombre"></strong>
             </div>
-            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4 flex-wrap">
                 <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
                 <form id="formCambiarEstado" method="POST" action="">
                     {% csrf_token %}

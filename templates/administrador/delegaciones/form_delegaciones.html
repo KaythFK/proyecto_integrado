@@ -53,14 +53,15 @@
                     Información General de la Delegación
                 </h5>
                 <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
-                    <div class="col-md-6 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-6 en PC -->
+                    <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Nombre de la Delegación *</label>
                         {{ form.nombre }}
                         {% for error in form.nombre.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
-                    <div class="col-md-6 mb-3">
+                    <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Territorio Asignado *</label>
                         {{ form.territorio }}
                         {% for error in form.territorio.errors %}
@@ -70,14 +71,15 @@
                     
                     <div class="col-12"><hr class="text-muted mb-4 mt-2"></div>
                     
-                    <div class="col-md-8 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-8 y col-md-4 en PC -->
+                    <div class="col-12 col-md-8 mb-3">
                         <label class="form-label fw-bold text-dark">Dirección (Calle)</label>
                         {{ form.calle }}
                         {% for error in form.calle.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-12 col-md-4 mb-3">
                         <label class="form-label fw-bold text-dark">Número</label>
                         {{ form.numero_calle }}
                         {% for error in form.numero_calle.errors %}
@@ -87,7 +89,8 @@
                     
                     <div class="col-12"><hr class="text-muted mb-4 mt-2"></div>
 
-                    <div class="col-md-12 mb-3">
+                    <!-- Ajuste responsivo: col-12 -->
+                    <div class="col-12 mb-3">
                         <label class="form-label fw-bold text-dark">Profesional Responsable (Opcional)</label>
                         {{ form.responsable }}
                         {% for error in form.responsable.errors %}
@@ -96,11 +99,12 @@
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-end gap-3 mt-4">
-                    <a href="{% url 'administracionApp:delegaciones' %}" class="btn btn-secondary px-4 py-2 fw-bold">
+                <!-- Ajuste responsivo: d-grid d-sm-flex para apilar en móviles y alinear en PC -->
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
+                    <a href="{% url 'administracionApp:delegaciones' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold" style="background-color: #C41230;">
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto" style="background-color: #C41230;">
                         Guardar Delegación
                     </button>
                 </div>

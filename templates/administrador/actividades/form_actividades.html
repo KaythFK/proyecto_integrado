@@ -49,7 +49,6 @@
                 {% endfor %}
             {% endif %}
 
-            <!-- enctype agregado por si hay subida de archivos/evidencias -->
             <form method="POST" enctype="multipart/form-data" novalidate>
                 {% csrf_token %}
                 
@@ -59,7 +58,7 @@
                 
                 <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
                     {% for field in form %}
-                        <div class="col-md-12 mb-3">
+                        <div class="col-12 mb-3">
                             <label class="form-label fw-bold text-dark">
                                 {{ field.label }} {% if field.field.required %}*{% endif %}
                             </label>
@@ -76,12 +75,13 @@
                         </div>
                     {% endfor %}
                 </div>
-
-                <div class="d-flex justify-content-end gap-3 mt-4">
-                    <a href="{% url 'administracionApp:admin-actividades' %}" class="btn btn-secondary px-4 py-2 fw-bold">
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
+                    <a href="{% url 'administracionApp:admin-actividades' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold" style="background-color: #C41230;">
+                    
+                    <!-- Único botón de Guardar -->
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto" style="background-color: #C41230;">
                         Guardar Actividad
                     </button>
                 </div>

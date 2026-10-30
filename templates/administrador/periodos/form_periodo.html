@@ -54,7 +54,8 @@
                 </h5>
                 <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
                     
-                    <div class="col-md-8 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-8 en PC -->
+                    <div class="col-12 col-md-8 mb-3">
                         <label class="form-label fw-bold text-dark">Nombre del Periodo *</label>
                         {{ form.nombre }}
                         {% for error in form.nombre.errors %}
@@ -62,7 +63,8 @@
                         {% endfor %}
                     </div>
                     
-                    <div class="col-md-4 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-4 en PC -->
+                    <div class="col-12 col-md-4 mb-3">
                         <label class="form-label fw-bold text-dark">Versión de Parámetros *</label>
                         {{ form.version_parametros }}
                         {% for error in form.version_parametros.errors %}
@@ -72,7 +74,8 @@
 
                     <div class="col-12"><hr class="text-muted my-2"></div>
 
-                    <div class="col-md-4 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-4 en PC -->
+                    <div class="col-12 col-md-4 mb-3">
                         <label class="form-label fw-bold text-dark">Fecha de Inicio *</label>
                         {{ form.fecha_inicio }}
                         {% for error in form.fecha_inicio.errors %}
@@ -80,7 +83,8 @@
                         {% endfor %}
                     </div>
                     
-                    <div class="col-md-4 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-4 en PC -->
+                    <div class="col-12 col-md-4 mb-3">
                         <label class="form-label fw-bold text-dark">Fecha de Término *</label>
                         {{ form.fecha_termino }}
                         {% for error in form.fecha_termino.errors %}
@@ -88,7 +92,8 @@
                         {% endfor %}
                     </div>
 
-                    <div class="col-md-4 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-4 en PC -->
+                    <div class="col-12 col-md-4 mb-3">
                         <label class="form-label fw-bold text-dark">Días Computables *</label>
                         {{ form.dias_computables }}
                         {% for error in form.dias_computables.errors %}
@@ -98,7 +103,8 @@
 
                     <div class="col-12"><hr class="text-muted my-2"></div>
 
-                    <div class="col-md-6 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-6 en PC -->
+                    <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Umbral Regular *</label>
                         {{ form.umbral_regular }}
                         {% for error in form.umbral_regular.errors %}
@@ -106,7 +112,8 @@
                         {% endfor %}
                     </div>
                     
-                    <div class="col-md-6 mb-3">
+                    <!-- Ajuste responsivo: col-12 en móviles, col-md-6 en PC -->
+                    <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Umbral de Excelencia *</label>
                         {{ form.umbral_exelencia }}
                         {% for error in form.umbral_exelencia.errors %}
@@ -116,11 +123,12 @@
 
                 </div>
 
-                <div class="d-flex justify-content-end gap-3 mt-4">
-                    <a href="{% url 'administracionApp:lista_periodos' %}" class="btn btn-secondary px-4 py-2 fw-bold">
+                <!-- Ajuste responsivo: d-grid d-sm-flex para apilar en móviles y alinear en PC -->
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
+                    <a href="{% url 'administracionApp:lista_periodos' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold" style="background-color: #C41230;">
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto" style="background-color: #C41230;">
                         Guardar Periodo
                     </button>
                 </div>

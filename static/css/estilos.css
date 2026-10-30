@@ -1,5 +1,20 @@
 /* Colores Institucionales Oficiales - La Serena */
-.sidebar-sgr { background-color: #8B1D19; color: white; } /* Rojo Oscuro */
+
+/* Ajuste responsivo: Por defecto (para móviles) el menú ocupa el 100% del ancho */
+.sidebar-sgr { 
+    background-color: #8B1D19; /* Rojo Oscuro */
+    color: white; 
+    width: 100%; 
+} 
+
+/* Ajuste responsivo: Para pantallas medianas y grandes (tablets y PC), vuelve a tu tamaño original */
+@media (min-width: 768px) {
+    .sidebar-sgr {
+        width: 220px !important; /* Mantiene tu diseño original de 220px */
+        min-height: 100vh; /* Asegura que el menú llegue hasta el final de la pantalla */
+    }
+}
+
 .header-sgr { background-color: #C41230; height: 100px; } /* Rojo Heráldico */
 .footer-sgr { background-color: #000000; color: white; font-size: 0.85rem; }
 
@@ -39,5 +54,3 @@
     object-fit: cover; 
     object-position: center; 
 }
-
-

@@ -13,8 +13,8 @@ from django.contrib.auth.models import User, Group
 import secrets
 import string
 from django.urls import reverse
-
-
+from tuboApp.models import Compromiso
+from datetime import date, datetime
 
 
 def main(request):
@@ -55,17 +55,38 @@ def lista_actividades(request):
 @login_required
 def crear_actividad(request):
     if request.method == 'POST':
-        # Se incluye request.FILES por si el formulario maneja subida de evidencias
         form = ActividadForm(request.POST, request.FILES)
         if form.is_valid():
             try:
-                actividad = form.save(commit=False)
-                actividad.estado = True
-                actividad.save()
-                messages.success(request, 'La actividad fue registrada con éxito en el sistema.')
-                return redirect('administracionApp:actividades') # Ajusta el namespace si es necesario
+                with transaction.atomic():
+                    actividad = form.save(commit=False)
+                    actividad.estado = True
+                    
+                    # 1. Generamos el código único si está vacío (Ej: ACT-2026-F4A1B2)
+                    if not actividad.codigo_unico:
+                        actividad.codigo_unico = f"ACT-{datetime.now().year}-{secrets.token_hex(3).upper()}"
+                        
+                    # 2. Guardamos la actividad en la BD
+                    actividad.save()
+                    
+                    # 3. Leemos el checkbox 'en_tubo' directamente del objeto guardado
+                    if actividad.en_tubo:
+                        funcionario_asignado = request.user.profesional if hasattr(request.user, 'profesional') else Profesional.objects.first()
+                        
+                        Compromiso.objects.create(
+                            id_actividad=actividad,
+                            territorio='Por definir',
+                            fecha_comprometida=date.today(),
+                            id_funcionario=funcionario_asignado,
+                            estado_progreso='INGRESADO'
+                        )
+                        messages.success(request, f'La actividad {actividad.codigo_unico} fue registrada y derivada al Tubo de Compromisos.')
+                    else:
+                        messages.success(request, f'La actividad {actividad.codigo_unico} fue registrada con éxito en el sistema.')
+                        
+                return redirect('administracionApp:admin-actividades')
             except Exception as e:
-                messages.error(request, f'Error al guardar en base de datos: {str(e)}')
+                messages.error(request, f'Error al procesar: {str(e)}')
         else:
             messages.error(request, 'Por favor corrige los errores marcados en el formulario.')
     else:
@@ -76,6 +97,7 @@ def crear_actividad(request):
         'titulo': 'Registrar Nueva Actividad'
     })
 
+
 @role_required('Administrador')
 @login_required
 def editar_actividad(request, id_actividad):
@@ -85,9 +107,29 @@ def editar_actividad(request, id_actividad):
         form = ActividadForm(request.POST, request.FILES, instance=actividad)
         if form.is_valid():
             try:
-                form.save()
-                messages.success(request, f'La actividad {actividad.codigo_unico} fue actualizada correctamente.')
-                return redirect('administracionApp:actividades')
+                with transaction.atomic():
+                    # 1. Guardamos los cambios de la actividad
+                    actividad = form.save()
+                    
+                    # 2. Verificamos si el checkbox 'en_tubo' está marcado
+                    if actividad.en_tubo:
+                        funcionario_asignado = request.user.profesional if hasattr(request.user, 'profesional') else Profesional.objects.first()
+                        
+                        # Usamos get_or_create para no duplicar si ya estaba en el tubo
+                        Compromiso.objects.get_or_create(
+                            id_actividad=actividad,
+                            defaults={
+                                'territorio': 'Por definir',
+                                'fecha_comprometida': date.today(),
+                                'id_funcionario': funcionario_asignado,
+                                'estado_progreso': 'INGRESADO'
+                            }
+                        )
+                        messages.success(request, f'La actividad {actividad.codigo_unico} fue actualizada y asegurada en el Tubo.')
+                    else:
+                        messages.success(request, f'La actividad {actividad.codigo_unico} fue actualizada correctamente.')
+
+                return redirect('administracionApp:admin-actividades')
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
     else:
@@ -113,7 +155,7 @@ def desactivar_actividad(request, id_actividad):
         messages.success(request, f'La actividad {actividad.codigo_unico} fue {accion}.')
         
     # Cambia 'administracionApp:actividades' según tu configuración de urls.py
-    return redirect('administracionApp:actividades')
+    return redirect('administracionApp:admin-actividades')
 
 @role_required('Administrador')
 @login_required
