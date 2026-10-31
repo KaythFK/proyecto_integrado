@@ -201,7 +201,30 @@ class PeriodoForm(forms.ModelForm):
             'dias_computables': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
             'umbral_regular': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': '0'}),
             'umbral_exelencia': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': '0'}),
-            'version_parametros': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+
+            # --- UMBRALES EN PORCENTAJES (0 al 100) ---
+            'umbral_regular': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'step': '1', 
+                'min': '0', 
+                'max': '100',
+                'placeholder': 'Ej: 60'
+            }),
+            'umbral_exelencia': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'step': '1', 
+                'min': '0', 
+                'max': '100',
+                'placeholder': 'Ej: 90'
+            }),
+            
+            # Campo bloqueado estrictamente por sistema
+            'version_parametros': forms.NumberInput(attrs={
+                'class': 'form-control bg-light text-muted fw-bold', 
+                'min': '1',
+                'readonly': 'readonly',
+                'style': 'cursor: not-allowed;'
+            }),
         }
 
     def clean_nombre(self):

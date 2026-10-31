@@ -25,7 +25,7 @@
 {% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">Gestión de Catálogos</h3>
+<h3 class="text-white fw-bold m-0">Gestión de Cargos</h3>
 {% endblock %}
 
 {% block contenido %}
@@ -53,14 +53,16 @@
                     Información del Cargo
                 </h5>
                 <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
-                    <div class="col-md-8 mb-3">
+                    <!-- Ajuste responsivo: col-12 para móviles, col-md-8 para PC -->
+                    <div class="col-12 col-md-8 mb-3">
                         <label class="form-label fw-bold text-dark">Nombre del Cargo *</label>
                         {{ form.nombre }}
                         {% for error in form.nombre.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <!-- Ajuste responsivo: col-12 para móviles, col-md-4 para PC -->
+                    <div class="col-12 col-md-4 mb-3">
                         <label class="form-label fw-bold text-dark">Vigencia (Meses)</label>
                         {{ form.vigencia }}
                         {% for error in form.vigencia.errors %}
@@ -70,11 +72,12 @@
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-end gap-3 mt-4">
-                    <a href="{% url 'administracionApp:lista_cargos' %}" class="btn btn-secondary px-4 py-2 fw-bold">
+                <!-- Ajuste responsivo: d-grid en móviles, flex en PC -->
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
+                    <a href="{% url 'administracionApp:lista_cargos' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold" style="background-color: #C41230;">
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto" style="background-color: #C41230;">
                         Guardar Cargo
                     </button>
                 </div>

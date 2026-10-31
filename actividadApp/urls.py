@@ -12,4 +12,9 @@ urlpatterns = [
     path('profesional/actividad/registrar/<int:actividad_id>/', views.registrar_actividad, name='registrar_actividad_con_id'),
     path('profesional/evidencia/registrar/<int:actividad_id>/', views.registrar_evidencia, name='registrar_evidencia'),
     path('profesional/tubo/actualizar/<int:id_compromiso>/', views.actualizar_estado_tubo, name='actualizar_estado_tubo'),
+    # --- RUTAS DEL DELEGADO PARA ACTIVIDADES ---
+    path('delegado/lista/', views.actividades_delegacion, name='actividades_delegacion'),
+    path('delegado/registrar/', views.registrar_actividad_delegado, name='registrar_actividad_delegado'),
+    path('delegado/editar/<int:id_actividad>/', views.editar_actividad_delegado, name='editar_actividad_delegado'),
+    path('delegado/estado/<int:id_actividad>/', views.cambiar_estado_actividad_delegado, name='cambiar_estado_actividad_delegado'),
 ]

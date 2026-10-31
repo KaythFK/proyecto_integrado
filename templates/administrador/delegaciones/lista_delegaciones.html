@@ -1,15 +1,16 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Directorio de Delegaciones{% endblock %}
+{% block title %}Directorio de Delegaciones - Sistema Municipal{% endblock %}
 
 {% block menu_lateral %}
 <ul class="nav flex-column gap-4 mt-4">
     <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
+        <!-- Retorno dinámico adaptativo -->
+        <a class="nav-link text-white fw-bold" href="{% url url_retorno %}">Inicio</a>
     </li>
     <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:directorio_profesional' %}">Profesionales</a>
+        <a class="nav-link text-white fw-bold" href="javascript:void(0);">Delegaciones</a>
     </li>
 </ul>
 <div class="mt-5">
@@ -25,14 +26,15 @@
 {% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">Gestión de Delegaciones</h3>
+<h3 class="text-white fw-bold m-0 text-center">Gestión de Delegaciones</h3>
 {% endblock %}
 
 {% block contenido %}
-<div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold" style="color: #8B1D19;">Directorio de Delegaciones</h4>
-        <a href="{% url 'administracionApp:crear_delegacion' %}" class="btn text-white fw-bold" style="background-color: #C41230;">
+<div class="container mt-5 mb-5">
+    
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <h4 class="fw-bold m-0" style="color: #8B1D19;">Directorio de Delegaciones</h4>
+        <a href="{% url 'administracionApp:crear_delegacion' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center" style="background-color: #C41230; border-radius: 6px;">
             + Nueva Delegación
         </a>
     </div>
@@ -47,11 +49,11 @@
     {% endif %}
 
     <div class="row mb-4">
-        <div class="col-md-8">
+        <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="{% url 'administracionApp:delegaciones' %}">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
-                        placeholder="Buscar por nombre, territorio o dirección..." 
+                        placeholder="Buscar por nombre o territorio..." 
                         value="{{ query|default_if_none:'' }}">
                     <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
                         Buscar
@@ -72,7 +74,7 @@
                     <th scope="col">Territorio</th>
                     <th scope="col">Dirección</th>
                     <th scope="col">Responsable</th>
-                    <th scope="col">Estado</th>
+                    <th scope="col" class="text-center">Estado</th>
                     <th scope="col" class="text-center">Acciones</th>
                 </tr>
             </thead>
@@ -81,21 +83,15 @@
                 <tr>
                     <td class="fw-bold">{{ delegacion.nombre }}</td>
                     <td>{{ delegacion.territorio }}</td>
-                    <td>
-                        {% if delegacion.calle %}
-                            {{ delegacion.calle }} {{ delegacion.numero_calle|default:"" }}
-                        {% else %}
-                            <span class="text-muted">No registrada</span>
-                        {% endif %}
-                    </td>
+                    <td>{{ delegacion.calle }} #{{ delegacion.numero_calle }}</td>
                     <td>
                         {% if delegacion.responsable %}
                             {{ delegacion.responsable.nombres }} {{ delegacion.responsable.apellido_paterno }}
                         {% else %}
-                            <span class="badge bg-warning text-dark">Sin Asignar</span>
+                            <span class="text-muted fst-italic">Sin asignar</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="text-center">
                         {% if delegacion.estado %}
                             <span class="badge bg-success">Activa</span>
                         {% else %}
@@ -103,25 +99,25 @@
                         {% endif %}
                     </td>
                     <td class="text-center">
-                        <div class="d-flex justify-content-center align-items-center gap-3">
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             
-                            <a href="{% url 'administracionApp:editar_delegacion' delegacion.id_delegacion %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
-                                Editar
+                            <!-- Botón Editar con rojo institucional -->
+                            <a href="{% url 'administracionApp:editar_delegacion' delegacion.id_delegacion %}" class="btn btn-sm text-white px-3 shadow-sm" style="background-color: #8B1D19; border-radius: 6px;" title="Editar">
+                                <i class="bi bi-pencil-square"></i> Editar
                             </a>
                             
                             <div class="d-flex flex-column align-items-center">
                                 <span class="badge mb-1 {% if delegacion.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
-                                    {% if delegacion.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    {% if delegacion.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
-
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                     <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
                                            style="cursor: pointer; width: 2.5em; height: 1.25em;"
                                            {% if delegacion.estado %}checked{% endif %}
-                                           onclick="confirmarCambio(event, '{{ delegacion.id_delegacion }}', '{{ delegacion.nombre }}', '{{ delegacion.estado }}')">
+                                           onclick="confirmarCambioDelegacion(event, '{{ delegacion.id_delegacion }}', '{{ delegacion.nombre }}', '{{ delegacion.estado }}')">
                                 </div>
                             </div>
-                            
+
                         </div>
                     </td>
                 </tr>
@@ -135,8 +131,8 @@
     </div>
 </div>
 
-<!-- Modal -->
-<div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
+<!-- Modal ubicado fuera de la tabla -->
+<div class="modal fade" id="modalEstadoDelegacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header text-white" id="modalHeaderEstado">
@@ -145,9 +141,9 @@
             </div>
             <div class="modal-body p-4 text-center">
                 <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
-                <strong class="fs-4 text-dark" id="modalNombre"></strong>
+                <strong class="fs-4 text-dark text-break" id="modalNombreDelegacion"></strong>
             </div>
-            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4 flex-wrap">
                 <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
                 <form id="formCambiarEstado" method="POST" action="">
                     {% csrf_token %}
@@ -159,36 +155,37 @@
 </div>
 
 <script>
-function confirmarCambio(event, id, nombre, estadoActualStr) {
-    event.preventDefault();
-    const estaActivo = estadoActualStr === 'True';
+function confirmarCambioDelegacion(event, id, nombre, estadoActualStr) {
+    event.preventDefault(); 
+    
+    const estaActiva = estadoActualStr === 'True';
     const actionUrl = "{% url 'administracionApp:cambiar_estado_delegacion' 0 %}".replace('0', id);
     
     const header = document.getElementById('modalHeaderEstado');
     const titulo = document.getElementById('modalTituloEstado');
     const mensaje = document.getElementById('modalMensajeEstado');
-    const nombreStr = document.getElementById('modalNombre');
+    const nombreStr = document.getElementById('modalNombreDelegacion');
     const btn = document.getElementById('btnConfirmarEstado');
     const form = document.getElementById('formCambiarEstado');
     
-    if (estaActivo) {
-        header.style.backgroundColor = '#C41230';
+    if (estaActiva) {
+        header.style.backgroundColor = '#C41230'; 
         titulo.innerText = 'Desactivar Delegación';
-        mensaje.innerText = '¿Estás segura/o de desactivar la:';
+        mensaje.innerText = '¿Estás segura/o de inhabilitar la delegación:';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
-        header.style.backgroundColor = '#198754';
+        header.style.backgroundColor = '#198754'; 
         titulo.innerText = 'Reactivar Delegación';
-        mensaje.innerText = '¿Deseas reactivar la:';
+        mensaje.innerText = '¿Deseas restaurar la delegación:';
         btn.style.backgroundColor = '#198754';
-        btn.innerText = 'Sí, Reactivar';
+        btn.innerText = 'Sí, Restaurar';
     }
     
     nombreStr.innerText = nombre;
     form.action = actionUrl;
     
-    const modal = new bootstrap.Modal(document.getElementById('modalEstado'));
+    const modal = new bootstrap.Modal(document.getElementById('modalEstadoDelegacion'));
     modal.show();
 }
 </script>

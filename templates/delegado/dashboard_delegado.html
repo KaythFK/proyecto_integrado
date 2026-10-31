@@ -9,7 +9,10 @@
             <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:dashboard_delegado' %}">Mi delegación</a>
         </li>
         <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:actividades_delegacion' %}">Actividades del equipo</a>
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:actividades_delegacion' %}">Actividades del equipo</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:tubo_delegacion' %}">Tubo de Compromisos</a>
         </li>
         <li class="nav-item text-center">
             <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
@@ -29,32 +32,53 @@
 {% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">Panel de control: delegado</h3>
+<h3 class="text-white fw-bold m-0 text-center">Panel de Control: Delegado</h3>
 {% endblock %}
 
 {% block contenido %}
-<div class="container mt-5">
-    <h4 class="fw-bold mb-4" style="color: #8B1D19;">Resumen de mi delegación</h4>
+<div class="container mt-4 mb-5">
+    <div class="mb-4">
+        <h4 class="fw-bold m-0" style="color: #8B1D19;">Resumen Ejecutivo: {{ delegacion_nombre }}</h4>
+        <p class="text-muted m-0 mt-1">Métricas de desempeño territorial según UML.</p>
+    </div>
     
+    <h6 class="fw-bold text-muted mb-3"><i class="bi bi-funnel-fill"></i> Tubo de Compromisos del Equipo</h6>
     <div class="row g-4 mb-5">
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #1a202c !important; border-radius: 10px;">
-                <h6 class="text-muted fw-bold text-uppercase mb-3">Total registradas</h6>
-                <h1 class="display-4 fw-bold text-dark m-0">{{ total_actividades }}</h1>
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #8B1D19 !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Total en Tubo</h6>
+                <h1 class="display-4 fw-bold text-dark m-0">{{ tubo_total }}</h1>
             </div>
         </div>
         
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #ffc107 !important; border-radius: 10px;">
-                <h6 class="text-muted fw-bold text-uppercase mb-3">En proceso</h6>
-                <h1 class="display-4 fw-bold text-warning m-0">{{ en_proceso }}</h1>
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #C41230 !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Compromisos Vencidos</h6>
+                <h1 class="display-4 fw-bold text-danger m-0">{{ tubo_vencidos }}</h1>
+            </div>
+        </div>
+    </div>
+
+    <h6 class="fw-bold text-muted mb-3"><i class="bi bi-list-task"></i> Actividades Generales (Histórico)</h6>
+    <div class="row g-4 mb-5">
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #1a202c !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Total Registradas</h6>
+                <h1 class="display-5 fw-bold text-dark m-0">{{ total_actividades }}</h1>
             </div>
         </div>
         
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #198754 !important; border-radius: 10px;">
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #ffc107 !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">En Proceso</h6>
+                <h1 class="display-5 fw-bold text-warning m-0">{{ en_proceso }}</h1>
+            </div>
+        </div>
+        
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #198754 !important; border-radius: 15px;">
                 <h6 class="text-muted fw-bold text-uppercase mb-3">Finalizadas</h6>
-                <h1 class="display-4 fw-bold text-success m-0">{{ finalizadas }}</h1>
+                <h1 class="display-5 fw-bold text-success m-0">{{ finalizadas }}</h1>
             </div>
         </div>
     </div>

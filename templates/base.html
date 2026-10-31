@@ -9,11 +9,9 @@
     <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
 </head>
 <body class="d-flex flex-column min-vh-100 bg-light">
-
-    <div class="d-flex flex-grow-1">
-        
-        <nav class="sidebar-sgr d-flex flex-column p-3" style="width: 220px; background-color: #8B1D19;">
-            <div class="text-center mb-5 mt-3">
+    <div class="d-flex flex-column flex-md-row flex-grow-1">
+        <nav class="sidebar-sgr d-flex flex-column p-3">
+            <div class="text-center mb-4 mt-3">
                 <img src="{% static 'images/logo_blanco.png' %}" alt="Logo" style="max-width: 150px; margin-bottom: 10px;">
             </div>
             
@@ -21,22 +19,23 @@
             {% endblock %}
         </nav>
 
-        <div class="d-flex flex-column flex-grow-1">
+        <div class="d-flex flex-column flex-grow-1 w-100" style="min-width: 0;">
             
-            <header class="w-100 d-flex justify-content-center align-items-center" style="height: 80px; background-color: #C41230;">
+            <header class="w-100 d-flex justify-content-center align-items-center text-center p-2" style="min-height: 80px; background-color: #C41230;">
                 {% block cabecera %}
                 {% endblock %}
             </header>
             
-            <main class="flex-grow-1 bg-white">
+            <main class="flex-grow-1 bg-white" style="overflow-x: hidden;">
                 {% block contenido %}
                 {% endblock %}
             </main>
         </div>
     </div>
 
-    <footer class="p-2 ps-3 text-white w-100" style="background-color: #000000; font-size: 0.9rem;">
-        © 2026 Evaluación 2. Todos los derechos reservados.
+    
+    <footer class="p-2 ps-md-3 text-white w-100 text-center text-md-start" style="background-color: #000000; font-size: 0.9rem;">
+        © 2026 SGR Municipalidad de La Serena. Todos los derechos reservados.
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

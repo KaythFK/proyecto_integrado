@@ -1,6 +1,6 @@
 from django import forms
 from .models import Actividad, Evidencia, Validacion
-
+from administracionApp.models import Profesional 
 class ActividadForm(forms.ModelForm):
     class Meta:
         model = Actividad
@@ -18,3 +18,17 @@ class ActividadForm(forms.ModelForm):
             'id_profesional': forms.Select(attrs={'class': 'form-select'}),
             'id_meta': forms.Select(attrs={'class': 'form-select'}),
         }
+
+
+class ActividadDelegadoForm(ActividadForm):
+    def __init__(self, *args, **kwargs):
+        # Extraemos la delegación de forma segura
+        delegacion = kwargs.pop('delegacion', None)
+        # Inicializamos el formulario padre
+        super().__init__(*args, **kwargs)
+        
+        # Filtramos los selectores solo si se pasó una delegación
+        if delegacion:
+            profesionales_equipo = Profesional.objects.filter(id_delegacion=delegacion, estado=True)
+            self.fields['id_profesional'].queryset = profesionales_equipo
+            self.fields['solicitante_profesional'].queryset = profesionales_equipo

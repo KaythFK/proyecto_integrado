@@ -6,7 +6,10 @@
 {% block menu_lateral %}
 <ul class="nav flex-column gap-4 mt-4">
     <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
+        <a class="nav-link text-white fw-bold" href="{% url url_retorno %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="javascript:void(0);">Periodos</a>
     </li>
 </ul>
 <div class="mt-5">
@@ -22,14 +25,15 @@
 {% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">Gestión de Periodos</h3>
+<h3 class="text-white fw-bold m-0 text-center">Gestión de Periodos</h3>
 {% endblock %}
 
 {% block contenido %}
-<div class="container mt-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold" style="color: #8B1D19;">Listado de Periodos</h4>
-        <a href="{% url 'administracionApp:crear_periodo' %}" class="btn text-white fw-bold" style="background-color: #C41230;">
+<div class="container mt-5 mb-5">
+    
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <h4 class="fw-bold m-0" style="color: #8B1D19;">Listado de Periodos</h4>
+        <a href="{% url 'administracionApp:crear_periodo' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center shadow-sm" style="background-color: #C41230; border-radius: 6px;">
             + Nuevo Periodo
         </a>
     </div>
@@ -44,7 +48,7 @@
     {% endif %}
 
     <div class="row mb-4">
-        <div class="col-md-8">
+        <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="{% url 'administracionApp:lista_periodos' %}">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
@@ -70,45 +74,56 @@
                     <th scope="col">Término</th>
                     <th scope="col">Días</th>
                     <th scope="col">Umbrales (R/E)</th>
-                    <th scope="col">Estado</th>
+                    <th scope="col" class="text-center">Estado</th>
                     <th scope="col" class="text-center">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for periodo in periodos %}
                 <tr>
-                    <td class="fw-bold">{{ periodo.nombre }} <br><small class="text-muted">v{{ periodo.version_parametros }}</small></td>
-                    <td>{{ periodo.fecha_inicio|date:"d/m/Y" }}</td>
-                    <td>{{ periodo.fecha_termino|date:"d/m/Y" }}</td>
+                    <td class="fw-bold">{{ periodo.nombre }} <br><span class="badge bg-secondary" style="font-size: 0.75rem;">v{{ periodo.version_parametros }}</span></td>
+                    <td class="text-nowrap">{{ periodo.fecha_inicio|date:"d/m/Y" }}</td>
+                    <td class="text-nowrap">{{ periodo.fecha_termino|date:"d/m/Y" }}</td>
                     <td>{{ periodo.dias_computables }}</td>
-                    <td>{{ periodo.umbral_regular }} / {{ periodo.umbral_exelencia }}</td>
+                    
+                    <!-- Columna 5: Umbrales en Porcentaje -->
                     <td>
+                        <span class="badge bg-warning text-dark">{{ periodo.umbral_regular }}%</span> / 
+                        <span class="badge bg-success">{{ periodo.umbral_exelencia }}%</span>
+                    </td>
+                    
+                    <!-- Columna 6: Estado separado -->
+                    <td class="text-center">
                         {% if periodo.estado %}
                             <span class="badge bg-success">Activo</span>
                         {% else %}
                             <span class="badge bg-danger">Inactivo</span>
                         {% endif %}
                     </td>
+                    
+                    <!-- Columna 7: Acciones y Switch -->
                     <td class="text-center">
-                        <div class="d-flex justify-content-center align-items-center gap-3">
+                        <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
                             
-                            <a href="{% url 'administracionApp:editar_periodo' periodo.id_periodo %}" class="btn btn-sm btn-outline-primary px-3 mt-4" style="border-radius: 6px;">
-                                Editar
+                            <a href="{% url 'administracionApp:versionar_periodo' periodo.id_periodo %}" class="btn btn-sm btn-outline-dark px-2 shadow-sm" style="border-radius: 6px;" title="Crear nueva versión">
+                                <i class="bi bi-files"></i> Versionar
+                            </a>
+
+                            <a href="{% url 'administracionApp:editar_periodo' periodo.id_periodo %}" class="btn btn-sm text-white px-3 shadow-sm" style="background-color: #8B1D19; border-radius: 6px;" title="Editar">
+                                <i class="bi bi-pencil-square"></i> Editar
                             </a>
                             
-                            <div class="d-flex flex-column align-items-center">
+                            <div class="d-flex flex-column align-items-center ms-2">
                                 <span class="badge mb-1 {% if periodo.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
-                                    {% if periodo.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    {% if periodo.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
-
-                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Activar/Desactivar">
                                     <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
                                            style="cursor: pointer; width: 2.5em; height: 1.25em;"
                                            {% if periodo.estado %}checked{% endif %}
                                            onclick="confirmarCambio(event, '{{ periodo.id_periodo }}', '{{ periodo.nombre }}', '{{ periodo.estado }}')">
                                 </div>
                             </div>
-
                         </div>
                     </td>
                 </tr>
@@ -122,7 +137,7 @@
     </div>
 </div>
 
-<!-- Modal -->
+<!-- Modal fuera de la tabla -->
 <div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -132,13 +147,13 @@
             </div>
             <div class="modal-body p-4 text-center">
                 <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
-                <strong class="fs-4 text-dark" id="modalNombre"></strong>
+                <strong class="fs-4 text-dark text-break" id="modalNombre"></strong>
             </div>
-            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
-                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4 flex-wrap">
+                <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
                 <form id="formCambiarEstado" method="POST" action="">
                     {% csrf_token %}
-                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarEstado">Confirmar</button>
+                    <button type="submit" class="btn fw-bold px-4 text-white shadow-sm" id="btnConfirmarEstado">Confirmar</button>
                 </form>
             </div>
         </div>
