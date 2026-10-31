@@ -57,7 +57,13 @@
     
     <div class="row g-3 mb-4">
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-left: 5px solid {% if semaforo == 'VERDE' %}#198754{% elif semaforo == 'AMBAR' %}#d97706{% else %}#dc3545{% endif %} !important; border-radius: 10px;">
+            {% if semaforo == 'VERDE' %}
+            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-left: 5px solid #198754 !important; border-radius: 10px;">
+            {% elif semaforo == 'AMBAR' %}
+            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-left: 5px solid #d97706 !important; border-radius: 10px;">
+            {% else %}
+            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-left: 5px solid #dc3545 !important; border-radius: 10px;">
+            {% endif %}
                 <h6 class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.8rem;">Estado Global</h6>
                 <h3 class="fw-bold m-0 {% if semaforo == 'VERDE' %}text-success{% elif semaforo == 'AMBAR' %}text-warning{% else %}text-danger{% endif %}">
                     {{ semaforo|default:"SIN DATOS" }}
@@ -116,7 +122,6 @@
                             <th>Territorio</th>
                             <th>Compromiso / Solicitante</th>
                             <th>Estado</th>
-                            <th class="text-center px-4">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -127,29 +132,18 @@
                             </td>
                             <td>{{ compromiso.territorio }}</td>
                             <td>
-                                {{ compromiso.descripcion }}<br>
-                                <small class="text-muted">Req: {{ compromiso.solicitante }}</small>
+                                {{ compromiso.id_actividad.solicitud_problema|truncatechars:40 }}<br>
+                                <small class="text-muted">Req: {{ compromiso.id_funcionario.nombres }} {{ compromiso.id_funcionario.apellido_paterno }}</small>
                             </td>
                             <td>
                                 <span class="badge {% if compromiso.estado_progreso == 'PENDIENTE' %}bg-warning text-dark{% elif compromiso.estado_progreso == 'REALIZADO' %}bg-success{% elif compromiso.estado_progreso == 'EN_PROCESO' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
                                     {{ compromiso.get_estado_progreso_display }}
                                 </span>
                             </td>
-                            <td class="text-center px-4">
-                                <!-- Botón que lanza el modal enviando los datos del compromiso -->
-                                <button type="button" class="btn btn-sm btn-outline-dark fw-bold" style="border-radius: 6px;"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#modalActualizarTubo"
-                                        data-bs-id="{{ compromiso.id_compromiso }}"
-                                        data-bs-estado="{{ compromiso.estado_progreso }}"
-                                        data-bs-desc="{{ compromiso.descripcion|truncatechars:40 }}">
-                                    Actualizar
-                                </button>
-                            </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">
+                            <td colspan="4" class="text-center py-4 text-muted">
                                 No tienes compromisos asignados en el tubo de trabajo.
                             </td>
                         </tr>
@@ -224,59 +218,6 @@
         </div>
     </div>
 </div>
-
-<div class="modal fade" id="modalActualizarTubo" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow">
-      
-      <div class="modal-header text-white" style="background-color: #1a202c;">
-        <h5 class="modal-title fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Actualizar Compromiso</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      
-      <form id="formActualizarTubo" method="POST" action="">
-          {% csrf_token %}
-          <div class="modal-body p-4">
-            <p class="text-muted mb-4">Actualizando el estado del requerimiento:<br><strong id="modalTuboDesc" class="text-dark"></strong></p>
-            
-            <label class="fw-bold mb-2 text-dark">Fase de Progreso Actual:</label>
-            <select name="estado_progreso" class="form-select shadow-sm" id="selectEstadoTubo" style="border-color: #ced4da;">
-                <option value="INGRESADO">Ingresado (Por agendar)</option>
-                <option value="PENDIENTE">Pendiente (Agendado)</option>
-                <option value="EN_PROCESO">En Proceso (En ejecución)</option>
-                <option value="REALIZADO">Realizado (Finalizado)</option>
-            </select>
-            <div class="form-text mt-2">Si marcas el compromiso como "Realizado", se registrará la fecha de término automáticamente.</div>
-          </div>
-          
-          <div class="modal-footer bg-light justify-content-end">
-            <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal" style="border-radius: 6px;">Cancelar</button>
-            <button type="submit" class="btn text-white px-4 fw-bold" style="background-color: #8B1D19; border-radius: 6px;">Guardar Estado</button>
-          </div>
-      </form>
-
-    </div>
-  </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const modalActualizar = document.getElementById('modalActualizarTubo');
-    if (modalActualizar) {
-        modalActualizar.addEventListener('show.bs.modal', function (event) {
-            const button = event.relatedTarget;
-            const idCompromiso = button.getAttribute('data-bs-id');
-            const estadoActual = button.getAttribute('data-bs-estado');
-            const descripcion = button.getAttribute('data-bs-desc');
-            document.getElementById('modalTuboDesc').textContent = descripcion;
-            document.getElementById('selectEstadoTubo').value = estadoActual;
-            const form = document.getElementById('formActualizarTubo');
-            const urlBase = "{% url 'actividadApp:actualizar_estado_tubo' 999999 %}";
-            form.action = urlBase.replace('999999', idCompromiso);
-        });
-    }
-});
-</script>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 

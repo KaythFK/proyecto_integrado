@@ -32,7 +32,7 @@ def agenda(request):
 
 
 @login_required
-@role_required('Administrador', 'Coordinador')
+@role_required('Administrador', 'Coordinador', 'Delegado')
 def actualizar_progreso_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
@@ -88,12 +88,12 @@ def cambiar_estado_tubo(request, id_compromiso):
                 messages.success(request, f'El compromiso asociado a la actividad {compromiso.id_actividad.codigo_unico} fue {accion}.')
         except Exception as e:
             messages.error(request, f'Error al cambiar el estado: {str(e)}')
-             
+            
     return redirect('tuboApp:tubo')
 
 
 @login_required
-@role_required('Administrador', 'Coordinador')
+@role_required('Administracion', 'Coordinacion', 'Delegado')
 def agregar_observacion_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)

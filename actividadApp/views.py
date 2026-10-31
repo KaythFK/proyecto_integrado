@@ -6,10 +6,12 @@ from datetime import datetime, date, timedelta
 import uuid
 from usuariosApp.decorators import role_required
 from .models import Actividad, Evidencia
-from .forms import ActividadForm
+from .forms import ActividadForm, ActividadDelegadoForm
 from administracionApp.models import Profesional
 from monitoreoApp.models import Meta
 from tuboApp.models import Compromiso
+from django.db import transaction
+
 
 
 
@@ -76,24 +78,30 @@ def dashboard_profesional(request):
     }
     return render(request, 'profesional/dashboard_profesional.html', context)
 
+
 @login_required
 @role_required('Profesional')
 def listar_actividades(request):
     query = request.GET.get('q')
-    actividades = Actividad.objects.all().order_by('-id_actividad') 
     
+    # 1. Identificamos al profesional logueado
+    profesional_actual = request.user.profesional
+    
+    # 2. FILTRO CRÍTICO: Traemos SOLO las actividades asignadas a este profesional
+    actividades = Actividad.objects.filter(id_profesional=profesional_actual).order_by('-fecha')
+
+    # 3. Aplicamos la búsqueda si el usuario ingresó algo en la barra
     if query:
         actividades = actividades.filter(
             Q(codigo_unico__icontains=query) |
-            Q(solicitud_problema__icontains=query) |
-            Q(accion__icontains=query)
+            Q(solicitud_problema__icontains=query)
         ).distinct()
         
-    return render(request, 'profesional/listar_actividades.html', {
+    context = {
         'actividades': actividades,
-        'query': query  
-    })
-    
+        'query': query,
+    }
+    return render(request, 'profesional/listar_actividades.html', context)
 
 @login_required
 @role_required('Profesional')
@@ -192,6 +200,7 @@ def desactivar_actividad(request, codigo_unico):
     messages.success(request, 'Estado de la actividad actualizado.')
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
+
 @login_required
 @role_required('Profesional')
 def actualizar_estado_tubo(request, id_compromiso):
@@ -208,3 +217,137 @@ def actualizar_estado_tubo(request, id_compromiso):
         else:
             messages.error(request, 'Error: El estado seleccionado no es válido.')
     return redirect('actividadApp:dashboard_profesional')
+
+
+
+@login_required
+@role_required('Delegado')
+def actividades_delegacion(request):
+    """ Muestra todas las actividades del equipo, incluyendo las inactivas para poder gestionarlas """
+    query = request.GET.get('q')
+    delegacion_actual = request.user.profesional.id_delegacion
+    
+    # Quitamos el filtro estado=True para que el delegado vea todo el historial de su equipo
+    actividades = Actividad.objects.filter(
+        id_profesional__id_delegacion=delegacion_actual
+    ).order_by('-fecha')
+
+    if query:
+        actividades = actividades.filter(
+            Q(codigo_unico__icontains=query) |
+            Q(solicitud_problema__icontains=query)
+        ).distinct()
+        
+    context = {
+        'actividades': actividades,
+        'query': query,
+        'delegacion_nombre': delegacion_actual.nombre
+    }
+    return render(request, 'delegado/lista_actividades.html', context)
+
+@login_required
+@role_required('Delegado')
+def registrar_actividad_delegado(request):
+    """ Permite al delegado registrar una nueva actividad para su equipo """
+    if request.method == 'POST':
+        form = ActividadDelegadoForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    nueva_actividad = form.save(commit=False)
+                    año_actual = datetime.now().year
+                    codigo_random = str(uuid.uuid4()).split('-')[0][:6].upper()
+                    nueva_actividad.codigo_unico = f"ACT-{año_actual}-{codigo_random}"
+                    nueva_actividad.estado = True
+                    # Al guardarla, ya queda asignada al profesional elegido en el form
+                    nueva_actividad.save()
+                    
+                    # Lógica de derivación automática al tubo de compromisos
+                    if nueva_actividad.en_tubo:
+                        Compromiso.objects.create(
+                            territorio="Por asignar", 
+                            fecha_comprometida=date.today() + timedelta(days=7), 
+                            estado_progreso='INGRESADO',
+                            estado=True,
+                            id_funcionario=nueva_actividad.id_profesional,
+                            id_actividad=nueva_actividad
+                        )
+                        messages.success(request, f'¡Actividad registrada y derivada al Tubo! Código: {nueva_actividad.codigo_unico}.')
+                    else:
+                        messages.success(request, f'¡Actividad registrada con éxito! Código: {nueva_actividad.codigo_unico}')
+                    
+                    return redirect('actividadApp:actividades_delegacion')
+            except Exception as e:
+                messages.error(request, f'Error al registrar la actividad: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores del formulario.')
+    else:
+        form = ActividadForm()
+
+    context = {
+        'form': form,
+        'titulo': 'Registrar Nueva Actividad'
+    }
+    return render(request, 'delegado/form_actividad.html', context)
+
+@login_required
+@role_required('Delegado')
+def editar_actividad_delegado(request, id_actividad):
+    """ Edición segura: Verifica que la actividad pertenezca a la delegación del usuario """
+    delegacion_actual = request.user.profesional.id_delegacion
+    actividad = get_object_or_404(Actividad, id_actividad=id_actividad, id_profesional__id_delegacion=delegacion_actual)
+    
+    if request.method == 'POST':
+        form = ActividadDelegadoForm(request.POST, instance=actividad)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    actividad_guardada = form.save()
+                    
+                    # Si se marcó "en_tubo", aseguramos que exista el compromiso
+                    if actividad_guardada.en_tubo:
+                        Compromiso.objects.get_or_create(
+                            id_actividad=actividad_guardada,
+                            defaults={
+                                'territorio': 'Por asignar',
+                                'fecha_comprometida': date.today() + timedelta(days=7),
+                                'id_funcionario': actividad_guardada.id_profesional,
+                                'estado_progreso': 'INGRESADO'
+                            }
+                        )
+                    messages.success(request, f'La actividad {actividad_guardada.codigo_unico} fue actualizada correctamente.')
+                    return redirect('actividadApp:actividades_delegacion')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores del formulario.')
+    else:
+        form = ActividadDelegadoForm(instance=actividad)
+
+    context = {
+        'form': form,
+        'titulo': f'Editar Actividad: {actividad.codigo_unico}'
+    }
+    # Reutilizamos el mismo formulario de creación que ya es responsivo
+    return render(request, 'delegado/form_actividad.html', context)
+
+@login_required
+@role_required('Delegado')
+def cambiar_estado_actividad_delegado(request, id_actividad):
+    """ Activa o desactiva lógicamente una actividad del equipo """
+    if request.method == 'POST':
+        delegacion_actual = request.user.profesional.id_delegacion
+        actividad = get_object_or_404(Actividad, id_actividad=id_actividad, id_profesional__id_delegacion=delegacion_actual)
+        
+        try:
+            with transaction.atomic():
+                nuevo_estado = not actividad.estado
+                actividad.estado = nuevo_estado
+                actividad.save()
+                
+                accion = "habilitada" if nuevo_estado else "inhabilitada"
+                messages.success(request, f'La actividad {actividad.codigo_unico} fue {accion} correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al cambiar el estado: {str(e)}')
+            
+    return redirect('actividadApp:actividades_delegacion')

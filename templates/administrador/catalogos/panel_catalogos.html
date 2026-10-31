@@ -93,11 +93,11 @@
                             <td>{% if serv.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm btn-outline-primary px-3" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}')">Editar</button>
+                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}')">Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if serv.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
-                                            {% if serv.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                            {% if serv.estado %}Activo{% else %}Inactivo{% endif %}
                                         </span>
                                         <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                             <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if serv.estado %}checked{% endif %}
@@ -133,11 +133,11 @@
                             <td>{% if it.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm btn-outline-primary px-3" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre }}')">Editar</button>
+                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre }}')">Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if it.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
-                                            {% if it.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                            {% if it.estado %}Activo{% else %}Inactivo{% endif %}
                                         </span>
                                         <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                             <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if it.estado %}checked{% endif %}
@@ -173,11 +173,11 @@
                             <td>{% if ar.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm btn-outline-primary px-3" style="border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}')">Editar</button>
+                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}')">Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if ar.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
-                                            {% if ar.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                            {% if ar.estado %}Activo{% else %}Inactivo{% endif %}
                                         </span>
                                         <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                             <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if ar.estado %}checked{% endif %}

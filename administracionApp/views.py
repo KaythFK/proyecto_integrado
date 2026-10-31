@@ -135,7 +135,7 @@ def editar_actividad(request, id_actividad):
     else:
         form = ActividadForm(instance=actividad)
         
-    return render(request, 'administrador/actividades/form_actividad.html', {
+    return render(request, 'administrador/actividades/form_actividades.html', {
         'form': form,
         'titulo': f'Editar Actividad {actividad.codigo_unico}'
     })
@@ -319,52 +319,65 @@ def cambiar_estado_profesional(request, id_profesional):
         
     return redirect('administracionApp:directorio_profesional')
 
-### VIEWS PARA DELEGACIONES ###
-@role_required('Administrador')
+# --- FUNCIÓN AUXILIAR PARA RUTAS DINÁMICAS ---
+def obtener_url_retorno(user):
+    """Devuelve la ruta del dashboard correspondiente según el rol del usuario."""
+    if user.groups.filter(name='Administrador').exists():
+        return 'administracionApp:dashboard_admin'
+    elif user.groups.filter(name='Coordinador').exists():
+        return 'tuboApp:dashboard_coordinador'
+    else:
+        return 'monitoreoApp:dashboard_delegado'
+
+# --- CRUD DE DELEGACIONES MUNICIPALES ---
 @login_required
+@role_required('Administrador', 'Coordinador')
 def delegaciones(request):
     query = request.GET.get('q')
-    # Traemos todas, incluyendo las inactivas para el switch, y optimizamos la consulta del responsable
-    lista_delegaciones = Delegacion.objects.all().select_related('responsable')
-    
+    lista_delegaciones = Delegacion.objects.all().order_by('-id_delegacion')
+
     if query:
         lista_delegaciones = lista_delegaciones.filter(
             Q(nombre__icontains=query) |
-            Q(territorio__icontains=query) |
-            Q(calle__icontains=query)
+            Q(territorio__icontains=query)
         ).distinct()
-        
-    return render(request, 'administrador/delegaciones/lista_delegaciones.html', {
-        'delegaciones': lista_delegaciones,
-        'query': query
-    })
 
-@role_required('Administrador')
+    context = {
+        'delegaciones': lista_delegaciones,
+        'query': query,
+        'url_retorno': obtener_url_retorno(request.user),
+    }
+    return render(request, 'administrador/delegaciones/lista_delegaciones.html', context)
+
 @login_required
+@role_required('Administrador', 'Coordinador')
 def crear_delegacion(request):
     if request.method == 'POST':
         form = DelegacionForm(request.POST)
         if form.is_valid():
             try:
-                delegacion = form.save(commit=False)
-                delegacion.estado = True
-                delegacion.save()
-                messages.success(request, f'La delegación "{delegacion.nombre}" fue registrada con éxito.')
+                with transaction.atomic():
+                    delegacion = form.save(commit=False)
+                    delegacion.estado = True
+                    delegacion.save()
+                messages.success(request, 'La delegación se ha registrado correctamente.')
                 return redirect('administracionApp:delegaciones')
             except Exception as e:
-                messages.error(request, f'Error al guardar en base de datos: {str(e)}')
+                messages.error(request, f'Error al guardar: {str(e)}')
         else:
-            messages.error(request, 'Por favor corrige los errores en el formulario.')
+            messages.error(request, 'Corrige los errores del formulario.')
     else:
         form = DelegacionForm()
         
-    return render(request, 'administrador/delegaciones/form_delegaciones.html', {
-        'form': form,
-        'titulo': 'Registrar Nueva Delegación'
-    })
+    context = {
+        'form': form, 
+        'titulo': 'Registrar Nueva Delegación',
+        'url_retorno': obtener_url_retorno(request.user),
+    }
+    return render(request, 'administrador/delegaciones/form_delegacion.html', context)
 
-@role_required('Administrador')
 @login_required
+@role_required('Administrador', 'Coordinador')
 def editar_delegacion(request, id_delegacion):
     delegacion = get_object_or_404(Delegacion, id_delegacion=id_delegacion)
     
@@ -372,33 +385,37 @@ def editar_delegacion(request, id_delegacion):
         form = DelegacionForm(request.POST, instance=delegacion)
         if form.is_valid():
             try:
-                form.save()
-                messages.success(request, f'La delegación "{delegacion.nombre}" fue actualizada.')
+                with transaction.atomic():
+                    form.save()
+                messages.success(request, 'La delegación se ha actualizado correctamente.')
                 return redirect('administracionApp:delegaciones')
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
     else:
         form = DelegacionForm(instance=delegacion)
         
-    return render(request, 'administrador/delegaciones/form_delegacion.html', {
-        'form': form,
-        'titulo': 'Editar Delegación'
-    })
+    context = {
+        'form': form, 
+        'titulo': 'Editar Delegación',
+        'url_retorno': obtener_url_retorno(request.user),
+    }
+    return render(request, 'administrador/delegaciones/form_delegaciones.html', context)
 
-@role_required('Administrador')
 @login_required
+@role_required('Administrador', 'Coordinador')
 def cambiar_estado_delegacion(request, id_delegacion):
     if request.method == 'POST':
         delegacion = get_object_or_404(Delegacion, id_delegacion=id_delegacion)
-        
-        with transaction.atomic():
-            nuevo_estado = not delegacion.estado
-            delegacion.estado = nuevo_estado
-            delegacion.save()
-                
-        accion = "activada" if nuevo_estado else "desactivada"
-        messages.success(request, f'La delegación "{delegacion.nombre}" fue {accion}.')
-        
+        try:
+            with transaction.atomic():
+                nuevo_estado = not delegacion.estado
+                delegacion.estado = nuevo_estado
+                delegacion.save()
+                accion = "habilitada" if nuevo_estado else "inhabilitada"
+                messages.success(request, f'La delegación {delegacion.nombre} fue {accion} correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al cambiar el estado: {str(e)}')
+            
     return redirect('administracionApp:delegaciones')
 
 # --- CRUD DE CARGOS ---
@@ -565,7 +582,7 @@ from .models import Periodo
 
 # --- CRUD DE PERIODOS ---
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def lista_periodos(request):
     query = request.GET.get('q')
@@ -576,19 +593,24 @@ def lista_periodos(request):
         
     return render(request, 'administrador/periodos/lista_periodos.html', {
         'periodos': periodos,
-        'query': query
+        'query': query,
+        'url_retorno': obtener_url_retorno(request.user)
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def crear_periodo(request):
     if request.method == 'POST':
         form = PeriodoForm(request.POST)
         if form.is_valid():
             try:
-                periodo = form.save(commit=False)
-                periodo.estado = True
-                periodo.save()
+                with transaction.atomic():
+                    periodo = form.save(commit=False)
+                    periodo.estado = True
+                    # Si viene vacío, forzamos que inicie en la versión 1
+                    if not periodo.version_parametros:
+                        periodo.version_parametros = 1
+                    periodo.save()
                 messages.success(request, f'El periodo "{periodo.nombre}" fue registrado con éxito.')
                 return redirect('administracionApp:lista_periodos')
             except Exception as e:
@@ -596,14 +618,16 @@ def crear_periodo(request):
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        form = PeriodoForm()
+        # Inicializamos el formulario sugiriendo la versión 1
+        form = PeriodoForm(initial={'version_parametros': 1})
         
     return render(request, 'administrador/periodos/form_periodo.html', {
         'form': form,
-        'titulo': 'Registrar Nuevo Periodo'
+        'titulo': 'Registrar Nuevo Periodo',
+        'url_retorno': obtener_url_retorno(request.user)
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def editar_periodo(request, id_periodo):
     periodo = get_object_or_404(Periodo, id_periodo=id_periodo)
@@ -622,10 +646,11 @@ def editar_periodo(request, id_periodo):
         
     return render(request, 'administrador/periodos/form_periodo.html', {
         'form': form,
-        'titulo': 'Editar Periodo'
+        'titulo': f'Editar Periodo v{periodo.version_parametros}',
+        'url_retorno': obtener_url_retorno(request.user)
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def cambiar_estado_periodo(request, id_periodo):
     if request.method == 'POST':
@@ -641,6 +666,34 @@ def cambiar_estado_periodo(request, id_periodo):
         
     return redirect('administracionApp:lista_periodos')
 
+@role_required('Administrador', 'Coordinador')
+@login_required
+def versionar_periodo(request, id_periodo):
+    """
+    Toma un periodo existente, lo duplica sumando 1 a su versión y redirige a la edición.
+    """
+    periodo_original = get_object_or_404(Periodo, id_periodo=id_periodo)
+    try:
+        with transaction.atomic():
+            # Creamos una copia del registro en memoria
+            nueva_version = Periodo.objects.get(id_periodo=id_periodo)
+            nueva_version.pk = None # Al quitarle la PK, Django entiende que es un registro NUEVO
+            nueva_version.version_parametros += 1
+            
+            # Como tu modelo Periodo tiene nombre unique=True, debemos alterarlo para que no choque en la BD
+            nueva_version.nombre = f"{periodo_original.nombre} (v{nueva_version.version_parametros})"
+            nueva_version.estado = True
+            nueva_version.save()
+            
+            messages.success(request, f'Se generó la versión {nueva_version.version_parametros}. Por favor ajusta las nuevas fechas o umbrales y guarda los cambios.')
+            
+            # Redirigimos al usuario al formulario de edición de esta NUEVA versión
+            return redirect('administracionApp:editar_periodo', id_periodo=nueva_version.id_periodo)
+            
+    except Exception as e:
+        messages.error(request, f'Error al crear nueva versión: {str(e)}')
+        
+    return redirect('administracionApp:lista_periodos')
 
 
 @role_required('Administrador')

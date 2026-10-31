@@ -28,18 +28,19 @@
 {% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">Gestión de Actividades</h3>
+<h3 class="text-white fw-bold m-0 text-center">Gestión de Actividades</h3>
 {% endblock %}
 
 {% block contenido %}
 <div class="container mt-4 mb-5">
-    <div class="card shadow border-0" style="border-radius: 15px; max-width: 900px; margin: 0 auto;">
+    <div class="card shadow border-0" style="border-radius: 15px;">
         
         <div class="card-header text-white px-4 py-3" style="background-color: #8B1D19; border-top-left-radius: 15px; border-top-right-radius: 15px;">
             <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
         </div>
         
         <div class="card-body p-4 p-md-5">
+            
             {% if messages %}
                 {% for message in messages %}
                     <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
@@ -49,6 +50,18 @@
                 {% endfor %}
             {% endif %}
 
+            <!-- ERRORES GENERALES DEL FORMULARIO -->
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger shadow-sm border-danger border-2 mb-4">
+                    <h6 class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill"></i> Atención:</h6>
+                    <ul class="mb-0 ps-3">
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
             <form method="POST" enctype="multipart/form-data" novalidate>
                 {% csrf_token %}
                 
@@ -56,9 +69,10 @@
                     Información de la Actividad
                 </h5>
                 
-                <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
+                <div class="row p-3 rounded mb-4" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
                     {% for field in form %}
-                        <div class="col-12 mb-3">
+                        <!-- Adaptado a 2 columnas en PC (col-md-6) y 1 en móviles (col-12) -->
+                        <div class="col-12 col-md-6 mb-3">
                             <label class="form-label fw-bold text-dark">
                                 {{ field.label }} {% if field.field.required %}*{% endif %}
                             </label>
@@ -70,18 +84,18 @@
                             {% endfor %}
                             
                             {% if field.help_text %}
-                                <div class="form-text">{{ field.help_text }}</div>
+                                <div class="form-text text-muted fw-bold"><i class="bi bi-info-circle"></i> {{ field.help_text }}</div>
                             {% endif %}
                         </div>
                     {% endfor %}
                 </div>
+                
                 <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
-                    <a href="{% url 'administracionApp:admin-actividades' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto">
+                    <a href="{% url 'administracionApp:admin-actividades' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto shadow-sm">
                         Cancelar
                     </a>
                     
-                    <!-- Único botón de Guardar -->
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto" style="background-color: #C41230;">
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto shadow-sm" style="background-color: #C41230;">
                         Guardar Actividad
                     </button>
                 </div>

@@ -32,22 +32,31 @@
 {% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">Registro de Evidencias</h3>
+<h3 class="text-white fw-bold m-0 text-center">Registro de Evidencias</h3>
 {% endblock %}
 
 {% block contenido %}
 <div class="container mt-5 mb-5" style="max-width: 800px;">
     
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <h4 class="fw-bold m-0" style="color: #8B1D19;">Adjuntar documentación técnica</h4>
-        <a href="{% url 'actividadApp:dashboard_profesional' %}" class="btn btn-outline-secondary btn-sm fw-bold" style="border-radius: 8px;">
+        <a href="{% url 'actividadApp:dashboard_profesional' %}" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm" style="border-radius: 8px;">
             Volver al panel
         </a>
     </div>
 
-    <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
-        <div class="card-header bg-white border-bottom py-3">
-            <h6 class="fw-bold m-0" style="color: #1a202c;">Actividad #{{ actividad_id }}</h6>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm border-0" style="border-radius: 15px; overflow: hidden;">
+        <div class="card-header text-white py-3" style="background-color: #1a202c;">
+            <h6 class="fw-bold m-0">Actividad #{{ actividad.codigo_unico }}</h6>
         </div>
         
         <div class="card-body p-4 bg-light">
@@ -56,19 +65,19 @@
                 
                 <div class="mb-4">
                     <label for="archivo_adjunto" class="form-label fw-bold text-dark">Archivo o Fotografía adjunta <span class="text-danger">*</span></label>
-                    <input class="form-control form-control-lg" type="file" id="archivo_adjunto" name="archivo_adjunto" required style="border-radius: 8px;">
-                    <div class="form-text">Formatos permitidos: JPG, PNG, PDF, DOCX.</div>
+                    <input class="form-control form-control-lg shadow-sm" type="file" id="archivo_adjunto" name="archivo_adjunto" required style="border-radius: 8px;">
+                    <div class="form-text text-muted">Formatos permitidos: JPG, PNG, PDF, DOCX.</div>
                 </div>
 
                 <div class="mb-4">
                     <label for="anotaciones" class="form-label fw-bold text-dark">Anotaciones u observaciones técnicas</label>
-                    <textarea class="form-control" id="anotaciones" name="anotaciones" rows="5" placeholder="Describe los detalles de la evidencia encontrada o la resolución aplicada..." style="border-radius: 8px; resize: none;"></textarea>
+                    <textarea class="form-control shadow-sm" id="anotaciones" name="anotaciones" rows="5" placeholder="Describe los detalles de la evidencia encontrada o la resolución aplicada..." style="border-radius: 8px; resize: none;"></textarea>
                 </div>
 
-                <hr class="my-4 text-muted">
+                <hr class="my-4 text-muted opacity-25">
 
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button type="submit" class="btn btn-success fw-bold px-5 py-2" style="border-radius: 8px;">
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-end">
+                    <button type="submit" class="btn text-white fw-bold px-5 py-2 shadow-sm w-100 w-sm-auto" style="background-color: #198754; border-radius: 8px;">
                         Guardar Evidencia
                     </button>
                 </div>

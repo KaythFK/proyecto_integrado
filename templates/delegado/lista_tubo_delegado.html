@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Monitoreo de Compromisos - Sistema Municipal{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-3 mt-5">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:dashboard_delegado' %}">Mi delegación</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:actividades_delegacion' %}">Actividades del equipo</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:tubo_delegacion' %}">Tubo de Compromisos</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
+    </li>
+</ul>
+<div class="mt-5">
+    <hr class="border-white mx-4" style="opacity: 0.3;">
+    <ul class="nav flex-column mt-4">
+        <li class="nav-item text-center">
+            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                Cerrar sesión
+            </a>
+        </li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Tubo de Compromisos</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <div>
+            <h4 class="fw-bold m-0" style="color: #8B1D19;">Panel de Compromisos</h4>
+            <p class="text-muted m-0 mt-1">Delegación: {{ delegacion_nombre }}</p>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm border-0 p-3 mb-4" style="border-radius: 15px; background-color: #f8f9fa;">
+        <form method="GET" action="{% url 'monitoreoApp:tubo_delegacion' %}" class="row g-2 align-items-center">
+            <div class="col-12 col-md-9">
+                <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                    placeholder="Buscar por código, problema o territorio..." 
+                    value="{{ query|default_if_none:'' }}">
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button class="btn text-white fw-bold w-100 shadow-sm" type="submit" style="background-color: #8B1D19;">
+                    Buscar
+                </button>
+                {% if query %}
+                    <a href="{% url 'monitoreoApp:tubo_delegacion' %}" class="btn btn-outline-secondary w-100 fw-bold shadow-sm">Limpiar</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <div class="table-responsive shadow-sm mb-5" style="border-radius: 15px;">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">Actividad</th>
+                    <th scope="col">Responsable (Tu equipo)</th>
+                    <th scope="col">Territorio</th>
+                    <th scope="col">Fechas</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" class="text-center">Cambiar Progreso</th>
+                    <th scope="col" class="text-center">Observaciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for compromiso in compromisos %}
+                <tr class="{% if compromiso.esta_vencido %}table-danger{% endif %}">
+                    <td class="fw-bold text-nowrap">{{ compromiso.id_actividad.codigo_unico }}</td>
+                    
+                    <td>
+                        <strong>{{ compromiso.id_funcionario.nombres }} {{ compromiso.id_funcionario.apellido_paterno }}</strong>
+                    </td>
+                    
+                    <td>{{ compromiso.territorio }}</td>
+
+                    <td style="font-size: 0.85rem; white-space: nowrap;">
+                        <strong>Registro:</strong> {{ compromiso.fecha_registro|date:"d/m/Y" }}<br>
+                        <strong>Comprometida:</strong> {{ compromiso.fecha_comprometida|date:"d/m/Y" }}
+                        {% if compromiso.fecha_termino %}
+                            <br><strong>Finalizada:</strong> {{ compromiso.fecha_termino|date:"d/m/Y" }}
+                        {% endif %}
+                        {% if compromiso.esta_vencido %}
+                            <br><span class="badge bg-danger"><i class="bi bi-exclamation-triangle"></i> Vencido</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td>
+                         {% if compromiso.estado_progreso == 'INGRESADO' %}
+                            <span class="badge bg-secondary">Ingresado</span>
+                        {% elif compromiso.estado_progreso == 'PENDIENTE' %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                        {% elif compromiso.estado_progreso == 'EN_PROCESO' %}
+                            <span class="badge bg-primary">En Proceso</span>
+                        {% else %}
+                            <span class="badge bg-success">Realizado</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="text-center">
+                         <form method="POST" action="{% url 'tuboApp:actualizar_progreso_tubo' compromiso.id_compromiso %}">
+                            {% csrf_token %}
+                            <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                                <select name="nuevo_estado" class="form-select form-select-sm" style="width: auto; min-width: 120px;" {% if not compromiso.estado %}disabled{% endif %}>
+                                    <option value="INGRESADO" {% if compromiso.estado_progreso == 'INGRESADO' %}selected{% endif %}>Ingresado</option>
+                                    <option value="PENDIENTE" {% if compromiso.estado_progreso == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
+                                    <option value="EN_PROCESO" {% if compromiso.estado_progreso == 'EN_PROCESO' %}selected{% endif %}>En Proceso</option>
+                                    <option value="REALIZADO" {% if compromiso.estado_progreso == 'REALIZADO' %}selected{% endif %}>Realizado</option>
+                                </select>
+                                <button type="submit" class="btn btn-sm text-white shadow-sm" style="background-color: #C41230; border-radius: 6px;" {% if not compromiso.estado %}disabled{% endif %}>
+                                    Ok
+                                </button>
+                            </div>
+                        </form>
+                    </td>
+
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm text-white shadow-sm" style="background-color: #8B1D19; border-radius: 6px;" data-bs-toggle="modal" data-bs-target="#modalObs{{ compromiso.id_compromiso }}">
+                            <i class="bi bi-chat-left-text"></i> Observaciones
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">No hay compromisos registrados en tu delegación.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% for compromiso in compromisos %}
+<div class="modal fade" id="modalObs{{ compromiso.id_compromiso }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header text-white" style="background-color: #8B1D19;">
+                <h5 class="modal-title fw-bold">
+                    Observaciones - Actividad {{ compromiso.id_actividad.codigo_unico }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form method="POST" action="{% url 'tuboApp:agregar_observacion_tubo' compromiso.id_compromiso %}" class="mb-4 p-3 rounded shadow-sm bg-light border">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">Agregar nueva observación o avance:</label>
+                        <textarea name="texto_observacion" class="form-control" rows="3" placeholder="Escribe aquí los detalles..." required></textarea>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn text-white fw-bold px-4 shadow-sm" style="background-color: #A91D22;">
+                            <i class="bi bi-save"></i> Guardar Observación
+                        </button>
+                    </div>
+                </form>
+                
+                <hr class="text-muted opacity-25 mb-4">
+
+                <h6 class="fw-bold text-secondary mb-3">Historial de Observaciones:</h6>
+                <div class="list-group">
+                    {% for obs in observaciones %}
+                        {% if obs.id_compromiso.id_compromiso == compromiso.id_compromiso %}
+                            <div class="list-group-item flex-column align-items-start mb-2 border rounded shadow-sm">
+                                <div class="d-flex w-100 justify-content-between align-items-center mb-2">
+                                    <small class="fw-bold text-muted"><i class="bi bi-clock"></i> {{ obs.fecha|date:"d/m/Y - H:i" }} hrs</small>
+                                </div>
+                                <p class="mb-1 text-dark" style="white-space: pre-wrap;">{{ obs.texto }}</p>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

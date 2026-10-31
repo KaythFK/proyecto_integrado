@@ -32,74 +32,67 @@
 {% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">Panel de actividades</h3>
+<h3 class="text-white fw-bold m-0 text-center">Gestión de Actividades</h3>
 {% endblock %}
 
 {% block contenido %}
-<div class="container mt-5">
-    <div class="row mb-4 align-items-center">
-        <div class="col-md-8">
-            <h2 class="fw-bold" style="color: #8B1D19;">Actividades</h2>
-            <p class="text-muted">Gestión y registro de actividades diarias.</p>
+<div class="container mt-4 mb-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <div>
+            <h4 class="fw-bold m-0" style="color: #8B1D19;">Actividades Diarias</h4>
+            <p class="text-muted m-0 mt-1">Gestión y registro de mis intervenciones territoriales.</p>
         </div>
-        <div class="col-md-4 text-end">
-            <a href="{% url 'actividadApp:registrar_actividad' %}" class="btn fw-bold text-white shadow-sm" style="background-color: #C41230; border: 1px solid #701714;">
-                + Registrar nueva actividad
-            </a>
-        </div>
-    </div>
-
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <form method="GET" action="{% url 'actividadApp:listar_actividades' %}">
-                <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
-                           placeholder="Buscar por código, problema o acción..." 
-                           value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
-                        Buscar
-                    </button>
-                    
-                    {% if query %}
-                        <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary">
-                            Limpiar
-                        </a>
-                    {% endif %}
-                </div>
-            </form>
-        </div>
+        <a href="{% url 'actividadApp:registrar_actividad' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center shadow-sm" style="background-color: #C41230; border-radius: 6px;">
+            + Nueva Actividad
+        </a>
     </div>
 
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
     {% endif %}
 
-    <div class="card shadow-sm border-0">
+    <div class="card shadow-sm border-0 p-3 mb-4" style="border-radius: 15px; background-color: #f8f9fa;">
+        <form method="GET" action="{% url 'actividadApp:listar_actividades' %}" class="row g-2 align-items-center">
+            <div class="col-12 col-md-9">
+                <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                       placeholder="Buscar por código, problema o acción..." 
+                       value="{{ query|default_if_none:'' }}">
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button class="btn text-white fw-bold w-100 shadow-sm" type="submit" style="background-color: #8B1D19;">
+                    Buscar
+                </button>
+                {% if query %}
+                    <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary w-100 fw-bold shadow-sm">Limpiar</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <div class="card shadow-sm border-0" style="border-radius: 15px; overflow: hidden;">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-striped align-middle mb-0">
-                    <thead class="table-dark" style="background-color: #1a202c;">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
                         <tr>
                             <th>Código</th>
                             <th>Fecha</th>
-                            <th>Actividad / Problema</th>
-                            <th>Estado Progreso</th>
-                            <th class="text-center">Acciones</th>
+                            <th>Solicitud / Problema</th>
+                            <th>Progreso</th>
+                            <th class="text-center">Gestión y Estado</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for actividad in actividades %}
                         <tr>
-                            <td class="fw-bold">{{ actividad.codigo_unico }}</td>
-                            <td>{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
-                            <td>
-                                {{ actividad.solicitud_problema|truncatechars:50 }}
-                            </td>
+                            <td class="fw-bold text-nowrap">{{ actividad.codigo_unico }}</td>
+                            <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{{ actividad.solicitud_problema|truncatechars:50 }}</td>
                             <td>
                                 <span class="badge 
                                     {% if actividad.estado_progreso == 'FINALIZADA' %} bg-success 
@@ -112,16 +105,15 @@
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3">
                                     
-                                    <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary px-3 mt-3" style="border-radius: 6px;">
-                                        Editar
+                                    <!-- Botón Editar Rojo Institucional -->
+                                    <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white px-3 shadow-sm" style="background-color: #C41230; border-radius: 6px;" title="Editar Actividad">
+                                        <i class="bi bi-pencil-square"></i> Editar
                                     </a>
                                     
                                     <div class="d-flex flex-column align-items-center">
-
-                                        <small class="fw-bold mb-1 {% if actividad.estado %}text-success{% else %}text-danger{% endif %}" style="font-size: 0.75rem;">
-                                            {% if actividad.estado %}Habilitado{% else %}Deshabilitado{% endif %}
-                                        </small>
-
+                                        <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.65rem;">
+                                            {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
+                                        </span>
                                         <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                             <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
                                                    style="cursor: pointer; width: 2.5em; height: 1.25em;"
@@ -134,16 +126,14 @@
                                                    onchange="this.checked = !this.checked;"> 
                                         </div>
                                     </div>
-
                                 </div>
                             </td>
-
                         </tr>
                         {% empty %}
                         <tr>
                             <td colspan="5" class="text-center py-4 text-muted">
                                 {% if query %}
-                                    No se encontraron actividades que coincidan con la búsqueda "<b>{{ query }}</b>".
+                                    No se encontraron actividades que coincidan con la búsqueda "{{ query }}".
                                 {% else %}
                                     No tienes actividades registradas actualmente.
                                 {% endif %}
@@ -168,9 +158,9 @@
         <p class="mb-2 text-secondary" id="modalSubtexto">¿Estás seguro de realizar esta acción?</p>
         <h4 id="modalNombreItem" class="fw-bold text-dark">ACT-000</h4>
       </div>
-      <div class="modal-footer justify-content-center bg-light">
-        <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
-        <a href="#" class="btn px-4 fw-bold text-white" id="btnConfirmarModal" style="border-radius: 8px;">Sí, continuar</a>
+      <div class="modal-footer justify-content-center bg-light border-0">
+        <button type="button" class="btn btn-secondary px-4 fw-bold shadow-sm" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
+        <a href="#" class="btn px-4 fw-bold text-white shadow-sm" id="btnConfirmarModal" style="border-radius: 8px;">Sí, continuar</a>
       </div>
     </div>
   </div>
@@ -188,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             document.getElementById('modalNombreItem').textContent = switchBtn.getAttribute('data-bs-codigo');
             document.getElementById('modalTituloTexto').textContent = esDesactivar ? 'Desactivar Actividad' : 'Reactivar Actividad';
-            document.getElementById('modalSubtexto').textContent = esDesactivar ? '¿Deseas desactivar esta actividad?' : '¿Deseas reactivar esta actividad?';
+            document.getElementById('modalSubtexto').textContent = esDesactivar ? '¿Deseas inhabilitar esta actividad?' : '¿Deseas restaurar esta actividad?';
             
             const btnConfirmar = document.getElementById('btnConfirmarModal');
             btnConfirmar.href = switchBtn.getAttribute('data-bs-url');

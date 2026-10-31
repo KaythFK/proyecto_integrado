@@ -118,13 +118,13 @@
                         <!-- Se cambia flex-wrap por flex-nowrap, y se quita el mt-md-4 que desalineaba el botón -->
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             
-                            <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-primary px-3" style="border-radius: 6px;">
-                            Modificar
+                            <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white" style="background-color: #8B1D19; border-radius: 6px;" title="Editar">
+                                <i class="bi bi-pencil-square"></i> Editar
                             </a>
                             
                             <div class="d-flex flex-column align-items-center">
                                 <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
-                                    {% if actividad.estado %}Habilitado{% else %}Deshabilitado{% endif %}
+                                    {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
 
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">

@@ -33,6 +33,7 @@ urlpatterns = [
     path('periodos/crear/', views.crear_periodo, name='crear_periodo'),
     path('periodos/editar/<int:id_periodo>/', views.editar_periodo, name='editar_periodo'),
     path('periodos/estado/<int:id_periodo>/', views.cambiar_estado_periodo, name='cambiar_estado_periodo'),
+    path('periodos/versionar/<int:id_periodo>/', views.versionar_periodo, name='versionar_periodo'),
     #Vecinos
     # --- RUTAS DE VECINOS ---
     path('vecinos/', views.lista_vecinos, name='lista_vecinos'),
