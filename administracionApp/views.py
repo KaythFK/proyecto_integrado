@@ -374,7 +374,7 @@ def crear_delegacion(request):
         'titulo': 'Registrar Nueva Delegación',
         'url_retorno': obtener_url_retorno(request.user),
     }
-    return render(request, 'administrador/delegaciones/form_delegacion.html', context)
+    return render(request, 'administrador/delegaciones/form_delegaciones.html', context)
 
 @login_required
 @role_required('Administrador', 'Coordinador')
@@ -475,7 +475,7 @@ def editar_cargo(request, id_cargo):
     else:
         form = CargoForm(instance=cargo)
         
-    return render(request, 'administrador/cargos/form_cargo.html', {
+    return render(request, 'administrador/cargos/form_cargos.html', {
         'form': form,
         'titulo': 'Editar Cargo'
     })
