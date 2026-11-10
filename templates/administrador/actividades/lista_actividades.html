@@ -31,7 +31,6 @@
 {% block contenido %}
 <div class="container mt-5">
 
-    <!-- Cambio: d-flex flex-column flex-md-row evita que el botón choque con el título en móviles -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <h4 class="fw-bold m-0" style="color: #8B1D19;">Listado de Actividades</h4>
         <a href="{% url 'administracionApp:crear_actividad' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center" style="background-color: #C41230;">
@@ -41,7 +40,6 @@
 
     <!-- Barra de Búsqueda -->
     <div class="row mb-4">
-        <!-- Cambio: col-12 para ocupar el ancho total en móviles -->
         <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
@@ -67,19 +65,26 @@
             <thead class="table-dark">
                 <tr>
                     <th scope="col">Código</th>
-                    <th scope="col">Fecha</th>
+                    <th scope="col">Fecha Registro</th>
                     <th scope="col">Solicitud / Problema</th>
                     <th scope="col">Solicitante</th>
-                    <th scope="col">Estado</th>
+                    <th scope="col" class="text-center">Progreso</th>
                     <th scope="col" class="text-center">Evidencias</th>
                     <th scope="col" class="text-center">Acciones</th>
                 </tr>
             </thead>
             <tbody>
                 {% for actividad in actividades %}
-                <tr>
+                <tr class="{% if actividad.esta_vencida %}fila-vencida{% endif %}">
                     <th scope="row">{{ actividad.codigo_unico }}</th>
-                    <td>{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        {{ actividad.fecha_registro|date:"d/m/Y H:i" }}
+                        {% if actividad.esta_vencida %}
+                            <div class="alerta-vencido mt-1">
+                                <i class="bi bi-exclamation-triangle-fill"></i> ¡VENCIDA!
+                            </div>
+                        {% endif %}
+                    </td>
                     
                     <td>
                         <div class="text-truncate" style="max-width: 250px;">
@@ -104,8 +109,21 @@
                         {% endif %}
                     </td>
                     
-                    <td>
-                        <span class="badge bg-secondary">{{ actividad.get_estado_progreso_display }}</span>
+                    <td class="text-center">
+                        <form method="POST" action="{% url 'administracionApp:actualizar_progreso_actividad' actividad.id_actividad %}">
+                            {% csrf_token %}
+                            <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                                <select name="nuevo_estado" class="form-select form-select-sm" style="width: auto; min-width: 120px;" {% if not actividad.estado %}disabled{% endif %}>
+                                    <option value="PENDIENTE" {% if actividad.estado_progreso == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
+                                    <option value="EN_PROCESO" {% if actividad.estado_progreso == 'EN_PROCESO' %}selected{% endif %}>En Proceso</option>
+                                    <option value="FINALIZADA" {% if actividad.estado_progreso == 'FINALIZADA' %}selected{% endif %}>Finalizada</option>
+                                </select>
+                                
+                                <button type="submit" class="btn btn-sm text-white" style="background-color: #8B1D19; border-radius: 6px;" {% if not actividad.estado %}disabled{% endif %}>
+                                    Ok
+                                </button>
+                            </div>
+                        </form>
                     </td>
                     
                     <td class="text-center">
@@ -115,7 +133,6 @@
                     </td>
                     
                     <td class="text-center">
-                        <!-- Se cambia flex-wrap por flex-nowrap, y se quita el mt-md-4 que desalineaba el botón -->
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             
                             <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white" style="background-color: #8B1D19; border-radius: 6px;" title="Editar">
@@ -180,7 +197,6 @@
                                             <div class="list-group-item list-group-item-action flex-column align-items-start mb-2 border rounded">
                                                 <div class="d-flex flex-column flex-sm-row w-100 justify-content-between">
                                                     <h6 class="mb-1 fw-bold text-secondary">
-                                                        <!-- Cambio: text-break para evitar que los enlaces largos rompan el modal en móviles -->
                                                         Archivo: <a href="{{ evidencia.archivo_vinculo }}" target="_blank" class="text-primary text-break">{{ evidencia.archivo_vinculo }}</a>
                                                     </h6>
                                                     <small class="text-muted mt-2 mt-sm-0">{{ evidencia.fecha|date:"d/m/Y H:i" }}</small>
@@ -217,7 +233,7 @@
 
 </div>
 
-<!-- Modal Estado (Sin cambios mayores, ya era responsivo) -->
+<!-- Modal Estado -->
 <div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">

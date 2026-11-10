@@ -10,6 +10,7 @@ urlpatterns = [
     path('admin-actividades/crear/', views.crear_actividad, name='crear_actividad'),
     path('admin-actividades/editar/<int:id_actividad>/', views.editar_actividad, name='editar_actividad'),
     path('admin-actividades/estado/<int:id_actividad>/', views.desactivar_actividad, name='desactivar_actividad'),
+    path('actualizar-progreso-actividad/<int:id_actividad>/', views.actualizar_progreso_actividad, name='actualizar_progreso_actividad'),
     #Profesionales
     path('profesionales/', views.directorio_profesional, name='directorio_profesional'),
     path('profesionales/crear/', views.crear_profesional, name='crear_profesional'),

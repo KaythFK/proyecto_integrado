@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 
 # Create your models here.
@@ -12,7 +14,9 @@ class Actividad(models.Model):
     ]
 
     id_actividad = models.AutoField(primary_key=True)
-    fecha = models.DateTimeField(auto_now_add=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    fecha_comprometida = models.DateField(null=True, blank=True)
+    fecha_finalizacion = models.DateField(null=True, blank=True)
     solicitud_problema = models.TextField()
     accion = models.TextField()
     codigo_unico = models.CharField(max_length=100, unique=True)
@@ -23,6 +27,12 @@ class Actividad(models.Model):
     en_tubo = models.BooleanField(default=False)
     id_profesional = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_funcionario')
     id_meta = models.ForeignKey('monitoreoApp.Meta', models.DO_NOTHING, db_column='id_meta')
+
+    @property
+    def esta_vencida(self):
+        if self.fecha_comprometida:
+            return date.today() > self.fecha_comprometida and self.estado_progreso != 'FINALIZADA'
+        return False
 
     def __str__(self):
         return f"Actividad {self.codigo_unico} - {self.estado_progreso}"

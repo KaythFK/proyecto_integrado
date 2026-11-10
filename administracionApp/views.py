@@ -37,7 +37,7 @@ def generar_clave_segura(longitud=10):
 def lista_actividades(request):
     query = request.GET.get('q')
     # .all() permite al administrador ver tanto las habilitadas como deshabilitadas
-    actividades = Actividad.objects.all().order_by('-fecha')
+    actividades = Actividad.objects.all().order_by('-fecha_registro')
     
     if query:
         actividades = actividades.filter(
@@ -777,3 +777,26 @@ def cambiar_estado_vecino(request, id_vecino):
         
     return redirect('administracionApp:lista_vecinos')
 
+@login_required
+@role_required('Administrador')
+def actualizar_progreso_actividad(request, id_actividad):
+    if request.method == 'POST':
+        actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+        nuevo_estado = request.POST.get('nuevo_estado')
+        
+        estados_validos = dict(Actividad.OPCIONES_ESTADO_PROGRESO).keys()
+        
+        if nuevo_estado in estados_validos:
+            actividad.estado_progreso = nuevo_estado
+            
+            if nuevo_estado == 'FINALIZADA':
+                actividad.fecha_finalizacion = date.today()
+            elif nuevo_estado != 'FINALIZADA' and actividad.fecha_finalizacion:
+                actividad.fecha_finalizacion = None
+                
+            actividad.save()
+            messages.success(request, f'La actividad {actividad.codigo_unico} cambió su estado a: {actividad.get_estado_progreso_display()}')
+        else:
+            messages.error(request, 'Error: El estado seleccionado no es válido.')
+            
+    return redirect(request.META.get('HTTP_REFERER', '/'))
