@@ -81,31 +81,74 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Código</th>
-                            <th>Fecha</th>
+                            <th>Fechas y Estado</th>
                             <th>Solicitud / Problema</th>
-                            <th>Progreso</th>
-                            <th class="text-center">Gestión y Estado</th>
+                            <th>Solicitante</th>
+                            <th class="text-center">Progreso</th>
+                            <th class="text-center">Gestión</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for actividad in actividades %}
-                        <tr>
+                        <tr class="{% if actividad.esta_vencida %}fila-vencida{% endif %}">
                             <td class="fw-bold text-nowrap">{{ actividad.codigo_unico }}</td>
-                            <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
-                            <td>{{ actividad.solicitud_problema|truncatechars:50 }}</td>
+                            
+                            <td style="font-size: 0.85rem; white-space: nowrap;">
+                                <strong>Registro:</strong> {{ actividad.fecha_registro|date:"d/m/Y H:i" }}
+                                {% if actividad.fecha_comprometida %}
+                                    <br><strong>Comprometida:</strong> {{ actividad.fecha_comprometida|date:"d/m/Y" }}
+                                {% endif %}
+                                {% if actividad.fecha_finalizacion %}
+                                    <br><strong>Finalizada:</strong> {{ actividad.fecha_finalizacion|date:"d/m/Y" }}
+                                {% endif %}
+                                
+                                {% if actividad.esta_vencida %}
+                                    <div class="alerta-vencido mt-1">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> ¡VENCIDA!
+                                    </div>
+                                {% endif %}
+                            </td>
+                            
                             <td>
-                                <span class="badge 
-                                    {% if actividad.estado_progreso == 'FINALIZADA' %} bg-success 
-                                    {% elif actividad.estado_progreso == 'EN_PROCESO' %} bg-warning text-dark
-                                    {% else %} bg-secondary {% endif %}">
-                                    {{ actividad.get_estado_progreso_display }}
-                                </span>
+                                <div class="text-truncate" style="max-width: 250px;">
+                                    {{ actividad.solicitud_problema }}
+                                </div>
+                            </td>
+
+                            <td>
+                                {% if actividad.solicitante_vecino %}
+                                    <strong>{{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}</strong><br>
+                                    <span class="badge bg-info text-dark">Vecino</span>
+                                    <small class="text-muted d-block">{{ actividad.solicitante_vecino.telefono|default:"Sin teléfono" }}</small>
+                                {% elif actividad.solicitante_profesional %}
+                                    <strong>{{ actividad.solicitante_profesional.nombres }} {{ actividad.solicitante_profesional.apellido_paterno }}</strong><br>
+                                    <span class="badge bg-warning text-dark">Profesional interno</span>
+                                    <small class="text-muted d-block">{{ actividad.solicitante_profesional.telefono|default:"Sin teléfono" }}</small>
+                                {% else %}
+                                    <span class="text-muted">Sin registro</span>
+                                {% endif %}
                             </td>
                             
                             <td class="text-center">
-                                <div class="d-flex justify-content-center align-items-center gap-3">
+                                <form method="POST" action="{% url 'actividadApp:actualizar_progreso_actividad' actividad.id_actividad %}">
+                                    {% csrf_token %}
+                                    <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                                        <select name="nuevo_estado" class="form-select form-select-sm" style="width: auto; min-width: 120px;" {% if not actividad.estado %}disabled{% endif %}>
+                                            <option value="PENDIENTE" {% if actividad.estado_progreso == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
+                                            <option value="EN_PROCESO" {% if actividad.estado_progreso == 'EN_PROCESO' %}selected{% endif %}>En Proceso</option>
+                                            <option value="FINALIZADA" {% if actividad.estado_progreso == 'FINALIZADA' %}selected{% endif %}>Finalizada</option>
+                                        </select>
+                                        
+                                        <button type="submit" class="btn btn-sm text-white" style="background-color: #8B1D19; border-radius: 6px;" {% if not actividad.estado %}disabled{% endif %}>
+                                            Ok
+                                        </button>
+                                    </div>
+                                </form>
+                            </td>
+                            
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                                     
-                                    <!-- Botón Editar Rojo Institucional -->
                                     <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white px-3 shadow-sm" style="background-color: #C41230; border-radius: 6px;" title="Editar Actividad">
                                         <i class="bi bi-pencil-square"></i> Editar
                                     </a>
@@ -131,7 +174,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">
+                            <td colspan="6" class="text-center py-4 text-muted">
                                 {% if query %}
                                     No se encontraron actividades que coincidan con la búsqueda "{{ query }}".
                                 {% else %}

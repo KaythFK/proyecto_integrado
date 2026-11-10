@@ -12,12 +12,8 @@ from monitoreoApp.models import Meta
 from tuboApp.models import Compromiso
 from django.db import transaction
 
-
-
-
 @login_required
 @role_required('Profesional')
-
 def dashboard_profesional(request):
     profesional_actual = None 
 
@@ -26,14 +22,15 @@ def dashboard_profesional(request):
             profesional_actual = Profesional.objects.filter(usuario=request.user).first()
             
         if profesional_actual:
-            actividades_asignadas = Actividad.objects.filter(id_profesional=profesional_actual).order_by('-fecha')
+            actividades_asignadas = Actividad.objects.filter(id_profesional=profesional_actual).order_by('-fecha_registro')
             compromisos_tubo = Compromiso.objects.filter(id_funcionario=profesional_actual).order_by('fecha_comprometida')
         else:
-            actividades_asignadas = Actividad.objects.all().order_by('-fecha')
+            actividades_asignadas = Actividad.objects.all().order_by('-fecha_registro')
             compromisos_tubo = Compromiso.objects.all().order_by('fecha_comprometida')
     except Exception:
-        actividades_asignadas = Actividad.objects.all().order_by('-fecha')
+        actividades_asignadas = Actividad.objects.all().order_by('-fecha_registro')
         compromisos_tubo = Compromiso.objects.none()
+        
     total_asignadas = actividades_asignadas.count()
     evidencias_registradas = Evidencia.objects.filter(id_actividad__in=actividades_asignadas).count()
 
@@ -78,19 +75,14 @@ def dashboard_profesional(request):
     }
     return render(request, 'profesional/dashboard_profesional.html', context)
 
-
 @login_required
 @role_required('Profesional')
 def listar_actividades(request):
     query = request.GET.get('q')
     
-    # 1. Identificamos al profesional logueado
     profesional_actual = request.user.profesional
-    
-    # 2. FILTRO CRÍTICO: Traemos SOLO las actividades asignadas a este profesional
-    actividades = Actividad.objects.filter(id_profesional=profesional_actual).order_by('-fecha')
+    actividades = Actividad.objects.filter(id_profesional=profesional_actual).order_by('-fecha_registro')
 
-    # 3. Aplicamos la búsqueda si el usuario ingresó algo en la barra
     if query:
         actividades = actividades.filter(
             Q(codigo_unico__icontains=query) |
@@ -115,6 +107,7 @@ def registrar_actividad(request, actividad_id=None):
             nueva_actividad.codigo_unico = f"ACT-{año_actual}-{codigo_random}"
             nueva_actividad.estado = True
             nueva_actividad.save()
+            
             if nueva_actividad.en_tubo:
                 Compromiso.objects.create(
                     territorio="Por asignar", 
@@ -155,7 +148,6 @@ def editar_actividad(request, id_actividad):
         'titulo': f'Editar Actividad: {actividad.codigo_unico}'
     })
 
-
 @login_required
 @role_required('Profesional')
 def registrar_evidencia(request, actividad_id):
@@ -189,7 +181,6 @@ def registrar_evidencia(request, actividad_id):
     }
     return render(request, 'profesional/registrar_evidencia.html', context)
 
-
 @login_required
 @role_required('Profesional')
 def desactivar_actividad(request, codigo_unico):
@@ -199,7 +190,6 @@ def desactivar_actividad(request, codigo_unico):
     
     messages.success(request, 'Estado de la actividad actualizado.')
     return redirect(request.META.get('HTTP_REFERER', '/'))
-
 
 @login_required
 @role_required('Profesional')
@@ -218,19 +208,15 @@ def actualizar_estado_tubo(request, id_compromiso):
             messages.error(request, 'Error: El estado seleccionado no es válido.')
     return redirect('actividadApp:dashboard_profesional')
 
-
-
 @login_required
 @role_required('Delegado')
 def actividades_delegacion(request):
-    """ Muestra todas las actividades del equipo, incluyendo las inactivas para poder gestionarlas """
     query = request.GET.get('q')
     delegacion_actual = request.user.profesional.id_delegacion
     
-    # Quitamos el filtro estado=True para que el delegado vea todo el historial de su equipo
     actividades = Actividad.objects.filter(
         id_profesional__id_delegacion=delegacion_actual
-    ).order_by('-fecha')
+    ).order_by('-fecha_registro')
 
     if query:
         actividades = actividades.filter(
@@ -248,7 +234,6 @@ def actividades_delegacion(request):
 @login_required
 @role_required('Delegado')
 def registrar_actividad_delegado(request):
-    """ Permite al delegado registrar una nueva actividad para su equipo """
     if request.method == 'POST':
         form = ActividadDelegadoForm(request.POST)
         if form.is_valid():
@@ -259,10 +244,8 @@ def registrar_actividad_delegado(request):
                     codigo_random = str(uuid.uuid4()).split('-')[0][:6].upper()
                     nueva_actividad.codigo_unico = f"ACT-{año_actual}-{codigo_random}"
                     nueva_actividad.estado = True
-                    # Al guardarla, ya queda asignada al profesional elegido en el form
                     nueva_actividad.save()
                     
-                    # Lógica de derivación automática al tubo de compromisos
                     if nueva_actividad.en_tubo:
                         Compromiso.objects.create(
                             territorio="Por asignar", 
@@ -293,7 +276,6 @@ def registrar_actividad_delegado(request):
 @login_required
 @role_required('Delegado')
 def editar_actividad_delegado(request, id_actividad):
-    """ Edición segura: Verifica que la actividad pertenezca a la delegación del usuario """
     delegacion_actual = request.user.profesional.id_delegacion
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad, id_profesional__id_delegacion=delegacion_actual)
     
@@ -304,7 +286,6 @@ def editar_actividad_delegado(request, id_actividad):
                 with transaction.atomic():
                     actividad_guardada = form.save()
                     
-                    # Si se marcó "en_tubo", aseguramos que exista el compromiso
                     if actividad_guardada.en_tubo:
                         Compromiso.objects.get_or_create(
                             id_actividad=actividad_guardada,
@@ -328,13 +309,11 @@ def editar_actividad_delegado(request, id_actividad):
         'form': form,
         'titulo': f'Editar Actividad: {actividad.codigo_unico}'
     }
-    # Reutilizamos el mismo formulario de creación que ya es responsivo
     return render(request, 'delegado/form_actividad.html', context)
 
 @login_required
 @role_required('Delegado')
 def cambiar_estado_actividad_delegado(request, id_actividad):
-    """ Activa o desactiva lógicamente una actividad del equipo """
     if request.method == 'POST':
         delegacion_actual = request.user.profesional.id_delegacion
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad, id_profesional__id_delegacion=delegacion_actual)
@@ -351,3 +330,26 @@ def cambiar_estado_actividad_delegado(request, id_actividad):
             messages.error(request, f'Error al cambiar el estado: {str(e)}')
             
     return redirect('actividadApp:actividades_delegacion')
+
+@login_required
+def actualizar_progreso_actividad(request, id_actividad):
+    if request.method == 'POST':
+        actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+        nuevo_estado = request.POST.get('nuevo_estado')
+        
+        estados_validos = dict(Actividad.OPCIONES_ESTADO_PROGRESO).keys()
+        
+        if nuevo_estado in estados_validos:
+            actividad.estado_progreso = nuevo_estado
+            
+            if nuevo_estado == 'FINALIZADA':
+                actividad.fecha_finalizacion = date.today()
+            elif nuevo_estado != 'FINALIZADA' and actividad.fecha_finalizacion:
+                actividad.fecha_finalizacion = None
+                
+            actividad.save()
+            messages.success(request, f'La actividad {actividad.codigo_unico} cambió su estado a: {actividad.get_estado_progreso_display()}')
+        else:
+            messages.error(request, 'Error: El estado seleccionado no es válido.')
+            
+    return redirect(request.META.get('HTTP_REFERER', '/'))

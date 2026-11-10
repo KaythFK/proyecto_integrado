@@ -58,17 +58,35 @@
                 {% csrf_token %}
 
                 <h5 class="fw-bold mb-3" style="color: #C41230; border-bottom: 2px solid #C41230; padding-bottom: 8px;">
-                    1. Identificación del Requerimiento
+                    1. Identificación del Requerimiento y Plazos
                 </h5>
                 <div class="row mb-4 p-3 rounded" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
                     
                     <div class="col-12 col-md-4 mb-3">
                         <label class="form-label fw-bold text-dark">Código Único</label>
                         <input type="text" class="form-control text-muted" style="background-color: #e9ecef; border: 1px solid #ced4da;" value="Generado automáticamente" disabled readonly>
-                        <div class="text-muted small fw-bold mt-1">El sistema asignará un código seguro al guardar.</div>
+                        <div class="text-muted small fw-bold mt-1">El sistema asignará un código seguro.</div>
                     </div>
 
                     <div class="col-12 col-md-4 mb-3">
+                        <label class="form-label fw-bold text-dark">Fecha Comprometida</label>
+                        {{ form.fecha_comprometida }}
+                        {% for error in form.fecha_comprometida.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                        <div class="text-muted small fw-bold mt-1">Plazo máximo esperado.</div>
+                    </div>
+                    
+                    <div class="col-12 col-md-4 mb-3">
+                        <label class="form-label fw-bold text-dark">Fecha Finalización</label>
+                        {{ form.fecha_finalizacion }}
+                        {% for error in form.fecha_finalizacion.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                        <div class="text-muted small fw-bold mt-1">Solo si la actividad ya está terminada.</div>
+                    </div>
+
+                    <div class="col-12 col-md-8 mb-3">
                         <label class="form-label fw-bold text-dark">Estado Progreso *</label>
                         {{ form.estado_progreso }}
                         {% for error in form.estado_progreso.errors %}
@@ -80,7 +98,7 @@
                         <div class="form-check mt-md-4">
                             {{ form.en_tubo }} 
                             <label class="form-check-label fw-bold text-dark ms-1" for="{{ form.en_tubo.id_for_label }}">
-                                ¿En tubo?
+                                ¿Ingresar al Tubo de Compromisos?
                             </label>
                         </div>
                     </div>

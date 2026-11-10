@@ -139,7 +139,7 @@ def listar_todas_actividades(request):
     query = request.GET.get('q')
     estado_filtro = request.GET.get('estado')
     
-    actividades = Actividad.objects.all().order_by('-fecha')
+    actividades = Actividad.objects.all().order_by('-fecha_registro')
 
     if query:
         actividades = actividades.filter(
