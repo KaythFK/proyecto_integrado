@@ -155,6 +155,9 @@
                                     <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm" style="background-color: #495057; border-radius: 6px;" title="Ver Gestiones">
                                         <i class="bi bi-briefcase"></i> Gestiones
                                     </a>
+                                    <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm" style="background-color: #8B1D19; border-radius: 6px;" title="Evidencias">
+                                        <i class="bi bi-camera"></i> Evidencias
+                                    </a>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.65rem;">

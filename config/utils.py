@@ -103,3 +103,13 @@ def validar_entero_positivo(valor, nombre_campo="El valor"):
         except (TypeError, ValueError):
             raise ValidationError(f"{nombre_campo} debe ser un número entero válido.")
     return valor
+
+
+def validar_evidencia_no_duplicada(evidencia):
+    """
+    [KAN-170] Valida que la evidencia no haya sido aprobada previamente
+    para evitar sumas duplicadas en el indicador.
+    """
+    if evidencia and evidencia.estado_revision == 'APROBADO':
+        raise ValidationError("Esta evidencia ya fue validada y contabilizada.")
+    return evidencia

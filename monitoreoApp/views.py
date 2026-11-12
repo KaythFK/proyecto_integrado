@@ -10,6 +10,7 @@ from .forms import MetaForm, IndicadorForm
 from tuboApp.models import Compromiso
 from datetime import date
 
+
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
 from administracionApp.models import Profesional, Auditoria
 import json
