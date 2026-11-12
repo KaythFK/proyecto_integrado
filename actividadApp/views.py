@@ -8,10 +8,11 @@ from usuariosApp.decorators import role_required
 from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacion, GestionActividad
 from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm
 from administracionApp.models import Profesional, Auditoria # <- Añadido Auditoria
-from monitoreoApp.models import Meta
+from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
 from django.db import transaction
-
+from config.utils import validar_evidencia_no_duplicada
+from django.core.exceptions import ValidationError
 import json
 from django.forms.models import model_to_dict
 
@@ -603,11 +604,28 @@ def cambiar_estado_retroalimentacion(request, id_retroalimentacion):
 
 
 @login_required
-@role_required('Administrador', 'Profesional')
+@role_required('Administrador', 'Profesional', 'Delegado')
 def lista_evidencias(request):
     query = request.GET.get('q')
+    profesional_actual = getattr(request.user, 'profesional', None)
+    
+    # 1. Obtenemos todas las evidencias como base
     evidencias = Evidencia.objects.all().select_related('id_actividad').order_by('-id_evidencia')
     
+    # 2. FILTRO DE SEGURIDAD POR ROL
+    if profesional_actual:
+        if request.user.groups.filter(name='Administrador').exists():
+            # El Administrador pasa directo y ve TODO
+            pass 
+        elif request.user.groups.filter(name='Delegado').exists():
+            # El Delegado SOLO ve las evidencias de los profesionales de SU delegación
+            delegacion_actual = profesional_actual.id_delegacion
+            evidencias = evidencias.filter(id_actividad__id_profesional__id_delegacion=delegacion_actual)
+        else:
+            # El Profesional normal SOLO ve sus propias evidencias
+            evidencias = evidencias.filter(id_actividad__id_profesional=profesional_actual)
+    
+    # 3. Lógica de búsqueda (barra de texto)
     if query:
         evidencias = evidencias.filter(
             Q(archivo_vinculo__icontains=query) |
@@ -615,6 +633,7 @@ def lista_evidencias(request):
             Q(id_actividad__codigo_unico__icontains=query)
         ).distinct()
 
+    # 4. Armar el diccionario para el HTML
     evidencias_con_validacion = []
     for ev in evidencias:
         validacion = Validacion.objects.filter(id_evidencia=ev).first()
@@ -741,13 +760,40 @@ def crear_validacion(request):
             try:
                 with transaction.atomic():
                     validacion = form.save(commit=False)
+                    evidencia = validacion.id_evidencia
+                    
+                    # [KAN-170] ESCUDO: Bloqueo de suma duplicada
+                    if validacion.decision == 'APROBADO':
+                        validar_evidencia_no_duplicada(evidencia)
+                    
                     validacion.estado = True
                     validacion.save()
                     
+                    # [KAN-169] ACCIÓN: Sumar avance solo si está "Aprobada"
+                    if validacion.decision == 'APROBADO':
+                        # 1. Cambiamos el estado de la evidencia
+                        evidencia.estado_revision = 'APROBADO'
+                        evidencia.save()
+                        
+                        # 2. Buscamos el indicador asociado a la meta de esta actividad
+                        actividad = evidencia.id_actividad
+                        meta = actividad.id_meta
+                        indicador = Indicador.objects.filter(meta_id_meta=meta).first()
+                        
+                        if indicador:
+                            indicador.avance += 1 
+                            indicador.save()
+                            
+                            registrar_auditoria(request, "ACTUALIZACION_AVANCE", "Indicador", indicador)
+
                     registrar_auditoria(request, "CREACION", "Validacion", validacion)
                     
-                messages.success(request, 'La validación fue registrada con éxito.')
+                messages.success(request, 'La validación fue registrada con éxito y el avance ha sido actualizado.')
                 return redirect('actividadApp:lista_validaciones')
+                
+            except ValidationError as e:
+                # Si el escudo detecta duplicado, muestra el mensaje de error en rojo
+                messages.error(request, str(e.message if hasattr(e, 'message') else e.messages[0]))
             except Exception as e:
                 messages.error(request, f'Error al guardar: {str(e)}')
         else:
