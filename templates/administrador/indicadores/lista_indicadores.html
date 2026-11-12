@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Indicadores - Sistema Municipal{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:lista_indicadores' %}">Indicadores</a>
+    </li>
+</ul>
+<div class="mt-5">
+    <hr class="border-white mx-4" style="opacity: 0.3;">
+    <ul class="nav flex-column mt-4">
+        <li class="nav-item text-center">
+            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                Cerrar sesión
+            </a>
+        </li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Indicadores</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <h4 class="fw-bold m-0" style="color: #8B1D19;">Listado de Indicadores</h4>
+        <a href="{% url 'monitoreoApp:crear_indicador' %}" class="btn text-white fw-bold" style="background-color: #C41230;">
+            + Nuevo Indicador
+        </a>
+    </div>
+
+    <!-- Barra de Búsqueda -->
+    <div class="row mb-4">
+        <div class="col-12 col-md-8 col-lg-6">
+            <form method="GET" action="">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                        placeholder="Buscar por semáforo o unidad de meta..." 
+                        value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19;">Buscar</button>
+                    {% if query %}
+                        <a href="?" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Meta Asociada</th>
+                    <th class="text-center">Avance</th>
+                    <th class="text-center">Cumplimiento</th>
+                    <th class="text-center">Ponderación</th>
+                    <th class="text-center">Semáforo</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ind in indicadores %}
+                <!-- FILA CAMBIA DE COLOR SI ESTÁ INACTIVO -->
+                <tr class="{% if not ind.estado %}table-secondary text-muted opacity-75{% endif %}">
+                    <td><strong>#{{ ind.id_indicador }}</strong></td>
+                    <td>{{ ind.meta_id_meta }}</td>
+                    <td class="text-center">{{ ind.avance }}</td>
+                    <td class="text-center">{{ ind.cumplimiento }}%</td>
+                    <td class="text-center">{{ ind.ponderacion }}%</td>
+                    <td class="text-center">
+                        <span class="badge 
+                            {% if ind.semaforo == 'VERDE' %}bg-success
+                            {% elif ind.semaforo == 'AMARILLO' %}bg-warning text-dark
+                            {% else %}bg-danger{% endif %}">
+                            {{ ind.get_semaforo_display }}
+                        </span>
+                    </td>
+                    
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                            <a href="{% url 'monitoreoApp:editar_indicador' ind.id_indicador %}" class="btn btn-sm text-white" style="background-color: #8B1D19;" title="Editar">
+                                <i class="bi bi-pencil-square"></i> Editar
+                            </a>
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if ind.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if ind.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                        style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                        {% if ind.estado %}checked{% endif %}
+                                        onclick="confirmarCambio(event, '{{ ind.id_indicador }}', '{{ ind.estado }}')">
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">No hay indicadores registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Estado -->
+<div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderEstado">
+                <h5 class="modal-title fw-bold" id="modalTituloEstado">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
+                <strong class="fs-4 text-dark" id="modalNombre"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstado" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarEstado">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambio(event, id, estadoActualStr) {
+    event.preventDefault();
+    const estaActivo = estadoActualStr === 'True';
+    const actionUrl = "{% url 'monitoreoApp:cambiar_estado_indicador' 0 %}".replace('0', id);
+    
+    const header = document.getElementById('modalHeaderEstado');
+    const titulo = document.getElementById('modalTituloEstado');
+    const mensaje = document.getElementById('modalMensajeEstado');
+    const nombreStr = document.getElementById('modalNombre');
+    const btn = document.getElementById('btnConfirmarEstado');
+    const form = document.getElementById('formCambiarEstado');
+    
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Desactivar Indicador';
+        mensaje.innerText = '¿Estás segura de inhabilitar el indicador:';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Reactivar Indicador';
+        mensaje.innerText = '¿Deseas restaurar el indicador:';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+    
+    nombreStr.innerText = 'Indicador #' + id;
+    form.action = actionUrl;
+    
+    new bootstrap.Modal(document.getElementById('modalEstado')).show();
+}
+</script>
+{% endblock %}

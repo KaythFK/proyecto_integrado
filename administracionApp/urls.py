@@ -41,4 +41,6 @@ urlpatterns = [
     path('vecinos/crear/', views.crear_vecino, name='crear_vecino'),
     path('vecinos/editar/<int:id_vecino>/', views.editar_vecino, name='editar_vecino'),
     path('vecinos/estado/<int:id_vecino>/', views.cambiar_estado_vecino, name='cambiar_estado_vecino'),
+    #auditoría
+    path('auditoria/', views.lista_auditoria, name='lista_auditoria'),
 ]

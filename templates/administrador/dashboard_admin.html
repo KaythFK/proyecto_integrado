@@ -11,6 +11,12 @@
         <li class="nav-item text-center">
             <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi Perfil</a>
         </li>
+                <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:lista_auditoria' %}">Auditoria</a>
+        </li>
+                <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="#">Alertas</a>
+        </li>
     </ul>
 
     <div class="mt-5">
@@ -74,12 +80,22 @@
             </div>
             <div class="col-md-4"><a href="{% url 'tuboApp:tubo' %}" class="btn btn-naranja">Tubo</a></div>
             <div class="col-md-4"><a href="{% url 'administracionApp:admin-actividades' %}" class="btn btn-naranja">Actividades</a></div>
+            <div class="col-md-4"><a href="{% url 'actividadApp:lista_evidencias' %}" class="btn btn-naranja">Evidencias</a></div>
+            <div class="col-md-4"><a href="{% url 'actividadApp:lista_validaciones' %}" class="btn btn-naranja">Validaciones</a></div>
             <div class="col-md-4"><a href="{% url 'administracionApp:delegaciones' %}" class="btn btn-naranja">Delegaciones</a></div>
             <div class="col-md-4"><a href="{% url 'administracionApp:lista_cargos' %}" class="btn btn-naranja">Cargo</a></div>
             <div class="col-md-4"><a href="{% url 'administracionApp:panel_catalogos' %}" class="btn btn-naranja">Catálogos</a></div>
             <div class="col-md-4"><a href="{% url 'administracionApp:lista_periodos' %}" class="btn btn-naranja">Periodos</a></div>
             <div class="col-md-4"><a href="{% url 'administracionApp:lista_vecinos' %}" class="btn btn-naranja">Vecino</a></div>
             <div class="col-md-4"><a href="{% url 'monitoreoApp:listar_metas' %}" class="btn btn-naranja">Metas</a></div>
+            <div class="col-md-4"><a href="{% url 'comunidadApp:lista_organizaciones' %}" class="btn btn-naranja">Organizaciones</a></div>
+            <div class="col-md-4"><a href="{% url 'monitoreoApp:lista_indicadores' %}" class="btn btn-naranja">Indicadores</a></div>
+            <div class="col-md-4"><a href="{% url 'comunidadApp:lista_afiliaciones' %}" class="btn btn-naranja">Afiliaciones</a></div>
+            <div class="col-md-4"><a href="{% url 'actividadApp:lista_ausencias' %}" class="btn btn-naranja">Ausencias</a></div>
+            <div class="col-md-4"><a href="{% url 'comunidadApp:lista_cargas' %}" class="btn btn-naranja">Cargas</a></div>
+            <div class="col-md-4"><a href="{% url 'comunidadApp:lista_vinculos' %}" class="btn btn-naranja">Vinculos</a></div>
+            <div class="col-md-4"><a href="{% url 'actividadApp:lista_retroalimentaciones' %}" class="btn btn-naranja">Retroalimentaciones</a></div>
+            <div class="col-md-4"><a href="{% url 'actividadApp:lista_todas_gestiones' %}" class="btn btn-naranja">Gestiones</a></div>
         </div>
     </div>
 </div>

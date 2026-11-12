@@ -4,6 +4,9 @@ from django.contrib.auth.models import User
 
 import os
 from django.utils import timezone
+from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.dispatch import receiver
+import json
 
 # Create your models here.
 class Profesional(models.Model):
@@ -79,19 +82,6 @@ class CatalagoServicio(models.Model):
         verbose_name_plural = 'Catalogo Servicios'
 
 
-class CatalogoRoles(models.Model):
-    id_roles = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=80)
-    estado = models.BooleanField(default=True)
-
-    def __str__(self):
-        return str(self.nombre)
-    
-    class Meta:
-        db_table = 'catalogo_roles'
-        verbose_name_plural = 'Catalogo Roles'
-
-
 class CatalagoItem(models.Model):
     id_item = models.AutoField(primary_key=True)
     nombre = models.CharField(unique=True, max_length=45)
@@ -131,7 +121,6 @@ class Vecino(models.Model):
     correo = models.CharField(unique=True, max_length=150)
     estado = models.BooleanField(default=True)
 
-
     def __str__(self):
         return f"{self.nombres} {self.apellido_paterno}"
     class Meta:
@@ -157,6 +146,7 @@ class Auditoria(models.Model):
 class CatalagoAreaApoyo(models.Model):
     id_area_apoyo = models.AutoField(primary_key=True)
     nombre = models.CharField(unique=True, max_length=45)
+    correo = models.CharField(unique=True, max_length=150, null=True, blank=True)
     estado = models.BooleanField(default=True)
 
     def __str__(self):
@@ -180,3 +170,54 @@ class FotoPerfil(models.Model):
 
     class Meta:
         db_table = 'administracionapp_fotoperfil'
+
+
+
+# --- AUDITORÍA DE INICIOS DE SESIÓN ---
+@receiver(user_logged_in)
+def auditar_login(sender, request, user, **kwargs):
+    try:
+        from .models import Auditoria, Profesional
+        
+        profesional_actual = Profesional.objects.filter(usuario=user).first()
+        ip_cliente = request.META.get('REMOTE_ADDR', 'Desconocida')
+        
+        datos_sesion = {
+            "ip_conexion": ip_cliente,
+            "metodo": "Autenticación web",
+            "descripcion_legible": f"Inicio de sesión exitoso: {user.username}"
+        }
+        
+        Auditoria.objects.create(
+            evento="LOGIN",
+            entidad="AccesoSistema",
+            identificador=user.pk,
+            valor_anterior=None,
+            valor_nuevo=datos_sesion,
+            funcionario_id_funcionario=profesional_actual
+        )
+    except Exception as e:
+        print(f"Error al auditar el inicio de sesión: {e}")
+
+@receiver(user_logged_out)
+def auditar_logout(sender, request, user, **kwargs):
+    try:
+        from .models import Auditoria, Profesional
+        
+        if user:
+            profesional_actual = Profesional.objects.filter(usuario=user).first()
+            
+            datos_sesion = {
+                "descripcion_legible": f"Cierre de sesión: {user.username}"
+            }
+            
+            Auditoria.objects.create(
+                evento="LOGOUT",
+                entidad="AccesoSistema",
+                identificador=user.pk,
+                valor_anterior=None,
+                valor_nuevo=datos_sesion,
+                funcionario_id_funcionario=profesional_actual
+            )
+    except Exception as e:
+        print(f"Error al auditar el cierre de sesión: {e}")

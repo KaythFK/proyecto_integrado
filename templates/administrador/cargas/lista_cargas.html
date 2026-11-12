@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cargas Familiares - Sistema Municipal{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'comunidadApp:lista_cargas' %}">Cargas Familiares</a>
+    </li>
+</ul>
+<div class="mt-5">
+    <hr class="border-white mx-4" style="opacity: 0.3;">
+    <ul class="nav flex-column mt-4">
+        <li class="nav-item text-center">
+            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                Cerrar sesión
+            </a>
+        </li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Cargas Familiares</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <h4 class="fw-bold m-0" style="color: #8B1D19;">Listado General de Cargas</h4>
+        <a href="{% url 'comunidadApp:crear_carga' %}" class="btn text-white fw-bold" style="background-color: #C41230;">
+            + Nueva Carga
+        </a>
+    </div>
+
+    <!-- Barra de Búsqueda -->
+    <div class="row mb-4">
+        <div class="col-12 col-md-8 col-lg-6">
+            <form method="GET" action="">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                        placeholder="Buscar por nombre, apellido o RUT..." 
+                        value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19;">Buscar</button>
+                    {% if query %}
+                        <a href="?" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>RUT</th>
+                    <th>Nombres y Apellidos</th>
+                    <th class="text-center">Fecha de Nacimiento</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for carga in cargas %}
+                <!-- FILA CAMBIA DE COLOR SI ESTÁ INACTIVA -->
+                <tr class="{% if not carga.estado %}table-secondary text-muted opacity-75{% endif %}">
+                    <td><strong>{{ carga.rut }}</strong></td>
+                    <td>{{ carga.nombres }} {{ carga.apellido_paterno }} {{ carga.apellido_materno|default:"" }}</td>
+                    <td class="text-center">{{ carga.fecha_nacimiento|date:"d/m/Y" }}</td>
+                    
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                            <a href="{% url 'comunidadApp:editar_carga' carga.pk %}" class="btn btn-sm text-white" style="background-color: #8B1D19;" title="Editar">
+                                <i class="bi bi-pencil-square"></i> Editar
+                            </a>
+                            
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if carga.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                    {% if carga.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
+                                        style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                        {% if carga.estado %}checked{% endif %}
+                                        onclick="confirmarCambio(event, '{{ carga.pk }}', '{{ carga.nombres }} {{ carga.apellido_paterno }} (RUT: {{ carga.rut }})', '{{ carga.estado }}')">
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">No hay cargas familiares registradas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Estado -->
+<div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderEstado">
+                <h5 class="modal-title fw-bold" id="modalTituloEstado">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
+                <strong class="fs-5 text-dark" id="modalNombre"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstado" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarEstado">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
+    event.preventDefault();
+    const estaActivo = estadoActualStr === 'True';
+    const actionUrl = "{% url 'comunidadApp:cambiar_estado_carga' 0 %}".replace('0', id);
+    
+    const header = document.getElementById('modalHeaderEstado');
+    const titulo = document.getElementById('modalTituloEstado');
+    const mensaje = document.getElementById('modalMensajeEstado');
+    const nombreStr = document.getElementById('modalNombre');
+    const btn = document.getElementById('btnConfirmarEstado');
+    const form = document.getElementById('formCambiarEstado');
+    
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Desactivar Carga Familiar';
+        mensaje.innerText = '¿Estás segura de inhabilitar a la carga:';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Reactivar Carga Familiar';
+        mensaje.innerText = '¿Deseas restaurar a la carga:';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+    
+    nombreStr.innerText = textoDetalle;
+    form.action = actionUrl;
+    
+    new bootstrap.Modal(document.getElementById('modalEstado')).show();
+}
+</script>
+{% endblock %}

@@ -152,6 +152,9 @@
                                     <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white px-3 shadow-sm" style="background-color: #C41230; border-radius: 6px;" title="Editar Actividad">
                                         <i class="bi bi-pencil-square"></i> Editar
                                     </a>
+                                    <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm" style="background-color: #495057; border-radius: 6px;" title="Ver Gestiones">
+                                        <i class="bi bi-briefcase"></i> Gestiones
+                                    </a>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.65rem;">

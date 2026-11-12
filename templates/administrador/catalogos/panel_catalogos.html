@@ -43,21 +43,20 @@
     <!-- CSS Integrado para que el rojo cambie dinámicamente con el clic -->
     <style>
         #tabsCatalogos .nav-link {
-            color: #6c757d; /* Gris para pestañas inactivas */
+            color: #6c757d;
             border-bottom: 1px solid #dee2e6;
         }
         #tabsCatalogos .nav-link:hover {
             border-color: #e9ecef #e9ecef #dee2e6;
         }
         #tabsCatalogos .nav-link.active {
-            color: #C41230 !important; /* Rojo heráldico para la pestaña activa */
+            color: #C41230 !important;
             border-bottom-color: transparent !important;
         }
     </style>
 
     <ul class="nav nav-tabs fw-bold flex-nowrap overflow-x-auto text-nowrap" id="tabsCatalogos" role="tablist" style="scrollbar-width: none;">
         <li class="nav-item" role="presentation">
-            <!-- Se quitaron las clases de colores fijos, ahora dependen del CSS de arriba -->
             <button class="nav-link {% if tab_activa == 'servicio' %}active{% endif %}" 
                     data-bs-toggle="tab" data-bs-target="#tab-servicio" type="button">Servicios</button>
         </li>
@@ -68,6 +67,11 @@
         <li class="nav-item" role="presentation">
             <button class="nav-link {% if tab_activa == 'area' %}active{% endif %}" 
                     data-bs-toggle="tab" data-bs-target="#tab-area" type="button">Áreas de Apoyo</button>
+        </li>
+        <!-- Pestaña Gestiones -->
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activa == 'gestion' %}active{% endif %}" 
+                    data-bs-toggle="tab" data-bs-target="#tab-gestion" type="button">Tipos de Gestión</button>
         </li>
     </ul>
 
@@ -93,7 +97,7 @@
                             <td>{% if serv.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}')">Editar</button>
+                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre|escapejs }}')">Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if serv.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
@@ -101,7 +105,7 @@
                                         </span>
                                         <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                             <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if serv.estado %}checked{% endif %}
-                                            onclick="abrirModalEstado(event, 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre }}', '{{ serv.estado }}')">
+                                            onclick="abrirModalEstado(event, 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre|escapejs }}', '{{ serv.estado }}')">
                                         </div>
                                     </div>
                                 </div>
@@ -133,7 +137,7 @@
                             <td>{% if it.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre }}')">Editar</button>
+                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre|escapejs }}')">Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if it.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
@@ -141,7 +145,7 @@
                                         </span>
                                         <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                             <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if it.estado %}checked{% endif %}
-                                            onclick="abrirModalEstado(event, 'item', '{{ it.id_item }}', '{{ it.nombre }}', '{{ it.estado }}')">
+                                            onclick="abrirModalEstado(event, 'item', '{{ it.id_item }}', '{{ it.nombre|escapejs }}', '{{ it.estado }}')">
                                         </div>
                                     </div>
                                 </div>
@@ -157,23 +161,42 @@
         <div class="tab-pane fade {% if tab_activa == 'area' %}show active{% endif %}" id="tab-area">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
                 <h5 class="fw-bold m-0" style="color: #8B1D19;">Catálogo de Áreas de Apoyo</h5>
-                <button class="btn text-white fw-bold align-self-stretch align-self-md-auto" style="background-color: #C41230;" onclick="abrirModalCatalogo('crear', 'area', '', '')">
+                <button class="btn text-white fw-bold align-self-stretch align-self-md-auto" style="background-color: #C41230;" onclick="abrirModalCatalogoArea('crear', '', '', '')">
                     + Nueva Área
                 </button>
             </div>
             
             <div class="table-responsive shadow-sm rounded">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-dark"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Correo de Contacto</th>
+                            <th>Estado</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for ar in areas %}
                         <tr>
                             <td>#{{ ar.id_area_apoyo }}</td>
                             <td class="fw-bold">{{ ar.nombre }}</td>
+                            <td>
+                                {% if ar.correo %}
+                                    <a href="mailto:{{ ar.correo }}" class="text-decoration-none text-dark">{{ ar.correo }}</a>
+                                {% else %}
+                                    <span class="text-muted">Sin correo registrado</span>
+                                {% endif %}
+                            </td>
                             <td>{% if ar.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}')">Editar</button>
+                                    <!-- AQUI ESTÁ EL ARREGLO: Sin conflictos de comillas usando un bloque if -->
+                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" 
+                                            onclick="abrirModalCatalogoArea('editar', '{{ ar.id_area_apoyo }}', '{{ ar.nombre|escapejs }}', '{% if ar.correo %}{{ ar.correo|escapejs }}{% endif %}')">
+                                        Editar
+                                    </button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if ar.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
@@ -181,17 +204,58 @@
                                         </span>
                                         <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                             <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if ar.estado %}checked{% endif %}
-                                            onclick="abrirModalEstado(event, 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre }}', '{{ ar.estado }}')">
+                                            onclick="abrirModalEstado(event, 'area', '{{ ar.id_area_apoyo }}', '{{ ar.nombre|escapejs }}', '{{ ar.estado }}')">
                                         </div>
                                     </div>
                                 </div>
                             </td>
                         </tr>
-                        {% empty %} <tr><td colspan="4" class="text-center text-muted py-4">No hay registros.</td></tr> {% endfor %}
+                        {% empty %} <tr><td colspan="5" class="text-center text-muted py-4">No hay registros.</td></tr> {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- PESTAÑA 4: GESTIONES -->
+        <div class="tab-pane fade {% if tab_activa == 'gestion' %}show active{% endif %}" id="tab-gestion">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+                <h5 class="fw-bold m-0" style="color: #8B1D19;">Catálogo de Tipos de Gestión</h5>
+                <button class="btn text-white fw-bold align-self-stretch align-self-md-auto" style="background-color: #C41230;" onclick="abrirModalCatalogo('crear', 'gestion', '', '')">
+                    + Nuevo Tipo de Gestión
+                </button>
+            </div>
+            
+            <div class="table-responsive shadow-sm rounded">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
+                    <tbody>
+                        {% for ges in gestiones %}
+                        <tr>
+                            <td>#{{ ges.id_tipo_gestion }}</td>
+                            <td class="fw-bold">{{ ges.nombre }}</td>
+                            <td>{% if ges.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                                    <button class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" onclick="abrirModalCatalogo('editar', 'gestion', '{{ ges.id_tipo_gestion }}', '{{ ges.nombre|escapejs }}')">Editar</button>
+                                    
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="badge mb-1 {% if ges.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                            {% if ges.estado %}Activo{% else %}Inactivo{% endif %}
+                                        </span>
+                                        <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                            <input class="form-check-input switch-estado m-0" type="checkbox" role="switch" style="cursor: pointer; width: 2.5em; height: 1.25em;" {% if ges.estado %}checked{% endif %}
+                                            onclick="abrirModalEstado(event, 'gestion', '{{ ges.id_tipo_gestion }}', '{{ ges.nombre|escapejs }}', '{{ ges.estado }}')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %} <tr><td colspan="4" class="text-center text-muted py-4">No hay tipos de gestión registrados.</td></tr> {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -199,7 +263,7 @@
 <!-- MODALES Y CAJAS INVISIBLES -->
 <!-- ========================================== -->
 
-<!-- Modal para Crear/Editar -->
+<!-- Modal GENÉRICO para Crear/Editar (Servicios, Ítems, Gestiones) -->
 <div class="modal fade" id="modalCatalogo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow border-0">
@@ -215,7 +279,41 @@
 
                 <div class="modal-body p-4">
                     <label class="fw-bold mb-2">Nombre *</label>
-                    <input type="text" name="nombre" id="inputNombre" class="form-control" required minlength="3" maxlength="45">
+                    <input type="text" name="nombre" id="inputNombre" class="form-control" required minlength="3" maxlength="100">
+                </div>
+                <div class="modal-footer border-0 pb-4 d-flex justify-content-center gap-2 flex-wrap">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn text-white px-4 fw-bold" style="background-color: #C41230;">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal ESPECÍFICO para Áreas de Apoyo (Incluye Correo) -->
+<div class="modal fade" id="modalCatalogoArea" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header text-white" style="background-color: #8B1D19;">
+                <h5 class="modal-title fw-bold" id="tituloModalCatalogoArea">Gestión de Área de Apoyo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'administracionApp:gestionar_catalogo' %}">
+                {% csrf_token %}
+                <input type="hidden" name="accion" id="inputAccionArea">
+                <input type="hidden" name="tipo" value="area"> <!-- Siempre es area -->
+                <input type="hidden" name="id_obj" id="inputIdObjArea">
+
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="fw-bold mb-2">Nombre del Área *</label>
+                        <input type="text" name="nombre" id="inputNombreArea" class="form-control" required minlength="3" maxlength="100">
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold mb-2">Correo de Contacto</label>
+                        <input type="email" name="correo" id="inputCorreoArea" class="form-control" placeholder="ejemplo@municipio.cl" maxlength="100">
+                        <div class="form-text">Opcional. Se utilizará para notificaciones al área.</div>
+                    </div>
                 </div>
                 <div class="modal-footer border-0 pb-4 d-flex justify-content-center gap-2 flex-wrap">
                     <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
@@ -253,6 +351,7 @@
 </div>
 
 <script>
+// Función para el modal genérico (Servicios, Ítems, Gestiones)
 function abrirModalCatalogo(accion, tipo, id_obj, nombre_actual) {
     document.getElementById('inputAccion').value = accion;
     document.getElementById('inputTipo').value = tipo; 
@@ -261,6 +360,17 @@ function abrirModalCatalogo(accion, tipo, id_obj, nombre_actual) {
     
     document.getElementById('tituloModalCatalogo').innerText = (accion === 'crear') ? 'Nuevo Registro' : 'Editar Registro';
     new bootstrap.Modal(document.getElementById('modalCatalogo')).show();
+}
+
+// Función para el modal específico de Áreas de Apoyo
+function abrirModalCatalogoArea(accion, id_obj, nombre_actual, correo_actual) {
+    document.getElementById('inputAccionArea').value = accion;
+    document.getElementById('inputIdObjArea').value = id_obj;
+    document.getElementById('inputNombreArea').value = nombre_actual;
+    document.getElementById('inputCorreoArea').value = correo_actual;
+    
+    document.getElementById('tituloModalCatalogoArea').innerText = (accion === 'crear') ? 'Nueva Área de Apoyo' : 'Editar Área de Apoyo';
+    new bootstrap.Modal(document.getElementById('modalCatalogoArea')).show();
 }
 
 function abrirModalEstado(event, tipo, id_obj, nombre, estadoStr) {

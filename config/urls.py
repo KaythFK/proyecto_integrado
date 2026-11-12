@@ -13,6 +13,7 @@ urlpatterns = [
     path('monitoreo/', include('monitoreoApp.urls')), 
     path('usuarios/', include('usuariosApp.urls')),
     path('', RedirectView.as_view(pattern_name='usuariosApp:login'), name='raiz'),
+    path('comunidad/', include('comunidadApp.urls')),
 ]
 
 if settings.DEBUG:

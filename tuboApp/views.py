@@ -9,6 +9,42 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import date
 
+# --- NUEVOS IMPORTS PARA AUDITORÍA ---
+from administracionApp.models import Profesional, Auditoria
+import json
+from django.forms.models import model_to_dict
+
+# --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
+def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
+    """
+    Función centralizada para registrar auditoría con descripciones legibles.
+    """
+    try:
+        profesional_actual = Profesional.objects.filter(usuario=request.user).first() if request.user.is_authenticated else None
+        identificador = getattr(objeto_instancia, 'pk', 0)
+        
+        diccionario_nuevo = model_to_dict(objeto_instancia)
+        datos_nuevos_limpios = {k: str(v) for k, v in diccionario_nuevo.items()}
+        datos_nuevos_limpios['descripcion_legible'] = str(objeto_instancia)
+        
+        datos_anteriores_limpios = None
+        if datos_anteriores:
+            datos_anteriores_limpios = {k: str(v) for k, v in datos_anteriores.items()}
+            datos_anteriores_limpios['descripcion_legible'] = str(objeto_instancia)
+
+        Auditoria.objects.create(
+            evento=evento,
+            entidad=entidad,
+            identificador=identificador,
+            valor_anterior=datos_anteriores_limpios,
+            valor_nuevo=datos_nuevos_limpios,
+            funcionario_id_funcionario=profesional_actual
+        )
+    except Exception as e:
+        print(f"Error interno registrando auditoría: {e}")
+# ---------------------------------------
+
+
 @login_required
 @role_required('Administrador')
 def agenda(request):
@@ -42,7 +78,12 @@ def actualizar_progreso_tubo(request, id_compromiso):
         if nuevo_estado in estados_validos:
             try:
                 with transaction.atomic():
-                    # Mapeo de estados entre Compromiso y Actividad
+                    # 1. Capturamos estado ANTERIOR de ambos objetos
+                    datos_antiguos_compromiso = model_to_dict(compromiso)
+                    actividad = compromiso.id_actividad
+                    datos_antiguos_actividad = model_to_dict(actividad)
+
+                    # 2. Mapeo de estados entre Compromiso y Actividad
                     estado_actividad = nuevo_estado
                     if nuevo_estado == 'INGRESADO':
                         estado_actividad = 'PENDIENTE'
@@ -52,14 +93,17 @@ def actualizar_progreso_tubo(request, id_compromiso):
                     else:
                         compromiso.fecha_termino = None
                         
-                    # Actualizar Compromiso
+                    # 3. Actualizar Compromiso
                     compromiso.estado_progreso = nuevo_estado
                     compromiso.save()
 
-                    # Actualizar Actividad asociada
-                    actividad = compromiso.id_actividad
+                    # 4. Actualizar Actividad asociada
                     actividad.estado_progreso = estado_actividad
                     actividad.save()
+
+                    # 5. REGISTRAR AUDITORÍA DOBLE
+                    registrar_auditoria(request, "CAMBIO_PROGRESO", "Compromiso", compromiso, datos_antiguos_compromiso)
+                    registrar_auditoria(request, "CAMBIO_PROGRESO", "Actividad", actividad, datos_antiguos_actividad)
 
                     messages.success(request, f'Progreso actualizado a {nuevo_estado} para el compromiso y su actividad.')
             except Exception as e:
@@ -78,11 +122,15 @@ def cambiar_estado_tubo(request, id_compromiso):
 
         try:
             with transaction.atomic():
+                datos_antiguos = model_to_dict(compromiso) # --- AUDITORÍA ---
                 nuevo_estado = not compromiso.estado
                 
                 # Borrado lógico del compromiso
                 compromiso.estado = nuevo_estado
                 compromiso.save()
+
+                # --- AUDITORÍA ---
+                registrar_auditoria(request, "CAMBIO_ESTADO", "Compromiso", compromiso, datos_antiguos)
 
                 accion = "habilitado" if nuevo_estado else "inhabilitado"
                 messages.success(request, f'El compromiso asociado a la actividad {compromiso.id_actividad.codigo_unico} fue {accion}.')
@@ -102,11 +150,14 @@ def agregar_observacion_tubo(request, id_compromiso):
         if texto_obs and texto_obs.strip():
             try:
                 with transaction.atomic():
-                    ObservacionCompromiso.objects.create(
+                    nueva_observacion = ObservacionCompromiso.objects.create(
                         id_compromiso=compromiso,
                         texto=texto_obs.strip(),
                         fecha=timezone.now()
                     )
+                    # --- AUDITORÍA ---
+                    registrar_auditoria(request, "CREACION", "ObservacionCompromiso", nueva_observacion)
+                    
                 messages.success(request, 'Observación agregada exitosamente al historial.')
             except Exception as e:
                 messages.error(request, f'Error al guardar la observación: {str(e)}')
