@@ -5,11 +5,45 @@ from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad
-from .models import Meta
-from .forms import MetaForm
+from .models import Meta, Indicador
+from .forms import MetaForm, IndicadorForm
 from tuboApp.models import Compromiso
 from datetime import date
 
+# --- NUEVOS IMPORTS PARA AUDITORÍA ---
+from administracionApp.models import Profesional, Auditoria
+import json
+from django.forms.models import model_to_dict
+
+# --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
+def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
+    """
+    Función centralizada para registrar auditoría con descripciones legibles.
+    """
+    try:
+        profesional_actual = Profesional.objects.filter(usuario=request.user).first() if request.user.is_authenticated else None
+        identificador = getattr(objeto_instancia, 'pk', 0)
+        
+        diccionario_nuevo = model_to_dict(objeto_instancia)
+        datos_nuevos_limpios = {k: str(v) for k, v in diccionario_nuevo.items()}
+        datos_nuevos_limpios['descripcion_legible'] = str(objeto_instancia)
+        
+        datos_anteriores_limpios = None
+        if datos_anteriores:
+            datos_anteriores_limpios = {k: str(v) for k, v in datos_anteriores.items()}
+            datos_anteriores_limpios['descripcion_legible'] = str(objeto_instancia)
+
+        Auditoria.objects.create(
+            evento=evento,
+            entidad=entidad,
+            identificador=identificador,
+            valor_anterior=datos_anteriores_limpios,
+            valor_nuevo=datos_nuevos_limpios,
+            funcionario_id_funcionario=profesional_actual
+        )
+    except Exception as e:
+        print(f"Error interno registrando auditoría: {e}")
+# ---------------------------------------
 
 # --- FUNCIÓN AUXILIAR PARA RUTA DINÁMICA ---
 def obtener_url_retorno(user):
@@ -131,6 +165,10 @@ def crear_meta(request):
                     meta = form.save(commit=False)
                     meta.estado = True
                     meta.save()
+                    
+                    # --- AUDITORÍA ---
+                    registrar_auditoria(request, "CREACION", "Meta", meta)
+                    
                 messages.success(request, 'La meta se ha registrado correctamente.')
                 return redirect('monitoreoApp:listar_metas')
             except Exception as e:
@@ -153,11 +191,16 @@ def editar_meta(request, id_meta):
     meta = get_object_or_404(Meta, id_meta=id_meta)
     
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(meta) # --- AUDITORÍA ---
         form = MetaForm(request.POST, instance=meta)
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    form.save()
+                    meta_guardada = form.save()
+                    
+                    # --- AUDITORÍA ---
+                    registrar_auditoria(request, "EDICION", "Meta", meta_guardada, datos_antiguos)
+                    
                 messages.success(request, 'La meta se ha actualizado correctamente.')
                 return redirect('monitoreoApp:listar_metas')
             except Exception as e:
@@ -179,12 +222,113 @@ def cambiar_estado_meta(request, id_meta):
         meta = get_object_or_404(Meta, id_meta=id_meta)
         try:
             with transaction.atomic():
+                datos_antiguos = model_to_dict(meta) # --- AUDITORÍA ---
                 nuevo_estado = not meta.estado
                 meta.estado = nuevo_estado
                 meta.save()
+                
+                # --- AUDITORÍA ---
+                registrar_auditoria(request, "CAMBIO_ESTADO", "Meta", meta, datos_antiguos)
+                
                 accion = "habilitada" if nuevo_estado else "inhabilitada"
                 messages.success(request, f'La meta #{meta.id_meta} fue {accion} correctamente.')
         except Exception as e:
             messages.error(request, f'Error al cambiar el estado: {str(e)}')
             
     return redirect('monitoreoApp:listar_metas')
+
+
+
+@login_required
+@role_required('Administrador', 'Coordinador', 'Profesional')
+def lista_indicadores(request):
+    query = request.GET.get('q')
+    indicadores = Indicador.objects.all().select_related('meta_id_meta').order_by('-id_indicador')
+    
+    if query:
+        indicadores = indicadores.filter(
+            Q(semaforo__icontains=query) |
+            Q(meta_id_meta__unidad__icontains=query)
+        ).distinct()
+        
+    return render(request, 'administrador/indicadores/lista_indicadores.html', {
+        'indicadores': indicadores,
+        'query': query
+    })
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def crear_indicador(request):
+    if request.method == 'POST':
+        form = IndicadorForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    indicador = form.save(commit=False)
+                    indicador.estado = True
+                    indicador.save()
+                    
+                    # --- AUDITORÍA ---
+                    registrar_auditoria(request, "CREACION", "Indicador", indicador)
+                    
+                messages.success(request, 'El indicador fue registrado con éxito.')
+                return redirect('monitoreoApp:lista_indicadores')
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = IndicadorForm()
+        
+    return render(request, 'administrador/indicadores/form_indicador.html', {
+        'form': form,
+        'titulo': 'Registrar Nuevo Indicador'
+    })
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def editar_indicador(request, id_indicador):
+    indicador = get_object_or_404(Indicador, id_indicador=id_indicador)
+    
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(indicador) # --- AUDITORÍA ---
+        form = IndicadorForm(request.POST, instance=indicador)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    indicador_guardado = form.save()
+                    
+                    # --- AUDITORÍA ---
+                    registrar_auditoria(request, "EDICION", "Indicador", indicador_guardado, datos_antiguos)
+                    
+                messages.success(request, 'El indicador fue actualizado correctamente.')
+                return redirect('monitoreoApp:lista_indicadores')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+    else:
+        form = IndicadorForm(instance=indicador)
+        
+    return render(request, 'administrador/indicadores/form_indicador.html', {
+        'form': form,
+        'titulo': f'Editar Indicador #{indicador.id_indicador}'
+    })
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def cambiar_estado_indicador(request, id_indicador):
+    if request.method == 'POST':
+        indicador = get_object_or_404(Indicador, id_indicador=id_indicador)
+        
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(indicador) # --- AUDITORÍA ---
+            nuevo_estado = not indicador.estado
+            indicador.estado = nuevo_estado
+            indicador.save()
+            
+            # --- AUDITORÍA ---
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Indicador", indicador, datos_antiguos)
+                
+        accion_str = "habilitado" if nuevo_estado else "inhabilitado"
+        messages.success(request, f'El indicador #{indicador.id_indicador} fue {accion_str} correctamente.')
+        
+    return redirect('monitoreoApp:lista_indicadores')

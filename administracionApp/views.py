@@ -1,8 +1,9 @@
 from django.shortcuts import render
-from django.db.models import Q  # Importante para la barra de búsqueda
-from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo
-from actividadApp.models import Actividad
-from administracionApp.forms import ProfesionalForm, UsuarioSeguridadForm, DelegacionForm, CargoForm, VecinoForm
+from django.db.models import Q
+from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria
+# --- IMPORTAMOS CatalogoTipoGestion ---
+from actividadApp.models import Actividad, CatalogoTipoGestion
+from administracionApp.forms import ProfesionalForm, UsuarioSeguridadForm, DelegacionForm, CargoForm, VecinoForm, PeriodoForm
 from actividadApp.forms import ActividadForm
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
@@ -16,6 +17,41 @@ from django.urls import reverse
 from tuboApp.models import Compromiso
 from datetime import date, datetime
 
+import json
+from django.forms.models import model_to_dict
+
+# --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
+def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
+    """
+    Función centralizada para registrar auditoría.
+    """
+    try:
+        profesional_actual = Profesional.objects.filter(usuario=request.user).first()
+        identificador = getattr(objeto_instancia, 'pk', 0)
+        
+        # Extraemos los datos nuevos
+        diccionario_nuevo = model_to_dict(objeto_instancia)
+        datos_nuevos_limpios = {k: str(v) for k, v in diccionario_nuevo.items()}
+        
+        # ¡EL TRUCO! Guardamos el nombre legible del objeto (ej: "Juan Pérez" o "ACT-2026")
+        datos_nuevos_limpios['descripcion_legible'] = str(objeto_instancia)
+        
+        datos_anteriores_limpios = None
+        if datos_anteriores:
+            datos_anteriores_limpios = {k: str(v) for k, v in datos_anteriores.items()}
+            datos_anteriores_limpios['descripcion_legible'] = str(objeto_instancia)
+
+        Auditoria.objects.create(
+            evento=evento,
+            entidad=entidad,
+            identificador=identificador,
+            valor_anterior=datos_anteriores_limpios, # Django lo convierte a JSON automáticamente
+            valor_nuevo=datos_nuevos_limpios,
+            funcionario_id_funcionario=profesional_actual
+        )
+    except Exception as e:
+        print(f"Error interno registrando auditoría: {e}")
+# ---------------------------------------
 
 def main(request):
     return render(request, 'main.html')
@@ -29,14 +65,10 @@ def generar_clave_segura(longitud=10):
     alfabeto = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alfabeto) for _ in range(longitud))
 
-
-
-
 @role_required('Administrador')
 @login_required
 def lista_actividades(request):
     query = request.GET.get('q')
-    # .all() permite al administrador ver tanto las habilitadas como deshabilitadas
     actividades = Actividad.objects.all().order_by('-fecha_registro')
     
     if query:
@@ -62,14 +94,14 @@ def crear_actividad(request):
                     actividad = form.save(commit=False)
                     actividad.estado = True
                     
-                    # 1. Generamos el código único si está vacío (Ej: ACT-2026-F4A1B2)
                     if not actividad.codigo_unico:
                         actividad.codigo_unico = f"ACT-{datetime.now().year}-{secrets.token_hex(3).upper()}"
                         
-                    # 2. Guardamos la actividad en la BD
                     actividad.save()
                     
-                    # 3. Leemos el checkbox 'en_tubo' directamente del objeto guardado
+                    # AUDITORIA
+                    registrar_auditoria(request, "CREACION", "Actividad", actividad)
+                    
                     if actividad.en_tubo:
                         funcionario_asignado = request.user.profesional if hasattr(request.user, 'profesional') else Profesional.objects.first()
                         
@@ -104,18 +136,19 @@ def editar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
     
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(actividad)
         form = ActividadForm(request.POST, request.FILES, instance=actividad)
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # 1. Guardamos los cambios de la actividad
                     actividad = form.save()
                     
-                    # 2. Verificamos si el checkbox 'en_tubo' está marcado
+                    # AUDITORIA
+                    registrar_auditoria(request, "EDICION", "Actividad", actividad, datos_antiguos)
+                    
                     if actividad.en_tubo:
                         funcionario_asignado = request.user.profesional if hasattr(request.user, 'profesional') else Profesional.objects.first()
                         
-                        # Usamos get_or_create para no duplicar si ya estaba en el tubo
                         Compromiso.objects.get_or_create(
                             id_actividad=actividad,
                             defaults={
@@ -147,26 +180,26 @@ def desactivar_actividad(request, id_actividad):
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
         
         with transaction.atomic():
+            datos_antiguos = model_to_dict(actividad)
             nuevo_estado = not actividad.estado
             actividad.estado = nuevo_estado
             actividad.save()
+            
+            # AUDITORIA
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Actividad", actividad, datos_antiguos)
                 
         accion = "habilitada" if nuevo_estado else "deshabilitada"
         messages.success(request, f'La actividad {actividad.codigo_unico} fue {accion}.')
         
-    # Cambia 'administracionApp:actividades' según tu configuración de urls.py
     return redirect('administracionApp:admin-actividades')
 
 @role_required('Administrador')
 @login_required
 def directorio_profesional(request):
     query = request.GET.get('q')
-    
-    # Se llama "profesionales"
     profesionales = Profesional.objects.all().select_related('usuario', 'id_cargo', 'id_delegacion')
     
     if query:
-        # Reemplazamos "lista_profesionales" por "profesionales" para filtrar sobre la misma variable
         profesionales = profesionales.filter(
             Q(rut__icontains=query) |
             Q(nombres__icontains=query) |
@@ -175,7 +208,7 @@ def directorio_profesional(request):
         ).distinct()
         
     return render(request, 'administrador/profesional/lista_profesionales.html', {
-        'profesionales': profesionales, # Así el HTML recibe la lista filtrada correctamente
+        'profesionales': profesionales,
         'query': query
     })
 
@@ -189,7 +222,6 @@ def crear_profesional(request):
         if form_usuario.is_valid() and form_profesional.is_valid():
             try:
                 with transaction.atomic():
-                    # Forzamos el correo a minúsculas y sin espacios
                     email = form_usuario.cleaned_data['email'].lower().strip()
                     grupo_seleccionado = form_usuario.cleaned_data['rol']
                     
@@ -208,11 +240,12 @@ def crear_profesional(request):
                     profesional.estado = True
                     profesional.save()
                     
-                    # --- NUEVO CÓDIGO PARA LA FOTO ---
+                    # AUDITORIA
+                    registrar_auditoria(request, "CREACION", "Profesional", profesional)
+                    
                     foto_archivo = request.FILES.get('foto_perfil')
                     if foto_archivo:
                         FotoPerfil.objects.create(usuario=nuevo_usuario, foto=foto_archivo)
-                    # ---------------------------------
                     
                     messages.success(
                         request, 
@@ -242,6 +275,7 @@ def editar_profesional(request, id_profesional):
     usuario_asociado = profesional.usuario
 
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(profesional)
         form_usuario = UsuarioSeguridadForm(request.POST, instance=usuario_asociado)
         form_profesional = ProfesionalForm(request.POST, instance=profesional)
         
@@ -271,14 +305,14 @@ def editar_profesional(request, id_profesional):
                     prof_actualizado.correo = email
                     prof_actualizado.save()
                     
-                    # --- NUEVO CÓDIGO PARA LA FOTO ---
+                    # AUDITORIA
+                    registrar_auditoria(request, "EDICION", "Profesional", prof_actualizado, datos_antiguos)
+                    
                     foto_archivo = request.FILES.get('foto_perfil')
                     if foto_archivo:
-                        # get_or_create previene errores si el profesional antiguo no tenía tabla de foto
                         perfil_foto, creado = FotoPerfil.objects.get_or_create(usuario=usuario_asociado)
                         perfil_foto.foto = foto_archivo
                         perfil_foto.save()
-                    # ---------------------------------
                     
                     messages.success(request, f'Datos y permisos de {profesional.nombres} actualizados correctamente.')
                     return redirect('administracionApp:directorio_profesional')
@@ -304,12 +338,14 @@ def cambiar_estado_profesional(request, id_profesional):
         profesional = get_object_or_404(Profesional, id_profesional=id_profesional)
         
         with transaction.atomic():
-            # Invertimos el estado actual (Si es True pasa a False, si es False pasa a True)
+            datos_antiguos = model_to_dict(profesional)
             nuevo_estado = not profesional.estado
             profesional.estado = nuevo_estado
             profesional.save()
             
-            # Replicamos el estado en el acceso al sistema
+            # AUDITORIA
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Profesional", profesional, datos_antiguos)
+            
             if profesional.usuario:
                 profesional.usuario.is_active = nuevo_estado
                 profesional.usuario.save()
@@ -319,9 +355,7 @@ def cambiar_estado_profesional(request, id_profesional):
         
     return redirect('administracionApp:directorio_profesional')
 
-# --- FUNCIÓN AUXILIAR PARA RUTAS DINÁMICAS ---
 def obtener_url_retorno(user):
-    """Devuelve la ruta del dashboard correspondiente según el rol del usuario."""
     if user.groups.filter(name='Administrador').exists():
         return 'administracionApp:dashboard_admin'
     elif user.groups.filter(name='Coordinador').exists():
@@ -329,7 +363,7 @@ def obtener_url_retorno(user):
     else:
         return 'monitoreoApp:dashboard_delegado'
 
-# --- CRUD DE DELEGACIONES MUNICIPALES ---
+
 @login_required
 @role_required('Administrador', 'Coordinador')
 def delegaciones(request):
@@ -360,6 +394,10 @@ def crear_delegacion(request):
                     delegacion = form.save(commit=False)
                     delegacion.estado = True
                     delegacion.save()
+                    
+                    # AUDITORIA
+                    registrar_auditoria(request, "CREACION", "Delegacion", delegacion)
+                    
                 messages.success(request, 'La delegación se ha registrado correctamente.')
                 return redirect('administracionApp:delegaciones')
             except Exception as e:
@@ -382,11 +420,16 @@ def editar_delegacion(request, id_delegacion):
     delegacion = get_object_or_404(Delegacion, id_delegacion=id_delegacion)
     
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(delegacion)
         form = DelegacionForm(request.POST, instance=delegacion)
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    form.save()
+                    delegacion_guardada = form.save()
+                    
+                    # AUDITORIA
+                    registrar_auditoria(request, "EDICION", "Delegacion", delegacion_guardada, datos_antiguos)
+                    
                 messages.success(request, 'La delegación se ha actualizado correctamente.')
                 return redirect('administracionApp:delegaciones')
             except Exception as e:
@@ -408,17 +451,20 @@ def cambiar_estado_delegacion(request, id_delegacion):
         delegacion = get_object_or_404(Delegacion, id_delegacion=id_delegacion)
         try:
             with transaction.atomic():
+                datos_antiguos = model_to_dict(delegacion)
                 nuevo_estado = not delegacion.estado
                 delegacion.estado = nuevo_estado
                 delegacion.save()
+                
+                # AUDITORIA
+                registrar_auditoria(request, "CAMBIO_ESTADO", "Delegacion", delegacion, datos_antiguos)
+                
                 accion = "habilitada" if nuevo_estado else "inhabilitada"
                 messages.success(request, f'La delegación {delegacion.nombre} fue {accion} correctamente.')
         except Exception as e:
             messages.error(request, f'Error al cambiar el estado: {str(e)}')
             
     return redirect('administracionApp:delegaciones')
-
-# --- CRUD DE CARGOS ---
 
 @role_required('Administrador')
 @login_required
@@ -444,6 +490,10 @@ def crear_cargo(request):
                 cargo = form.save(commit=False)
                 cargo.estado = True
                 cargo.save()
+                
+                # AUDITORIA
+                registrar_auditoria(request, "CREACION", "Cargo", cargo)
+                
                 messages.success(request, f'El cargo "{cargo.nombre}" fue registrado con éxito.')
                 return redirect('administracionApp:lista_cargos')
             except Exception as e:
@@ -464,10 +514,15 @@ def editar_cargo(request, id_cargo):
     cargo = get_object_or_404(Cargo, id_cargo=id_cargo)
     
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(cargo)
         form = CargoForm(request.POST, instance=cargo)
         if form.is_valid():
             try:
-                form.save()
+                cargo_guardado = form.save()
+                
+                # AUDITORIA
+                registrar_auditoria(request, "EDICION", "Cargo", cargo_guardado, datos_antiguos)
+                
                 messages.success(request, f'El cargo "{cargo.nombre}" fue actualizado.')
                 return redirect('administracionApp:lista_cargos')
             except Exception as e:
@@ -487,33 +542,35 @@ def cambiar_estado_cargo(request, id_cargo):
         cargo = get_object_or_404(Cargo, id_cargo=id_cargo)
         
         with transaction.atomic():
+            datos_antiguos = model_to_dict(cargo)
             nuevo_estado = not cargo.estado
             cargo.estado = nuevo_estado
             cargo.save()
+            
+            # AUDITORIA
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Cargo", cargo, datos_antiguos)
                 
         accion = "activado" if nuevo_estado else "desactivado"
         messages.success(request, f'El cargo "{cargo.nombre}" fue {accion}.')
         
     return redirect('administracionApp:lista_cargos')
 
-
-
-# 1. Dibuja la pantalla y las tablas
+# --- MODIFICADO: AÑADIDO CATALOGOTIPOGESTION ---
 @role_required('Administrador')
 @login_required
 def panel_catalogos(request):
-    # La URL nos dirá en qué pestaña estábamos (ej: ?tab=item)
     tab_activa = request.GET.get('tab', 'servicio')
     
     context = {
         'servicios': CatalagoServicio.objects.all(),
         'items': CatalagoItem.objects.all(),
         'areas': CatalagoAreaApoyo.objects.all(),
+        # --- NUEVO ---
+        'gestiones': CatalogoTipoGestion.objects.all(),
         'tab_activa': tab_activa
     }
     return render(request, 'administrador/catalogos/panel_catalogos.html', context)
 
-# 2. Recibe los datos del modal oculto y decide a qué tabla enviarlos
 @role_required('Administrador')
 @login_required
 def gestionar_catalogo(request):
@@ -523,10 +580,14 @@ def gestionar_catalogo(request):
         id_obj = request.POST.get('id_obj')
         nombre = request.POST.get('nombre')
         
+        # --- NUEVO: Capturamos el correo (puede venir vacío si es otro catálogo) ---
+        correo = request.POST.get('correo')
+        
         modelos = {
             'servicio': CatalagoServicio,
             'item': CatalagoItem,
-            'area': CatalagoAreaApoyo
+            'area': CatalagoAreaApoyo,
+            'gestion': CatalogoTipoGestion
         }
         
         ModeloActivo = modelos.get(tipo)
@@ -538,14 +599,18 @@ def gestionar_catalogo(request):
                         if ModeloActivo.objects.filter(nombre__iexact=nombre).exists():
                             messages.error(request, f'Error: Ya existe un registro llamado "{nombre}".')
                         else:
-                            # 1. Se instancia sin guardar
                             nuevo_registro = ModeloActivo(nombre=nombre, estado=True)
                             
-                            # 2. SE APLICA EL ARREGLO: full_clean() lee el max_length real de tu modelo y limpia el dato
+                            # Si es un área de apoyo, le asignamos el correo antes de guardar
+                            if tipo == 'area' and correo is not None:
+                                nuevo_registro.correo = correo
+                                
                             nuevo_registro.full_clean() 
-                            
-                            # 3. Se guarda de forma segura
                             nuevo_registro.save()
+                            
+                            # AUDITORIA
+                            registrar_auditoria(request, "CREACION", tipo.capitalize(), nuevo_registro)
+                            
                             messages.success(request, 'Registro creado con éxito.')
 
                     elif accion == 'editar':
@@ -553,34 +618,41 @@ def gestionar_catalogo(request):
                         if ModeloActivo.objects.filter(nombre__iexact=nombre).exclude(pk=id_obj).exists():
                             messages.error(request, f'Error: No puedes renombrarlo a "{nombre}" porque ya existe otro igual.')
                         else:
+                            datos_antiguos = model_to_dict(obj)
                             obj.nombre = nombre
-                            # SE APLICA EL ARREGLO TAMBIÉN EN LA EDICIÓN
+                            
+                            # Si es un área de apoyo, actualizamos su correo
+                            if tipo == 'area' and correo is not None:
+                                obj.correo = correo
+                                
                             obj.full_clean() 
                             obj.save()
+                            
+                            # AUDITORIA
+                            registrar_auditoria(request, "EDICION", tipo.capitalize(), obj, datos_antiguos)
+                            
                             messages.success(request, 'Registro actualizado correctamente.')
 
                     elif accion == 'estado':
                         obj = ModeloActivo.objects.get(pk=id_obj)
+                        datos_antiguos = model_to_dict(obj)
                         obj.estado = not obj.estado
                         obj.save()
+                        
+                        # AUDITORIA
+                        registrar_auditoria(request, "CAMBIO_ESTADO", tipo.capitalize(), obj, datos_antiguos)
+                        
                         txt = "activado" if obj.estado else "desactivado"
                         messages.success(request, f'El registro fue {txt}.')
 
             except Exception as e:
-                # Si full_clean() detecta que el nombre es muy largo, arroja el error aquí pacíficamente
                 messages.error(request, f'Error de validación: {str(e)}')
                 
-        # Retornos correctos para evitar el error "None"
         base_url = reverse('administracionApp:panel_catalogos')
         return redirect(f"{base_url}?tab={tipo}")
         
     return redirect('administracionApp:panel_catalogos')
 
-
-from administracionApp.forms import PeriodoForm
-from .models import Periodo
-
-# --- CRUD DE PERIODOS ---
 
 @role_required('Administrador', 'Coordinador')
 @login_required
@@ -607,10 +679,13 @@ def crear_periodo(request):
                 with transaction.atomic():
                     periodo = form.save(commit=False)
                     periodo.estado = True
-                    # Si viene vacío, forzamos que inicie en la versión 1
                     if not periodo.version_parametros:
                         periodo.version_parametros = 1
                     periodo.save()
+                    
+                    # AUDITORIA
+                    registrar_auditoria(request, "CREACION", "Periodo", periodo)
+                    
                 messages.success(request, f'El periodo "{periodo.nombre}" fue registrado con éxito.')
                 return redirect('administracionApp:lista_periodos')
             except Exception as e:
@@ -618,7 +693,6 @@ def crear_periodo(request):
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        # Inicializamos el formulario sugiriendo la versión 1
         form = PeriodoForm(initial={'version_parametros': 1})
         
     return render(request, 'administrador/periodos/form_periodo.html', {
@@ -633,10 +707,15 @@ def editar_periodo(request, id_periodo):
     periodo = get_object_or_404(Periodo, id_periodo=id_periodo)
     
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(periodo)
         form = PeriodoForm(request.POST, instance=periodo)
         if form.is_valid():
             try:
-                form.save()
+                periodo_guardado = form.save()
+                
+                # AUDITORIA
+                registrar_auditoria(request, "EDICION", "Periodo", periodo_guardado, datos_antiguos)
+                
                 messages.success(request, f'El periodo "{periodo.nombre}" fue actualizado.')
                 return redirect('administracionApp:lista_periodos')
             except Exception as e:
@@ -657,9 +736,13 @@ def cambiar_estado_periodo(request, id_periodo):
         periodo = get_object_or_404(Periodo, id_periodo=id_periodo)
         
         with transaction.atomic():
+            datos_antiguos = model_to_dict(periodo)
             nuevo_estado = not periodo.estado
             periodo.estado = nuevo_estado
             periodo.save()
+            
+            # AUDITORIA
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Periodo", periodo, datos_antiguos)
                 
         accion = "activado" if nuevo_estado else "desactivado"
         messages.success(request, f'El periodo "{periodo.nombre}" fue {accion}.')
@@ -669,25 +752,20 @@ def cambiar_estado_periodo(request, id_periodo):
 @role_required('Administrador', 'Coordinador')
 @login_required
 def versionar_periodo(request, id_periodo):
-    """
-    Toma un periodo existente, lo duplica sumando 1 a su versión y redirige a la edición.
-    """
     periodo_original = get_object_or_404(Periodo, id_periodo=id_periodo)
     try:
         with transaction.atomic():
-            # Creamos una copia del registro en memoria
             nueva_version = Periodo.objects.get(id_periodo=id_periodo)
-            nueva_version.pk = None # Al quitarle la PK, Django entiende que es un registro NUEVO
+            nueva_version.pk = None
             nueva_version.version_parametros += 1
-            
-            # Como tu modelo Periodo tiene nombre unique=True, debemos alterarlo para que no choque en la BD
             nueva_version.nombre = f"{periodo_original.nombre} (v{nueva_version.version_parametros})"
             nueva_version.estado = True
             nueva_version.save()
             
-            messages.success(request, f'Se generó la versión {nueva_version.version_parametros}. Por favor ajusta las nuevas fechas o umbrales y guarda los cambios.')
+            # AUDITORIA
+            registrar_auditoria(request, "NUEVA_VERSION", "Periodo", nueva_version)
             
-            # Redirigimos al usuario al formulario de edición de esta NUEVA versión
+            messages.success(request, f'Se generó la versión {nueva_version.version_parametros}. Por favor ajusta las nuevas fechas o umbrales y guarda los cambios.')
             return redirect('administracionApp:editar_periodo', id_periodo=nueva_version.id_periodo)
             
     except Exception as e:
@@ -703,7 +781,6 @@ def lista_vecinos(request):
     vecinos = Vecino.objects.all().order_by('nombres')
     
     if query:
-        # Permite buscar por nombre, apellido paterno o RUT
         vecinos = vecinos.filter(
             Q(nombres__icontains=query) | 
             Q(apellido_paterno__icontains=query) |
@@ -725,6 +802,10 @@ def crear_vecino(request):
                 vecino = form.save(commit=False)
                 vecino.estado = True
                 vecino.save()
+                
+                # AUDITORIA
+                registrar_auditoria(request, "CREACION", "Vecino", vecino)
+                
                 messages.success(request, f'El vecino "{vecino.nombres} {vecino.apellido_paterno}" fue registrado con éxito.')
                 return redirect('administracionApp:lista_vecinos')
             except Exception as e:
@@ -745,10 +826,15 @@ def editar_vecino(request, id_vecino):
     vecino = get_object_or_404(Vecino, id_vecino=id_vecino)
     
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(vecino)
         form = VecinoForm(request.POST, instance=vecino)
         if form.is_valid():
             try:
-                form.save()
+                vecino_guardado = form.save()
+                
+                # AUDITORIA
+                registrar_auditoria(request, "EDICION", "Vecino", vecino_guardado, datos_antiguos)
+                
                 messages.success(request, f'Los datos de "{vecino.nombres}" fueron actualizados.')
                 return redirect('administracionApp:lista_vecinos')
             except Exception as e:
@@ -768,9 +854,13 @@ def cambiar_estado_vecino(request, id_vecino):
         vecino = get_object_or_404(Vecino, id_vecino=id_vecino)
         
         with transaction.atomic():
+            datos_antiguos = model_to_dict(vecino)
             nuevo_estado = not vecino.estado
             vecino.estado = nuevo_estado
             vecino.save()
+            
+            # AUDITORIA
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Vecino", vecino, datos_antiguos)
                 
         accion = "habilitado" if nuevo_estado else "inhabilitado"
         messages.success(request, f'El registro de "{vecino.nombres} {vecino.apellido_paterno}" fue {accion}.')
@@ -787,6 +877,7 @@ def actualizar_progreso_actividad(request, id_actividad):
         estados_validos = dict(Actividad.OPCIONES_ESTADO_PROGRESO).keys()
         
         if nuevo_estado in estados_validos:
+            datos_antiguos = model_to_dict(actividad)
             actividad.estado_progreso = nuevo_estado
             
             if nuevo_estado == 'FINALIZADA':
@@ -795,8 +886,32 @@ def actualizar_progreso_actividad(request, id_actividad):
                 actividad.fecha_finalizacion = None
                 
             actividad.save()
+            
+            # AUDITORIA
+            registrar_auditoria(request, "CAMBIO_PROGRESO", "Actividad", actividad, datos_antiguos)
+            
             messages.success(request, f'La actividad {actividad.codigo_unico} cambió su estado a: {actividad.get_estado_progreso_display()}')
         else:
             messages.error(request, 'Error: El estado seleccionado no es válido.')
             
     return redirect(request.META.get('HTTP_REFERER', '/'))
+
+
+@login_required
+@role_required('Administrador') 
+def lista_auditoria(request):
+    query = request.GET.get('q', '')
+    registros = Auditoria.objects.select_related('funcionario_id_funcionario').order_by('-fecha')
+    
+    if query:
+        registros = registros.filter(
+            Q(evento__icontains=query) | 
+            Q(entidad__icontains=query) |
+            Q(funcionario_id_funcionario__nombres__icontains=query) |
+            Q(funcionario_id_funcionario__apellido_paterno__icontains=query)
+        )
+        
+    return render(request, 'administrador/auditoria/lista_auditoria.html', {
+        'registros': registros,
+        'query': query
+    })

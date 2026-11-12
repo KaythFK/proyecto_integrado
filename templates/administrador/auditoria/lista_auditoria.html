@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Auditoría del Sistema - Municipalidad{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:lista_auditoria' %}">Auditoría</a>
+    </li>
+</ul>
+<div class="mt-5">
+    <hr class="border-white mx-4" style="opacity: 0.3;">
+    <ul class="nav flex-column mt-4">
+        <li class="nav-item text-center">
+            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                Cerrar sesión
+            </a>
+        </li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Auditoría y Trazabilidad del Sistema</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4 mb-5 px-4">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <h4 class="fw-bold m-0" style="color: #8B1D19;">Registro de Actividad (Inalterable)</h4>
+        <span class="badge bg-secondary px-3 py-2 shadow-sm"><i class="bi bi-lock-fill"></i> Modo Solo Lectura</span>
+    </div>
+
+    <!-- Barra de Búsqueda -->
+    <div class="row mb-4">
+        <div class="col-12 col-md-8 col-lg-6">
+            <form method="GET" action="">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                        placeholder="Buscar por evento, entidad o funcionario..." 
+                        value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19;">Buscar</button>
+                    {% if query %}
+                        <a href="?" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+            <thead class="table-dark">
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Funcionario</th>
+                    <th>Evento</th>
+                    <th>Entidad / ID</th>
+                    <th class="text-center">Cambios (JSON)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reg in registros %}
+                <tr>
+                    <td class="text-nowrap"><small class="fw-bold text-dark">{{ reg.fecha|date:"d/m/Y H:i" }}</small></td>
+                    
+                    <td>
+                        <span class="badge bg-dark">
+                            {% if reg.funcionario_id_funcionario %}
+                                {{ reg.funcionario_id_funcionario }}
+                            {% else %}
+                                Sistema
+                            {% endif %}
+                        </span>
+                    </td>
+                    
+                    <td><span class="fw-bold" style="color: #8B1D19;">{{ reg.evento }}</span></td>
+                    
+                    <!-- Columna Identificable -->
+                    <td>
+                        <span class="badge bg-secondary mb-1">{{ reg.entidad }}</span><br>
+                        {% if reg.valor_nuevo and reg.valor_nuevo.descripcion_legible %}
+                            <span class="text-dark fw-bold" style="font-size: 0.85rem;">{{ reg.valor_nuevo.descripcion_legible }}</span>
+                        {% elif reg.valor_anterior and reg.valor_anterior.descripcion_legible %}
+                            <span class="text-dark fw-bold" style="font-size: 0.85rem;">{{ reg.valor_anterior.descripcion_legible }}</span>
+                        {% else %}
+                            <small class="text-muted">Registro ID: {{ reg.identificador }}</small>
+                        {% endif %}
+                    </td>
+                    
+                    <!-- Botones Institucionales (Estilo Pill) -->
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-2">
+                            {% if reg.valor_anterior %}
+                                <button type="button" class="btn btn-sm border-0 rounded-pill px-3 fw-bold text-white shadow-sm" 
+                                        style="background-color: #495057;"
+                                        onclick="mostrarJSON('Anterior', '{{ forloop.counter }}', '{{ reg.id_auditoria }}')"
+                                        title="Ver datos antes de la modificación">
+                                    <i class="bi bi-clock-history"></i> Antes
+                                </button>
+                                <div id="json-ant-{{ forloop.counter }}" class="d-none">{{ reg.valor_anterior }}</div>
+                            {% endif %}
+                            
+                            {% if reg.valor_nuevo %}
+                                <button type="button" class="btn btn-sm border-0 rounded-pill px-3 fw-bold text-white shadow-sm" 
+                                        style="background-color: #8B1D19;"
+                                        onclick="mostrarJSON('Nuevo', '{{ forloop.counter }}', '{{ reg.id_auditoria }}')"
+                                        title="Ver datos aplicados">
+                                    <i class="bi bi-file-earmark-check"></i> Después
+                                </button>
+                                <div id="json-nvo-{{ forloop.counter }}" class="d-none">{{ reg.valor_nuevo }}</div>
+                            {% endif %}
+                            
+                            {% if not reg.valor_anterior and not reg.valor_nuevo %}
+                                <span class="text-muted" style="font-size: 0.75rem;">Sin cambios</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">No hay registros de auditoría almacenados en el sistema.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para visualizar el JSON -->
+<div class="modal fade" id="modalJSON" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" style="background-color: #8B1D19;">
+                <h5 class="modal-title fw-bold" id="modalJSONTitle">Detalle de Cambios</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <!-- Etiqueta PRE para mantener el formato ordenado de código -->
+                <pre id="modalJSONContent" class="p-3 rounded shadow-sm text-white m-0" style="background-color: #212529; max-height: 400px; overflow-y: auto; font-size: 0.9rem; font-family: monospace;"></pre>
+            </div>
+            <div class="modal-footer border-0 d-flex justify-content-center">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function mostrarJSON(tipo, counterId, idAuditoria) {
+    // 1. Buscamos el texto oculto en el div correspondiente
+    const divId = tipo === 'Anterior' ? `json-ant-${counterId}` : `json-nvo-${counterId}`;
+    let rawData = document.getElementById(divId).innerText.trim();
+    
+    let formattedData = rawData;
+    
+    try {
+        // 2. Preparamos el string (por si Django lo imprimió como diccionario de Python en vez de JSON estricto)
+        let jsonString = rawData
+            .replace(/'/g, '"')
+            .replace(/\bTrue\b/g, 'true')
+            .replace(/\bFalse\b/g, 'false')
+            .replace(/\bNone\b/g, 'null');
+            
+        // 3. Lo parseamos y le aplicamos sangría (4 espacios) para que se vea ordenado
+        let jsonObj = JSON.parse(jsonString);
+        formattedData = JSON.stringify(jsonObj, null, 4);
+    } catch (e) {
+        // Si no se puede dar formato (es texto libre), se muestra como viene
+        console.warn("El formato no es un JSON estricto, mostrando dato crudo.");
+    }
+    
+    // 4. Inyectamos los datos en el Modal y lo abrimos
+    document.getElementById('modalJSONTitle').innerText = `Valor ${tipo} (ID Reg: ${idAuditoria})`;
+    document.getElementById('modalJSONContent').innerText = formattedData;
+    
+    new bootstrap.Modal(document.getElementById('modalJSON')).show();
+}
+</script>
+{% endblock %}

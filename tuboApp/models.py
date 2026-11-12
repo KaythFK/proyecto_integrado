@@ -20,6 +20,7 @@ class Compromiso(models.Model):
     estado_progreso = models.CharField(max_length=20, choices=OPCIONES_ESTADO_PROGRESO, default='INGRESADO')
     id_funcionario = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_funcionario')
     id_actividad = models.ForeignKey('actividadApp.Actividad', models.DO_NOTHING, db_column='id_actividad')
+    organizacion = models.ForeignKey('comunidadApp.OrganizacionComunitaria', models.DO_NOTHING, db_column='id_organizacion')
 
     def __str__(self):
         return f"Compromiso {self.id_compromiso} (Ref. Actividad: {self.id_actividad.codigo_unico})"
@@ -55,3 +56,40 @@ class ObservacionCompromiso(models.Model):
 
     class Meta:
         db_table = 'observacion_compromiso'
+
+
+class HistorialEstado(models.Model):
+    id_historialestado = models.AutoField(primary_key=True)
+    tubo = models.ForeignKey('Compromiso', models.DO_NOTHING, db_column='id_tubo', blank=True, null=True)
+    actividad = models.ForeignKey('actividadApp.Actividad', models.DO_NOTHING, db_column='id_actividad', blank=True, null=True)
+    estado_anterior = models.CharField(max_length=50)
+    estado_nuevo = models.CharField(max_length=50)
+    fecha_cambio = models.DateTimeField(auto_now_add=True)
+    motivo = models.CharField(max_length=255) 
+    observacion = models.CharField(max_length=255, blank=True, null=True) 
+    autor = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_profesional')
+    estado = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Historial Estado {self.id_historialestado}"
+
+    class Meta:
+        db_table = 'historial_estado'
+        verbose_name_plural = 'Historiales de Estado'
+
+
+class HistorialIncumplimiento(models.Model):
+    id_historialincump = models.AutoField(primary_key=True)
+    compromiso = models.ForeignKey('Compromiso', models.DO_NOTHING, db_column='id_compromiso', blank=True, null=True)
+    actividad = models.ForeignKey('actividadApp.Actividad', models.DO_NOTHING, db_column='id_actividad', blank=True, null=True)
+    profesional = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_profesional')
+    fecha_vencimiento = models.DateField() 
+    dias_retraso = models.IntegerField()
+    estado = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Incumplimiento {self.id_historialincump}"
+
+    class Meta:
+        db_table = 'historial_incumplimiento'
+        verbose_name_plural = 'Historiales de Incumplimiento'

@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'monitoreoApp',
     'tuboApp',
     'usuariosApp',
+    'comunidadApp',
 ]
 
 MIDDLEWARE = [

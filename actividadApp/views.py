@@ -5,12 +5,45 @@ from django.db.models import Q
 from datetime import datetime, date, timedelta
 import uuid
 from usuariosApp.decorators import role_required
-from .models import Actividad, Evidencia
-from .forms import ActividadForm, ActividadDelegadoForm
-from administracionApp.models import Profesional
+from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacion, GestionActividad
+from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm
+from administracionApp.models import Profesional, Auditoria # <- Añadido Auditoria
 from monitoreoApp.models import Meta
 from tuboApp.models import Compromiso
 from django.db import transaction
+
+import json
+from django.forms.models import model_to_dict
+
+# --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
+def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
+    """
+    Función centralizada para registrar auditoría con descripciones legibles.
+    """
+    try:
+        profesional_actual = Profesional.objects.filter(usuario=request.user).first() if request.user.is_authenticated else None
+        identificador = getattr(objeto_instancia, 'pk', 0)
+        
+        diccionario_nuevo = model_to_dict(objeto_instancia)
+        datos_nuevos_limpios = {k: str(v) for k, v in diccionario_nuevo.items()}
+        datos_nuevos_limpios['descripcion_legible'] = str(objeto_instancia)
+        
+        datos_anteriores_limpios = None
+        if datos_anteriores:
+            datos_anteriores_limpios = {k: str(v) for k, v in datos_anteriores.items()}
+            datos_anteriores_limpios['descripcion_legible'] = str(objeto_instancia)
+
+        Auditoria.objects.create(
+            evento=evento,
+            entidad=entidad,
+            identificador=identificador,
+            valor_anterior=datos_anteriores_limpios,
+            valor_nuevo=datos_nuevos_limpios,
+            funcionario_id_funcionario=profesional_actual
+        )
+    except Exception as e:
+        print(f"Error interno registrando auditoría: {e}")
+# ---------------------------------------
 
 @login_required
 @role_required('Profesional')
@@ -108,8 +141,11 @@ def registrar_actividad(request, actividad_id=None):
             nueva_actividad.estado = True
             nueva_actividad.save()
             
+            # AUDITORIA
+            registrar_auditoria(request, "CREACION", "Actividad", nueva_actividad)
+            
             if nueva_actividad.en_tubo:
-                Compromiso.objects.create(
+                nuevo_compromiso = Compromiso.objects.create(
                     territorio="Por asignar", 
                     fecha_comprometida=date.today() + timedelta(days=7), 
                     estado_progreso='INGRESADO',
@@ -117,6 +153,8 @@ def registrar_actividad(request, actividad_id=None):
                     id_funcionario=nueva_actividad.id_profesional,
                     id_actividad=nueva_actividad
                 )
+                registrar_auditoria(request, "CREACION", "Compromiso", nuevo_compromiso)
+                
                 messages.success(request, f'¡Actividad registrada! Se ha creado un compromiso en el Tubo asociado al código {nueva_actividad.codigo_unico}.')
             else:
                 messages.success(request, f'¡Actividad registrada con éxito! Código: {nueva_actividad.codigo_unico}')
@@ -136,9 +174,11 @@ def registrar_actividad(request, actividad_id=None):
 def editar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(actividad)
         form = ActividadForm(request.POST, instance=actividad)
         if form.is_valid():
-            form.save()
+            actividad_guardada = form.save()
+            registrar_auditoria(request, "EDICION", "Actividad", actividad_guardada, datos_antiguos)
             messages.success(request, 'Actividad actualizada correctamente.')
             return redirect('actividadApp:listar_actividades')
     else:
@@ -165,13 +205,16 @@ def registrar_evidencia(request, actividad_id):
             "origen": "Panel Profesional"
         }
         
-        Evidencia.objects.create(
+        nueva_evidencia = Evidencia.objects.create(
             archivo_vinculo=archivo_vinculo,
             metadatos=metadatos_dict,
             estado_revision='PENDIENTE',
             estado=True,
             id_actividad=actividad
         )
+        
+        # AUDITORIA
+        registrar_auditoria(request, "CREACION", "Evidencia", nueva_evidencia)
         
         messages.success(request, f'Evidencia vinculada correctamente al código {actividad.codigo_unico}.')
         return redirect('actividadApp:dashboard_profesional')
@@ -185,8 +228,11 @@ def registrar_evidencia(request, actividad_id):
 @role_required('Profesional')
 def desactivar_actividad(request, codigo_unico):
     actividad = get_object_or_404(Actividad, codigo_unico=codigo_unico)
+    datos_antiguos = model_to_dict(actividad)
     actividad.estado = not actividad.estado 
     actividad.save()
+    
+    registrar_auditoria(request, "CAMBIO_ESTADO", "Actividad", actividad, datos_antiguos)
     
     messages.success(request, 'Estado de la actividad actualizado.')
     return redirect(request.META.get('HTTP_REFERER', '/'))
@@ -198,11 +244,16 @@ def actualizar_estado_tubo(request, id_compromiso):
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
         nuevo_estado = request.POST.get('estado_progreso')
         estados_validos = dict(Compromiso.OPCIONES_ESTADO_PROGRESO).keys()
+        
         if nuevo_estado in estados_validos:
+            datos_antiguos = model_to_dict(compromiso)
             compromiso.estado_progreso = nuevo_estado
             if nuevo_estado == 'REALIZADO':
                 compromiso.fecha_termino = date.today()
             compromiso.save()
+            
+            registrar_auditoria(request, "CAMBIO_PROGRESO", "Compromiso", compromiso, datos_antiguos)
+            
             messages.success(request, f'El compromiso en {compromiso.territorio} se ha actualizado a: {compromiso.get_estado_progreso_display()}')
         else:
             messages.error(request, 'Error: El estado seleccionado no es válido.')
@@ -246,8 +297,10 @@ def registrar_actividad_delegado(request):
                     nueva_actividad.estado = True
                     nueva_actividad.save()
                     
+                    registrar_auditoria(request, "CREACION", "Actividad", nueva_actividad)
+                    
                     if nueva_actividad.en_tubo:
-                        Compromiso.objects.create(
+                        nuevo_compromiso = Compromiso.objects.create(
                             territorio="Por asignar", 
                             fecha_comprometida=date.today() + timedelta(days=7), 
                             estado_progreso='INGRESADO',
@@ -255,6 +308,7 @@ def registrar_actividad_delegado(request):
                             id_funcionario=nueva_actividad.id_profesional,
                             id_actividad=nueva_actividad
                         )
+                        registrar_auditoria(request, "CREACION", "Compromiso", nuevo_compromiso)
                         messages.success(request, f'¡Actividad registrada y derivada al Tubo! Código: {nueva_actividad.codigo_unico}.')
                     else:
                         messages.success(request, f'¡Actividad registrada con éxito! Código: {nueva_actividad.codigo_unico}')
@@ -280,14 +334,16 @@ def editar_actividad_delegado(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad, id_profesional__id_delegacion=delegacion_actual)
     
     if request.method == 'POST':
+        datos_antiguos = model_to_dict(actividad)
         form = ActividadDelegadoForm(request.POST, instance=actividad)
         if form.is_valid():
             try:
                 with transaction.atomic():
                     actividad_guardada = form.save()
+                    registrar_auditoria(request, "EDICION", "Actividad", actividad_guardada, datos_antiguos)
                     
                     if actividad_guardada.en_tubo:
-                        Compromiso.objects.get_or_create(
+                        compromiso, created = Compromiso.objects.get_or_create(
                             id_actividad=actividad_guardada,
                             defaults={
                                 'territorio': 'Por asignar',
@@ -296,6 +352,9 @@ def editar_actividad_delegado(request, id_actividad):
                                 'estado_progreso': 'INGRESADO'
                             }
                         )
+                        if created:
+                            registrar_auditoria(request, "CREACION", "Compromiso", compromiso)
+                            
                     messages.success(request, f'La actividad {actividad_guardada.codigo_unico} fue actualizada correctamente.')
                     return redirect('actividadApp:actividades_delegacion')
             except Exception as e:
@@ -320,9 +379,12 @@ def cambiar_estado_actividad_delegado(request, id_actividad):
         
         try:
             with transaction.atomic():
+                datos_antiguos = model_to_dict(actividad)
                 nuevo_estado = not actividad.estado
                 actividad.estado = nuevo_estado
                 actividad.save()
+                
+                registrar_auditoria(request, "CAMBIO_ESTADO", "Actividad", actividad, datos_antiguos)
                 
                 accion = "habilitada" if nuevo_estado else "inhabilitada"
                 messages.success(request, f'La actividad {actividad.codigo_unico} fue {accion} correctamente.')
@@ -340,6 +402,7 @@ def actualizar_progreso_actividad(request, id_actividad):
         estados_validos = dict(Actividad.OPCIONES_ESTADO_PROGRESO).keys()
         
         if nuevo_estado in estados_validos:
+            datos_antiguos = model_to_dict(actividad)
             actividad.estado_progreso = nuevo_estado
             
             if nuevo_estado == 'FINALIZADA':
@@ -348,8 +411,519 @@ def actualizar_progreso_actividad(request, id_actividad):
                 actividad.fecha_finalizacion = None
                 
             actividad.save()
+            registrar_auditoria(request, "CAMBIO_PROGRESO", "Actividad", actividad, datos_antiguos)
+            
             messages.success(request, f'La actividad {actividad.codigo_unico} cambió su estado a: {actividad.get_estado_progreso_display()}')
         else:
             messages.error(request, 'Error: El estado seleccionado no es válido.')
             
     return redirect(request.META.get('HTTP_REFERER', '/'))
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def lista_ausencias(request):
+    query = request.GET.get('q')
+    ausencias = Ausencia.objects.all().select_related('profesional_ausente', 'periodo_ausencia').order_by('-id_ausencia')
+    
+    if query:
+        ausencias = ausencias.filter(
+            Q(profesional_ausente__nombres__icontains=query) |
+            Q(profesional_ausente__apellido_paterno__icontains=query) |
+            Q(tipo_ausencia__icontains=query)
+        ).distinct()
+        
+    return render(request, 'administrador/ausencias/lista_ausencias.html', {
+        'ausencias': ausencias,
+        'query': query
+    })
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def crear_ausencia(request):
+    if request.method == 'POST':
+        form = AusenciaForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    ausencia = form.save(commit=False)
+                    ausencia.estado = True
+                    ausencia.save()
+                    
+                    registrar_auditoria(request, "CREACION", "Ausencia", ausencia)
+                    
+                messages.success(request, 'El registro de ausencia fue guardado con éxito.')
+                return redirect('actividadApp:lista_ausencias')
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = AusenciaForm()
+        
+    return render(request, 'administrador/ausencias/form_ausencia.html', {
+        'form': form,
+        'titulo': 'Registrar Ausencia o Permiso'
+    })
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def editar_ausencia(request, id_ausencia):
+    ausencia = get_object_or_404(Ausencia, pk=id_ausencia)
+    
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(ausencia)
+        form = AusenciaForm(request.POST, instance=ausencia)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    ausencia_guardada = form.save()
+                    registrar_auditoria(request, "EDICION", "Ausencia", ausencia_guardada, datos_antiguos)
+                messages.success(request, 'La ausencia fue actualizada correctamente.')
+                return redirect('actividadApp:lista_ausencias')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+    else:
+        form = AusenciaForm(instance=ausencia)
+        
+    return render(request, 'administrador/ausencias/form_ausencia.html', {
+        'form': form,
+        'titulo': 'Editar Ausencia'
+    })
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def cambiar_estado_ausencia(request, id_ausencia):
+    if request.method == 'POST':
+        ausencia = get_object_or_404(Ausencia, pk=id_ausencia)
+        
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(ausencia)
+            nuevo_estado = not ausencia.estado
+            ausencia.estado = nuevo_estado
+            ausencia.save()
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Ausencia", ausencia, datos_antiguos)
+                
+        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'El registro de ausencia fue {accion_str} correctamente.')
+        
+    return redirect('actividadApp:lista_ausencias')
+
+
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def lista_retroalimentaciones(request):
+    query = request.GET.get('q')
+    retroalimentaciones = Retroalimentacion.objects.all().select_related(
+        'receptor', 'retroalimentado', 'vecino', 'delegacion', 'meta'
+    ).order_by('-id_retroalimentacion')
+    
+    if query:
+        retroalimentaciones = retroalimentaciones.filter(
+            Q(tipo__icontains=query) |
+            Q(canal_recepcion__icontains=query) |
+            Q(receptor__nombres__icontains=query) |
+            Q(retroalimentado__nombres__icontains=query)
+        ).distinct()
+        
+    return render(request, 'administrador/retroalimentaciones/lista_retroalimentaciones.html', {
+        'retroalimentaciones': retroalimentaciones,
+        'query': query
+    })
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def crear_retroalimentacion(request):
+    if request.method == 'POST':
+        form = RetroalimentacionForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    retro = form.save(commit=False)
+                    retro.estado = True
+                    retro.save()
+                    registrar_auditoria(request, "CREACION", "Retroalimentacion", retro)
+                messages.success(request, 'La retroalimentación fue registrada con éxito.')
+                return redirect('actividadApp:lista_retroalimentaciones')
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = RetroalimentacionForm()
+        
+    return render(request, 'administrador/retroalimentaciones/form_retroalimentacion.html', {
+        'form': form,
+        'titulo': 'Registrar Retroalimentación'
+    })
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def editar_retroalimentacion(request, id_retroalimentacion):
+    retro = get_object_or_404(Retroalimentacion, pk=id_retroalimentacion)
+    
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(retro)
+        form = RetroalimentacionForm(request.POST, instance=retro)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    retro_guardada = form.save()
+                    registrar_auditoria(request, "EDICION", "Retroalimentacion", retro_guardada, datos_antiguos)
+                messages.success(request, 'La retroalimentación fue actualizada correctamente.')
+                return redirect('actividadApp:lista_retroalimentaciones')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+    else:
+        form = RetroalimentacionForm(instance=retro)
+        
+    return render(request, 'administrador/retroalimentaciones/form_retroalimentacion.html', {
+        'form': form,
+        'titulo': 'Editar Retroalimentación'
+    })
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def cambiar_estado_retroalimentacion(request, id_retroalimentacion):
+    if request.method == 'POST':
+        retro = get_object_or_404(Retroalimentacion, pk=id_retroalimentacion)
+        
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(retro)
+            nuevo_estado = not retro.estado
+            retro.estado = nuevo_estado
+            retro.save()
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Retroalimentacion", retro, datos_antiguos)
+                
+        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'La retroalimentación fue {accion_str} correctamente.')
+        
+    return redirect('actividadApp:lista_retroalimentaciones')
+
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def lista_evidencias(request):
+    query = request.GET.get('q')
+    evidencias = Evidencia.objects.all().select_related('id_actividad').order_by('-id_evidencia')
+    
+    if query:
+        evidencias = evidencias.filter(
+            Q(archivo_vinculo__icontains=query) |
+            Q(estado_revision__icontains=query) |
+            Q(id_actividad__codigo_unico__icontains=query)
+        ).distinct()
+
+    evidencias_con_validacion = []
+    for ev in evidencias:
+        validacion = Validacion.objects.filter(id_evidencia=ev).first()
+        evidencias_con_validacion.append({
+            'evidencia': ev,
+            'validacion': validacion
+        })
+        
+    return render(request, 'administrador/evidencias/lista_evidencias.html', {
+        'evidencias_con_validacion': evidencias_con_validacion,
+        'query': query
+    })
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def crear_evidencia(request):
+    if request.method == 'POST':
+        form = EvidenciaForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    evidencia = form.save(commit=False)
+                    evidencia.estado = True
+                    
+                    evidencia.metadatos = {
+                        "registrado_por": request.user.username,
+                        "origen": "Plataforma Web Municipal",
+                        "fecha_sistema": str(date.today())
+                    }
+                    
+                    evidencia.save()
+                    registrar_auditoria(request, "CREACION", "Evidencia", evidencia)
+                    
+                messages.success(request, 'La evidencia fue registrada con éxito.')
+                return redirect('actividadApp:lista_evidencias')
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = EvidenciaForm()
+        
+    return render(request, 'administrador/evidencias/form_evidencia.html', {
+        'form': form,
+        'titulo': 'Registrar Evidencia'
+    })
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def editar_evidencia(request, id_evidencia):
+    evidencia = get_object_or_404(Evidencia, pk=id_evidencia)
+    
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(evidencia)
+        form = EvidenciaForm(request.POST, instance=evidencia)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    evidencia_guardada = form.save()
+                    registrar_auditoria(request, "EDICION", "Evidencia", evidencia_guardada, datos_antiguos)
+                messages.success(request, 'La evidencia fue actualizada correctamente.')
+                return redirect('actividadApp:lista_evidencias')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+    else:
+        form = EvidenciaForm(instance=evidencia)
+        
+    return render(request, 'administrador/evidencias/form_evidencia.html', {
+        'form': form,
+        'titulo': 'Editar Evidencia'
+    })
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def cambiar_estado_evidencia(request, id_evidencia):
+    if request.method == 'POST':
+        evidencia = get_object_or_404(Evidencia, pk=id_evidencia)
+        
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(evidencia)
+            nuevo_estado = not evidencia.estado
+            evidencia.estado = nuevo_estado
+            evidencia.save()
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Evidencia", evidencia, datos_antiguos)
+                
+        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'La evidencia fue {accion_str} correctamente.')
+        
+    return redirect('actividadApp:lista_evidencias')
+
+
+@login_required
+@role_required('Administrador', 'Delegado')
+def lista_validaciones(request):
+    query = request.GET.get('q')
+    validaciones = Validacion.objects.all().select_related('id_evidencia', 'id_validador').order_by('-id_validacion')
+    
+    if query:
+        validaciones = validaciones.filter(
+            Q(resultado__icontains=query) |
+            Q(decision__icontains=query) |
+            Q(id_validador__nombres__icontains=query) |
+            Q(id_evidencia__archivo_vinculo__icontains=query)
+        ).distinct()
+        
+    return render(request, 'administrador/validaciones/lista_validaciones.html', {
+        'validaciones': validaciones,
+        'query': query
+    })
+
+@login_required
+@role_required('Administrador', 'Delegado')
+def crear_validacion(request):
+    evidencia_id = request.GET.get('evidencia')
+    initial_data = {}
+    
+    if evidencia_id:
+        evidencia_obj = get_object_or_404(Evidencia, pk=evidencia_id)
+        initial_data['id_evidencia'] = evidencia_obj
+
+    if request.method == 'POST':
+        form = ValidacionForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    validacion = form.save(commit=False)
+                    validacion.estado = True
+                    validacion.save()
+                    
+                    registrar_auditoria(request, "CREACION", "Validacion", validacion)
+                    
+                messages.success(request, 'La validación fue registrada con éxito.')
+                return redirect('actividadApp:lista_validaciones')
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = ValidacionForm(initial=initial_data)
+        
+    return render(request, 'administrador/validaciones/form_validacion.html', {
+        'form': form,
+        'titulo': 'Registrar Validación de Evidencia'
+    })
+
+@login_required
+@role_required('Administrador', 'Delegado')
+def editar_validacion(request, id_validacion):
+    validacion = get_object_or_404(Validacion, pk=id_validacion)
+    
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(validacion)
+        form = ValidacionForm(request.POST, instance=validacion)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    validacion_guardada = form.save()
+                    registrar_auditoria(request, "EDICION", "Validacion", validacion_guardada, datos_antiguos)
+                messages.success(request, 'La validación fue actualizada correctamente.')
+                return redirect('actividadApp:lista_validaciones')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+    else:
+        form = ValidacionForm(instance=validacion)
+        
+    return render(request, 'administrador/validaciones/form_validacion.html', {
+        'form': form,
+        'titulo': 'Editar Validación'
+    })
+
+@login_required
+@role_required('Administrador', 'Delegado')
+def cambiar_estado_validacion(request, id_validacion):
+    if request.method == 'POST':
+        validacion = get_object_or_404(Validacion, pk=id_validacion)
+        
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(validacion)
+            nuevo_estado = not validacion.estado
+            validacion.estado = nuevo_estado
+            validacion.save()
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Validacion", validacion, datos_antiguos)
+                
+        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'La validación fue {accion_str} correctamente.')
+        
+    return redirect('actividadApp:lista_validaciones')
+
+
+@login_required
+@role_required('Profesional', 'Delegado', 'Administrador')
+def lista_gestiones(request, id_actividad):
+    """ Muestra la tabla de gestiones para una actividad específica con su barra de búsqueda """
+    actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+    gestiones = GestionActividad.objects.filter(actividad=actividad).select_related('tipo_gestion', 'profesional').order_by('-fecha_registro')
+    
+    # --- FILTRO DE BÚSQUEDA ---
+    query = request.GET.get('q')
+    if query:
+        gestiones = gestiones.filter(
+            Q(tipo_gestion__nombre__icontains=query) |
+            Q(descripcion__icontains=query)
+        ).distinct()
+    
+    return render(request, 'profesional/lista_gestiones.html', {
+        'actividad': actividad,
+        'gestiones': gestiones,
+        'query': query
+    })
+
+@login_required
+@role_required('Profesional', 'Delegado', 'Administrador')
+def crear_gestion(request, id_actividad):
+    actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+    
+    if request.method == 'POST':
+        form = GestionActividadForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    gestion = form.save(commit=False)
+                    gestion.actividad = actividad
+                    # Asignamos al profesional que está haciendo el registro
+                    gestion.profesional = request.user.profesional 
+                    gestion.estado = True
+                    gestion.save()
+                    
+                    # --- AUDITORÍA ---
+                    registrar_auditoria(request, "CREACION", "GestionActividad", gestion)
+                    
+                messages.success(request, 'La gestión fue registrada con éxito.')
+                return redirect('actividadApp:lista_gestiones', id_actividad=actividad.id_actividad)
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = GestionActividadForm()
+        
+    return render(request, 'profesional/form_gestion.html', {
+        'form': form,
+        'actividad': actividad,
+        'titulo': f'Registrar Gestión para {actividad.codigo_unico}'
+    })
+
+@login_required
+@role_required('Profesional', 'Delegado', 'Administrador')
+def editar_gestion(request, id_gestion):
+    gestion = get_object_or_404(GestionActividad, id_gestion=id_gestion)
+    
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(gestion) # --- AUDITORÍA ---
+        form = GestionActividadForm(request.POST, instance=gestion)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    gestion_guardada = form.save()
+                    
+                    # --- AUDITORÍA ---
+                    registrar_auditoria(request, "EDICION", "GestionActividad", gestion_guardada, datos_antiguos)
+                    
+                messages.success(request, 'La gestión fue actualizada correctamente.')
+                return redirect('actividadApp:lista_gestiones', id_actividad=gestion.actividad.id_actividad)
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+    else:
+        form = GestionActividadForm(instance=gestion)
+        
+    return render(request, 'profesional/form_gestion.html', {
+        'form': form,
+        'actividad': gestion.actividad,
+        'titulo': 'Editar Gestión'
+    })
+
+@login_required
+@role_required('Profesional', 'Delegado', 'Administrador')
+def cambiar_estado_gestion(request, id_gestion):
+    if request.method == 'POST':
+        gestion = get_object_or_404(GestionActividad, id_gestion=id_gestion)
+        
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(gestion) # --- AUDITORÍA ---
+            nuevo_estado = not gestion.estado
+            gestion.estado = nuevo_estado
+            gestion.save()
+            
+            # --- AUDITORÍA ---
+            registrar_auditoria(request, "CAMBIO_ESTADO", "GestionActividad", gestion, datos_antiguos)
+                
+        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'La gestión fue {accion_str} correctamente.')
+        
+    return redirect(request.META.get('HTTP_REFERER', '/'))
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def lista_todas_gestiones(request):
+    query = request.GET.get('q')
+    gestiones = GestionActividad.objects.all().select_related('actividad', 'tipo_gestion', 'profesional').order_by('-fecha_registro')
+    
+    if query:
+        gestiones = gestiones.filter(
+            Q(actividad__codigo_unico__icontains=query) |
+            Q(tipo_gestion__nombre__icontains=query) |
+            Q(descripcion__icontains=query)
+        ).distinct()
+        
+    return render(request, 'administrador/gestiones/lista_todas_gestiones.html', {
+        'gestiones': gestiones,
+        'query': query
+    })

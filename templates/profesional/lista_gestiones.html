@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestiones de Actividad - Sistema Municipal{% endblock %}
+
+{% block menu_lateral %}
+<ul class="nav flex-column gap-4 mt-4">
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Inicio</a>
+    </li>
+    <li class="nav-item text-center">
+        <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:listar_actividades' %}">Mis Actividades</a>
+    </li>
+</ul>
+<div class="mt-5">
+    <hr class="border-white mx-4" style="opacity: 0.3;">
+    <ul class="nav flex-column mt-4">
+        <li class="nav-item text-center">
+            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                Cerrar sesión
+            </a>
+        </li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Actividad</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5">
+
+    <!-- Encabezado con título, detalles y el botón de registrar nueva gestión (sin botón volver) -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h4 class="fw-bold m-0" style="color: #8B1D19;">Historial de Gestiones</h4>
+            <small class="text-muted fw-bold">Actividad: {{ actividad.codigo_unico }} | {{ actividad.solicitud_problema|truncatechars:50 }}</small>
+        </div>
+        <a href="{% url 'actividadApp:crear_gestion' actividad.id_actividad %}" class="btn text-white fw-bold" style="background-color: #C41230;">
+            + Registrar Nueva Gestión
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Barra de Búsqueda -->
+    <div class="row mb-4">
+        <div class="col-12 col-md-8 col-lg-6">
+            <form method="GET" action="">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                        placeholder="Buscar por tipo de gestión o descripción..." 
+                        value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19;">Buscar</button>
+                    {% if query %}
+                        <a href="?" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla responsiva idéntica a tus otros módulos -->
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Fecha Registro</th>
+                    <th>Tipo</th>
+                    <th>Descripción</th>
+                    <th>Profesional</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ges in gestiones %}
+                <tr class="{% if not ges.estado %}table-secondary text-muted opacity-75{% endif %}">
+                    <td><small class="fw-bold text-dark">{{ ges.fecha_registro|date:"d/m/Y H:i" }}</small></td>
+                    <td><span class="badge bg-secondary">{{ ges.tipo_gestion.nombre }}</span></td>
+                    <td><small class="text-muted">{{ ges.descripcion|truncatechars:50 }}</small></td>
+                    <td><small class="fw-bold">{{ ges.profesional.nombres }} {{ ges.profesional.apellido_paterno }}</small></td>
+                    <td class="text-center">
+                        {% if ges.estado %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                            <a href="{% url 'actividadApp:editar_gestion' ges.id_gestion %}" class="btn btn-sm text-white px-3" style="background-color: #8B1D19; border-radius: 6px;" title="Editar">
+                                <i class="bi bi-pencil-square"></i> Editar
+                            </a>
+                            
+                            <form method="POST" action="{% url 'actividadApp:cambiar_estado_gestion' ges.id_gestion %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm {% if ges.estado %}btn-outline-danger{% else %}btn-outline-success{% endif %}" title="Cambiar Estado">
+                                    <i class="bi {% if ges.estado %}bi-toggle-on{% else %}bi-toggle-off{% endif %}"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No hay gestiones registradas para esta actividad.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

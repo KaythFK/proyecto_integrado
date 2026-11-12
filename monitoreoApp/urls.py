@@ -13,4 +13,10 @@ urlpatterns = [
     path('metas/nueva/', views.crear_meta, name='crear_meta'),
     path('metas/editar/<int:id_meta>/', views.editar_meta, name='editar_meta'),
     path('metas/estado/<int:id_meta>/', views.cambiar_estado_meta, name='cambiar_estado_meta'),
+
+    #Rutas de Indicadores
+    path('indicadores/', views.lista_indicadores, name='lista_indicadores'),
+    path('indicadores/crear/', views.crear_indicador, name='crear_indicador'),
+    path('indicadores/editar/<int:id_indicador>/', views.editar_indicador, name='editar_indicador'),
+    path('indicadores/estado/<int:id_indicador>/', views.cambiar_estado_indicador, name='cambiar_estado_indicador'),
 ]
