@@ -115,7 +115,7 @@ def listar_actividades(request):
     query = request.GET.get('q')
     
     profesional_actual = request.user.profesional
-    actividades = Actividad.objects.filter(id_profesional=profesional_actual).order_by('-fecha_registro')
+    actividades = Actividad.objects.filter(id_profesional=profesional_actual).prefetch_related('gestiones__tipo_gestion').order_by('-fecha_registro')
 
     if query:
         actividades = actividades.filter(
@@ -152,7 +152,8 @@ def registrar_actividad(request, actividad_id=None):
                     estado_progreso='INGRESADO',
                     estado=True,
                     id_funcionario=nueva_actividad.id_profesional,
-                    id_actividad=nueva_actividad
+                    id_actividad=nueva_actividad,
+                    organizacion=nueva_actividad.id_organizacion  # el compromiso exige organización
                 )
                 registrar_auditoria(request, "CREACION", "Compromiso", nuevo_compromiso)
                 
@@ -161,6 +162,8 @@ def registrar_actividad(request, actividad_id=None):
                 messages.success(request, f'¡Actividad registrada con éxito! Código: {nueva_actividad.codigo_unico}')
             
             return redirect('actividadApp:dashboard_profesional') 
+        else:
+            messages.error(request, 'No se pudo guardar. Revisa los campos marcados en rojo.')
     else:
         form = ActividadForm() 
 
@@ -307,7 +310,8 @@ def registrar_actividad_delegado(request):
                             estado_progreso='INGRESADO',
                             estado=True,
                             id_funcionario=nueva_actividad.id_profesional,
-                            id_actividad=nueva_actividad
+                            id_actividad=nueva_actividad,
+                            organizacion=nueva_actividad.id_organizacion  # el compromiso exige organización
                         )
                         registrar_auditoria(request, "CREACION", "Compromiso", nuevo_compromiso)
                         messages.success(request, f'¡Actividad registrada y derivada al Tubo! Código: {nueva_actividad.codigo_unico}.')
@@ -642,9 +646,18 @@ def lista_evidencias(request):
             'validacion': validacion
         })
         
+    # Menú lateral según el rol (esta pantalla la usan Administrador, Delegado y Profesional)
+    if request.user.groups.filter(name='Administrador').exists():
+        rol_menu = 'administrador'
+    elif request.user.groups.filter(name='Delegado').exists():
+        rol_menu = 'delegado'
+    else:
+        rol_menu = 'profesional'
+
     return render(request, 'administrador/evidencias/lista_evidencias.html', {
         'evidencias_con_validacion': evidencias_con_validacion,
-        'query': query
+        'query': query,
+        'rol_menu': rol_menu
     })
 
 @login_required
@@ -725,6 +738,10 @@ def cambiar_estado_evidencia(request, id_evidencia):
     return redirect('actividadApp:lista_evidencias')
 
 
+def es_solo_delegado(user):
+    # Las pantallas de validaciones las usan Delegado y Administrador: decide qué menú lateral mostrar
+    return user.groups.filter(name='Delegado').exists() and not user.groups.filter(name='Administrador').exists()
+
 @login_required
 @role_required('Administrador', 'Delegado')
 def lista_validaciones(request):
@@ -741,7 +758,8 @@ def lista_validaciones(request):
         
     return render(request, 'administrador/validaciones/lista_validaciones.html', {
         'validaciones': validaciones,
-        'query': query
+        'query': query,
+        'es_delegado': es_solo_delegado(request.user)
     })
 
 @login_required
@@ -803,7 +821,8 @@ def crear_validacion(request):
         
     return render(request, 'administrador/validaciones/form_validacion.html', {
         'form': form,
-        'titulo': 'Registrar Validación de Evidencia'
+        'titulo': 'Registrar Validación de Evidencia',
+        'es_delegado': es_solo_delegado(request.user)
     })
 
 @login_required
@@ -828,7 +847,8 @@ def editar_validacion(request, id_validacion):
         
     return render(request, 'administrador/validaciones/form_validacion.html', {
         'form': form,
-        'titulo': 'Editar Validación'
+        'titulo': 'Editar Validación',
+        'es_delegado': es_solo_delegado(request.user)
     })
 
 @login_required
@@ -970,6 +990,25 @@ def lista_todas_gestiones(request):
         ).distinct()
         
     return render(request, 'administrador/gestiones/lista_todas_gestiones.html', {
+        'gestiones': gestiones,
+        'query': query
+    })
+
+@login_required
+@role_required('Profesional')
+def mis_gestiones(request):
+    # Gestiones que registró el profesional que inició sesión, en todas sus actividades
+    query = request.GET.get('q')
+    gestiones = GestionActividad.objects.filter(profesional=request.user.profesional).select_related('actividad', 'tipo_gestion').order_by('-fecha_registro')
+
+    if query:
+        gestiones = gestiones.filter(
+            Q(actividad__codigo_unico__icontains=query) |
+            Q(tipo_gestion__nombre__icontains=query) |
+            Q(descripcion__icontains=query)
+        ).distinct()
+
+    return render(request, 'profesional/mis_gestiones.html', {
         'gestiones': gestiones,
         'query': query
     })

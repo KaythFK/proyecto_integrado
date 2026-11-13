@@ -69,7 +69,7 @@ def generar_clave_segura(longitud=10):
 @login_required
 def lista_actividades(request):
     query = request.GET.get('q')
-    actividades = Actividad.objects.all().order_by('-fecha_registro')
+    actividades = Actividad.objects.all().prefetch_related('gestiones__tipo_gestion').order_by('-fecha_registro')
     
     if query:
         actividades = actividades.filter(
@@ -110,7 +110,8 @@ def crear_actividad(request):
                             territorio='Por definir',
                             fecha_comprometida=date.today(),
                             id_funcionario=funcionario_asignado,
-                            estado_progreso='INGRESADO'
+                            estado_progreso='INGRESADO',
+                            organizacion=actividad.id_organizacion  # el compromiso exige organización
                         )
                         messages.success(request, f'La actividad {actividad.codigo_unico} fue registrada y derivada al Tubo de Compromisos.')
                     else:

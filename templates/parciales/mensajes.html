@@ -1,0 +1,15 @@
+{% comment %}
+    Avisos del sistema (éxito, error, advertencia) que dejan las vistas con messages.
+    Se incluye al inicio del bloque "contenido" de las pantallas que no tenían su propio bloque de avisos.
+    El aviso se ajusta al largo del texto y queda centrado.
+{% endcomment %}
+{% if messages %}
+<div class="container mt-4 d-flex flex-column align-items-center gap-2">
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm mb-0 py-2 small" role="alert" style="max-width: 640px;">
+            {{ message }}
+            <button type="button" class="btn-close py-2" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}

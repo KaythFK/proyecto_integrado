@@ -113,3 +113,14 @@ def validar_evidencia_no_duplicada(evidencia):
     if evidencia and evidencia.estado_revision == 'APROBADO':
         raise ValidationError("Esta evidencia ya fue validada y contabilizada.")
     return evidencia
+
+def limitar_a_opciones_activas(campo, valor_actual=None):
+    """
+    Deja en un campo de selección solo los elementos de catálogo activos (estado=True).
+    Si el registro que se edita ya usa un elemento desactivado, ese elemento se mantiene
+    para no perder el dato histórico, pero no aparece al crear registros nuevos.
+    """
+    filtro = Q(estado=True)
+    if valor_actual is not None:
+        filtro |= Q(pk=valor_actual)
+    campo.queryset = campo.queryset.filter(filtro).order_by('nombre')

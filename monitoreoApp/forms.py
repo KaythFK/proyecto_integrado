@@ -1,5 +1,6 @@
 from django import forms
 from .models import Meta, Indicador
+from config.utils import limitar_a_opciones_activas
 
 class MetaForm(forms.ModelForm):
     class Meta:
@@ -29,9 +30,13 @@ class MetaForm(forms.ModelForm):
             }),
             'id_item': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'id_periodo': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'id_cargo': forms.Select(attrs={'class': 'form-select'}),
-            'id_funcionario': forms.Select(attrs={'class': 'form-select'}),
+            'id_funcionario': forms.Select(attrs={'class': 'form-select', 'required': True}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Solo ítems de catálogo activos; al editar se conserva el que ya tenía la meta
+        limitar_a_opciones_activas(self.fields['id_item'], self.instance.id_item_id)
 
     def clean_valor_objetivo(self):
         valor = self.cleaned_data.get('valor_objetivo')
@@ -57,20 +62,12 @@ class MetaForm(forms.ModelForm):
             raise forms.ValidationError("La ponderación debe ser un valor entre 1 y 100.")
         return ponderador
 
-    def clean(self):
-        cleaned_data = super().clean()
-        id_cargo = cleaned_data.get('id_cargo')
-        id_funcionario = cleaned_data.get('id_funcionario')
-
-        # 1. Validar que al menos uno esté seleccionado
-        if not id_cargo and not id_funcionario:
-            raise forms.ValidationError("Es obligatorio asignar la meta a un Cargo o a un Funcionario específico.")
-            
-        # 2. Validar que no se seleccionen ambos al mismo tiempo para evitar conflictos lógicos
-        if id_cargo and id_funcionario:
-            raise forms.ValidationError("Debes asignar la meta solo a un Cargo O a un Funcionario, pero no a ambos a la vez.")
-
-        return cleaned_data
+    def clean_id_funcionario(self):
+        # Las metas se asignan solo a un funcionario (indicación del profesor; id_cargo se eliminó del modelo)
+        funcionario = self.cleaned_data.get('id_funcionario')
+        if not funcionario:
+            raise forms.ValidationError("Es obligatorio asignar la meta a un funcionario.")
+        return funcionario
 
 
 class IndicadorForm(forms.ModelForm):

@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo }} - Sistema Municipal{% endblock %}
+
+{% block menu_lateral %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}">Gestiones de la actividad</a>
+        </li>
+    </ul>
+
+    <div class="mt-5">
+        <hr class="border-white mx-4" style="opacity: 0.3;">
+        <ul class="nav flex-column mt-4">
+            <li class="nav-item text-center">
+                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                    Cerrar sesión
+                </a>
+            </li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Gestiones de Actividad</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5 mb-5" style="max-width: 800px;">
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm border-0 p-4" style="border-radius: 15px; background-color: #f8f9fa;">
+
+        <div class="d-flex justify-content-between align-items-center mb-4 gap-3">
+            <h4 class="fw-bold m-0" style="color: #8B1D19;">{{ titulo }}</h4>
+            <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-outline-secondary fw-bold shadow-sm" style="border-radius: 8px;">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+
+        <div class="alert alert-secondary shadow-sm mb-4" style="border-radius: 10px; border-left: 5px solid #8B1D19;">
+            <strong class="text-dark">Actividad:</strong> <span class="badge bg-dark">{{ actividad.codigo_unico }}</span>
+        </div>
+
+        <form method="POST" novalidate>
+            {% csrf_token %}
+
+            {% for error in form.non_field_errors %}
+                <div class="alert alert-danger">{{ error }}</div>
+            {% endfor %}
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" style="color: #8B1D19;" for="{{ form.tipo_gestion.id_for_label }}">{{ form.tipo_gestion.label }}</label>
+                    {{ form.tipo_gestion }}
+                    {% for error in form.tipo_gestion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold" style="color: #8B1D19;" for="{{ form.fecha_ejecucion.id_for_label }}">{{ form.fecha_ejecucion.label }}</label>
+                    {{ form.fecha_ejecucion }}
+                    {% for error in form.fecha_ejecucion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold" style="color: #8B1D19;" for="{{ form.descripcion.id_for_label }}">{{ form.descripcion.label }}</label>
+                    {{ form.descripcion }}
+                    {% for error in form.descripcion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-3 mt-4">
+                <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-secondary px-4 fw-bold shadow-sm" style="border-radius: 8px;">Cancelar</a>
+                <button type="submit" class="btn px-4 fw-bold text-white shadow-sm" style="background-color: #C41230; border-radius: 8px;">
+                    Guardar Gestión
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

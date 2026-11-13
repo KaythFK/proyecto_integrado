@@ -4,20 +4,62 @@
 {% block title %}Listado de Evidencias - Sistema Municipal{% endblock %}
 
 {% block menu_lateral %}
-    <ul class="nav flex-column gap-3 mt-5">
+    <!-- Menú según el rol: esta pantalla la usan Administrador, Delegado y Profesional (igual al de su panel) -->
+    {% if rol_menu == 'administrador' %}
+    <ul class="nav flex-column gap-4 mt-4">
         <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:dashboard_delegado' %}">Inicio Delegado</a>
+            <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
         </li>
         <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:registrar_actividad_delegado' %}">Registrar actividad</a>
+            <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi Perfil</a>
         </li>
         <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_validaciones' %}">Validaciones</a>
+            <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:lista_auditoria' %}">Auditoria</a>
         </li>
         <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_evidencias' %}">Evidencias</a>
+            <a class="nav-link text-white fw-bold" href="#">Alertas</a>
         </li>
     </ul>
+    {% elif rol_menu == 'delegado' %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:dashboard_delegado' %}">Mi delegación</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:actividades_delegacion' %}">Actividades del equipo</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:tubo_delegacion' %}">Tubo de Compromisos</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_evidencias' %}">Revisar Evidencias</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
+        </li>
+    </ul>
+    {% else %}
+    <ul class="nav flex-column gap-3 mt-5">
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:mis_gestiones' %}">Mis gestiones</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
+        </li>
+        <li class="nav-item text-center">
+            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_evidencias' %}">Mis Evidencias</a>
+        </li>
+    </ul>
+    {% endif %}
 
     <div class="mt-5">
         <hr class="border-white mx-4" style="opacity: 0.3;">
@@ -36,6 +78,7 @@
 {% endblock %}
 
 {% block contenido %}
+{% include 'parciales/mensajes.html' %}
 <div class="container mt-4 mb-5">
     
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
