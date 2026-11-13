@@ -99,8 +99,6 @@
                     <td style="font-size: 0.9rem;">
                         {% if meta.id_funcionario %}
                             <i class="bi bi-person-fill text-secondary"></i> {{ meta.id_funcionario.nombres }} {{ meta.id_funcionario.apellido_paterno }}
-                        {% elif meta.id_cargo %}
-                            <i class="bi bi-briefcase-fill text-secondary"></i> {{ meta.id_cargo }}
                         {% else %}
                             <span class="text-muted fst-italic">Sin asignar</span>
                         {% endif %}

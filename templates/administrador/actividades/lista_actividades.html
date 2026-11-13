@@ -29,6 +29,7 @@
 {% endblock %}
 
 {% block contenido %}
+{% include 'parciales/mensajes.html' %}
 <div class="container mt-5">
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
@@ -68,6 +69,7 @@
                     <th scope="col">Fecha Registro</th>
                     <th scope="col">Solicitud / Problema</th>
                     <th scope="col">Solicitante</th>
+                    <th scope="col">Tipos de Gestión</th>
                     <th scope="col" class="text-center">Progreso</th>
                     <th scope="col" class="text-center">Evidencias</th>
                     <th scope="col" class="text-center">Acciones</th>
@@ -107,6 +109,13 @@
                         {% else %}
                             <span class="text-muted">Sin registro</span>
                         {% endif %}
+                    </td>
+                    <td>
+                        {% for tipo in actividad.tipos_gestion %}
+                            <span class="badge bg-secondary mb-1">{{ tipo }}</span>
+                        {% empty %}
+                            <span class="text-muted small">Sin gestiones</span>
+                        {% endfor %}
                     </td>
                     
                     <td class="text-center">
@@ -221,7 +230,7 @@
 
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">
+                    <td colspan="8" class="text-center text-muted py-4">
                         {% if query %}
                             No se encontraron actividades que coincidan con la búsqueda "<b>{{ query }}</b>".
                         {% else %}

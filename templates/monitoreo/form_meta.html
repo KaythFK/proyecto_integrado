@@ -120,23 +120,11 @@
                 </h5>
                 <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6; background-color: #f8f9fa;">
                     <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Asignar a Cargo</label>
-                        {{ form.id_cargo }}
-                        {% for error in form.id_cargo.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Asignar a Funcionario</label>
+                        <label class="form-label fw-bold text-dark">Asignar a Funcionario (*)</label>
                         {{ form.id_funcionario }}
                         {% for error in form.id_funcionario.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
-                    </div>
-                    <div class="col-12">
-                        <div class="form-text mt-2 text-muted fw-bold">
-                            <i class="bi bi-info-circle me-1"></i> Nota: Solo debes seleccionar un Cargo O un Funcionario, no ambos.
-                        </div>
                     </div>
                 </div>
 

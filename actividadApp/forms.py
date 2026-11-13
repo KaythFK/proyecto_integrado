@@ -1,6 +1,6 @@
 from django import forms
 from .models import Actividad, Evidencia, Validacion, Ausencia, Retroalimentacion, GestionActividad
-from config.utils import validar_texto_no_vacio, validar_fecha_no_futura, validar_profesionales_distintos, validar_que_sea_delegado, validar_entero_positivo
+from config.utils import validar_texto_no_vacio, validar_fecha_no_futura, validar_profesionales_distintos, validar_que_sea_delegado, validar_entero_positivo, limitar_a_opciones_activas
 from datetime import date
 from administracionApp.models import Profesional
 
@@ -18,7 +18,8 @@ class ActividadForm(forms.ModelForm):
             'en_tubo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'id_profesional': forms.Select(attrs={'class': 'form-select'}),
             'id_meta': forms.Select(attrs={'class': 'form-select'}),
-            
+            'id_organizacion': forms.Select(attrs={'class': 'form-select'}),
+
             # Nuevos campos de fecha con formato DD-MM-AAAA y selector de calendario
             'fecha_comprometida': forms.DateInput(
                 format='%d-%m-%Y', 
@@ -232,3 +233,8 @@ class GestionActividadForm(forms.ModelForm):
             'fecha_ejecucion': 'Fecha de Ejecución (Opcional)',
             'descripcion': 'Descripción Detallada (*)'
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Solo tipos de gestión activos; al editar se conserva el que ya tenía el registro
+        limitar_a_opciones_activas(self.fields['tipo_gestion'], self.instance.tipo_gestion_id)

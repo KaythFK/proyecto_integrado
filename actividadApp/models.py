@@ -35,6 +35,16 @@ class Actividad(models.Model):
             return date.today() > self.fecha_comprometida and self.estado_progreso != 'FINALIZADA'
         return False
 
+    @property
+    def tipos_gestion(self):
+        # Nombres (sin repetir) de los tipos de gestión de sus gestiones activas.
+        # Usar con prefetch_related('gestiones__tipo_gestion') para no hacer una consulta por fila.
+        nombres = []
+        for gestion in self.gestiones.all():
+            if gestion.estado and gestion.tipo_gestion.nombre not in nombres:
+                nombres.append(gestion.tipo_gestion.nombre)
+        return nombres
+
     def __str__(self):
         return f"Actividad {self.codigo_unico} - {self.estado_progreso}"
 

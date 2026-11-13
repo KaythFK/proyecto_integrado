@@ -138,7 +138,7 @@ def tubo_delegacion(request):
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def listar_metas(request):
     query = request.GET.get('q')
-    metas = Meta.objects.select_related('id_item', 'id_periodo', 'id_cargo', 'id_funcionario').all().order_by('-id_meta')
+    metas = Meta.objects.select_related('id_item', 'id_periodo', 'id_funcionario').all().order_by('-id_meta')
 
     if query:
         metas = metas.filter(

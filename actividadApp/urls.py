@@ -50,4 +50,7 @@ urlpatterns = [
     path('gestion/<int:id_gestion>/cambiar_estado/', views.cambiar_estado_gestion, name='cambiar_estado_gestion'),
     path('gestiones/todas/', views.lista_todas_gestiones, name='lista_todas_gestiones'),
 
+    # Gestiones registradas por el profesional que inició sesión
+    path('gestiones/mis-gestiones/', views.mis_gestiones, name='mis_gestiones'),
+
 ]

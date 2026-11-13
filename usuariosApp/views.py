@@ -68,6 +68,9 @@ def login_view(request):
     return render(request, 'login/login.html')
 
 def logout_view(request):
+    # Descarta los avisos pendientes de la sesión (ej: "actividad registrada", "contraseña actualizada")
+    # para que no aparezcan en la pantalla de login al cerrar sesión
+    list(messages.get_messages(request))
     logout(request)
     return redirect('usuariosApp:login')
 
