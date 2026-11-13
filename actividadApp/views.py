@@ -10,6 +10,7 @@ from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, Retroalim
 from administracionApp.models import Profesional, Auditoria # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
+from config.utils import puede_modificar_compromiso
 from django.db import transaction
 from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError
@@ -246,17 +247,40 @@ def desactivar_actividad(request, codigo_unico):
 def actualizar_estado_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
+
+        # HU-13 CA1: el profesional solo puede cambiar sus propios compromisos
+        if not puede_modificar_compromiso(request.user, compromiso):
+            messages.error(request, 'No tienes permiso para modificar este compromiso.')
+            return redirect('actividadApp:dashboard_profesional')
+
         nuevo_estado = request.POST.get('estado_progreso')
         estados_validos = dict(Compromiso.OPCIONES_ESTADO_PROGRESO).keys()
         
         if nuevo_estado in estados_validos:
-            datos_antiguos = model_to_dict(compromiso)
-            compromiso.estado_progreso = nuevo_estado
-            if nuevo_estado == 'REALIZADO':
-                compromiso.fecha_termino = date.today()
-            compromiso.save()
-            
-            registrar_auditoria(request, "CAMBIO_PROGRESO", "Compromiso", compromiso, datos_antiguos)
+            with transaction.atomic():
+                datos_antiguos = model_to_dict(compromiso)
+                actividad = compromiso.id_actividad
+                datos_antiguos_actividad = model_to_dict(actividad)
+
+                compromiso.estado_progreso = nuevo_estado
+                if nuevo_estado == 'REALIZADO':
+                    compromiso.fecha_termino = date.today()
+                else:
+                    compromiso.fecha_termino = None
+                compromiso.save()
+
+                # HU-13 CA3: la actividad refleja el estado del compromiso (igual que en el tubo del
+                # Administrador/Delegado), así un compromiso realizado no queda como pendiente
+                if nuevo_estado == 'INGRESADO':
+                    actividad.estado_progreso = 'PENDIENTE'
+                elif nuevo_estado == 'REALIZADO':
+                    actividad.estado_progreso = 'FINALIZADA'
+                else:
+                    actividad.estado_progreso = nuevo_estado
+                actividad.save()
+
+                registrar_auditoria(request, "CAMBIO_PROGRESO", "Compromiso", compromiso, datos_antiguos)
+                registrar_auditoria(request, "CAMBIO_PROGRESO", "Actividad", actividad, datos_antiguos_actividad)
             
             messages.success(request, f'El compromiso en {compromiso.territorio} se ha actualizado a: {compromiso.get_estado_progreso_display()}')
         else:

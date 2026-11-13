@@ -124,3 +124,28 @@ def limitar_a_opciones_activas(campo, valor_actual=None):
     if valor_actual is not None:
         filtro |= Q(pk=valor_actual)
     campo.queryset = campo.queryset.filter(filtro).order_by('nombre')
+
+
+def puede_modificar_compromiso(user, compromiso):
+    """
+    HU-13 (CA1): decide si el usuario puede cambiar el estado de un compromiso.
+    - Administrador y Coordinador: cualquier compromiso.
+    - Delegado: solo compromisos de funcionarios de su misma delegación.
+    - Profesional: solo los compromisos asignados a él.
+    """
+    if user.groups.filter(name__in=['Administrador', 'Coordinador']).exists():
+        return True
+
+    profesional = getattr(user, 'profesional', None)
+    if profesional is None:
+        return False
+
+    if user.groups.filter(name='Delegado').exists():
+        if compromiso.id_funcionario.id_delegacion_id == profesional.id_delegacion_id:
+            return True
+
+    if user.groups.filter(name='Profesional').exists():
+        if compromiso.id_funcionario_id == profesional.pk:
+            return True
+
+    return False
