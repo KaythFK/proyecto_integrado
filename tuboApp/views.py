@@ -13,6 +13,19 @@ from datetime import date
 from administracionApp.models import Profesional, Auditoria
 import json
 from django.forms.models import model_to_dict
+from config.utils import puede_modificar_compromiso
+
+
+def url_tubo_segun_rol(user):
+    # HU-13 CA3: tras guardar, cada rol vuelve a SU pantalla del tubo (antes todos iban a la del
+    # Administrador y al delegado lo sacaba del sistema por no tener ese rol)
+    if user.groups.filter(name='Administrador').exists():
+        return 'tuboApp:tubo'
+    if user.groups.filter(name='Delegado').exists():
+        return 'monitoreoApp:tubo_delegacion'
+    if user.groups.filter(name='Coordinador').exists():
+        return 'tuboApp:dashboard_coordinador'
+    return 'tuboApp:tubo'
 
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
 def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
@@ -72,6 +85,12 @@ def agenda(request):
 def actualizar_progreso_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
+
+        # HU-13 CA1: el delegado solo puede cambiar compromisos de su delegación
+        if not puede_modificar_compromiso(request.user, compromiso):
+            messages.error(request, 'No tienes permiso para modificar este compromiso.')
+            return redirect(url_tubo_segun_rol(request.user))
+
         nuevo_estado = request.POST.get('nuevo_estado')
         
         estados_validos = dict(Compromiso.OPCIONES_ESTADO_PROGRESO).keys()
@@ -111,7 +130,7 @@ def actualizar_progreso_tubo(request, id_compromiso):
         else:
             messages.error(request, 'Estado seleccionado no válido.')
             
-    return redirect('tuboApp:tubo')
+    return redirect(url_tubo_segun_rol(request.user))
 
 
 @login_required
@@ -164,7 +183,7 @@ def agregar_observacion_tubo(request, id_compromiso):
         else:
             messages.error(request, 'El texto de la observación no puede estar vacío.')
             
-    return redirect('tuboApp:tubo')
+    return redirect(url_tubo_segun_rol(request.user))
 
 
 @login_required
