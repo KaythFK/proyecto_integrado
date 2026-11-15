@@ -14,6 +14,7 @@ from administracionApp.models import Profesional, Auditoria
 import json
 from django.forms.models import model_to_dict
 from config.utils import puede_modificar_compromiso
+from .filters import CompromisoFilter
 from django.core.exceptions import PermissionDenied
 
 
@@ -114,7 +115,7 @@ def reasignar_compromiso(request, id_compromiso):
 @role_required('Administrador')
 def agenda(request):
     query = request.GET.get('q')
-    compromisos = Compromiso.objects.select_related('id_actividad', 'id_funcionario', 'apoyo').all().order_by('-fecha_registro')
+    compromisos = Compromiso.objects.select_related('id_actividad', 'id_funcionario', 'apoyo').all().order_by('fecha_comprometida', 'id_compromiso')
     observaciones = ObservacionCompromiso.objects.all().order_by('-fecha')
     
     if query:
@@ -124,8 +125,11 @@ def agenda(request):
             Q(territorio__icontains=query)
         ).distinct()
 
+    filtro = CompromisoFilter(request.GET, queryset=compromisos)
+
     context = {
-        'compromisos': compromisos,
+        'compromisos': filtro.qs if filtro.is_valid() else compromisos.none(),
+        'filtro': filtro,
         'observaciones': observaciones,
         'query': query,
     }

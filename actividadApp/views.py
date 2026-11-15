@@ -149,7 +149,7 @@ def registrar_actividad(request, actividad_id=None):
             if nueva_actividad.en_tubo:
                 nuevo_compromiso = Compromiso.objects.create(
                     territorio="Por asignar", 
-                    fecha_comprometida=date.today() + timedelta(days=7), 
+                    fecha_comprometida=nueva_actividad.fecha_comprometida or date.today() + timedelta(days=7), 
                     estado_progreso='INGRESADO',
                     estado=True,
                     id_funcionario=nueva_actividad.id_profesional,
@@ -335,7 +335,7 @@ def registrar_actividad_delegado(request):
                     if nueva_actividad.en_tubo:
                         nuevo_compromiso = Compromiso.objects.create(
                             territorio="Por asignar", 
-                            fecha_comprometida=date.today() + timedelta(days=7), 
+                            fecha_comprometida=nueva_actividad.fecha_comprometida or date.today() + timedelta(days=7), 
                             estado_progreso='INGRESADO',
                             estado=True,
                             id_funcionario=nueva_actividad.id_profesional,

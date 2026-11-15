@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'tuboApp',
     'usuariosApp',
     'comunidadApp',
+    'django_filters',
 ]
 
 MIDDLEWARE = [

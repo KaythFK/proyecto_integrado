@@ -104,6 +104,9 @@
                     </thead>
                     <tbody>
                         {% for compromiso in compromisos_tubo %}
+                        {% ifchanged compromiso.fecha_comprometida|date:"F Y" %}
+                        <tr class="table-light"><td colspan="4" class="fw-bold texto-guinda py-2"><i class="bi bi-calendar3 me-2"></i>{{ compromiso.fecha_comprometida|date:"F Y"|capfirst }}</td></tr>
+                        {% endifchanged %}
                         <tr>
                             <td class="px-4 fw-bold {% if compromiso.esta_vencido %}text-danger{% endif %}">
                                 {{ compromiso.fecha_comprometida|date:"d M Y" }}
