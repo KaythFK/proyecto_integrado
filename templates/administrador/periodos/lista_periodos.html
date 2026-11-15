@@ -96,7 +96,6 @@
                                 <i class="bi bi-pencil-square"></i> {% if periodo.cerrado_por_fecha %}Extender{% else %}Editar{% endif %}
                             </a>
                             {% else %}
-                            {# HU-28 KAN-130: un período cerrado no se puede editar hasta reabrirlo #}
                             <button type="button" class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6" disabled title="Período cerrado: reábrelo para editar">
                                 <i class="bi bi-lock"></i> Editar
                             </button>

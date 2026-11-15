@@ -126,6 +126,7 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
 }
 
 .max-ancho-250 { max-width: 250px !important; }
+.max-ancho-640 { max-width: 640px !important; }
 
 /* =========================================
    PESTAÑAS DEL PANEL DE CATÁLOGOS

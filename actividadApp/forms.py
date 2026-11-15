@@ -40,8 +40,6 @@ class ActividadForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # [HU-28 / KAN-127] Solo se ofrecen metas de períodos vigentes (abiertos y ya comenzados).
-        # Al editar, se conserva la meta que ya tenía la actividad para no perder el dato.
         hoy = date.today()
         filtro = Q(id_periodo__estado=True, id_periodo__fecha_inicio__lte=hoy, id_periodo__fecha_termino__gte=hoy)
         if self.instance.pk and self.instance.id_meta_id:
@@ -50,8 +48,6 @@ class ActividadForm(forms.ModelForm):
 
     def clean_id_meta(self):
         meta = self.cleaned_data.get('id_meta')
-        # [HU-28 / KAN-127] Una actividad nueva solo se registra dentro de un período vigente.
-        # [HU-28 / KAN-129] Una actividad de un período cerrado no se puede modificar.
         if meta and not meta.id_periodo.esta_vigente:
             raise forms.ValidationError(
                 f'El período "{meta.id_periodo.nombre}" de esta meta no está vigente (cerrado o fuera de fecha). '
@@ -259,5 +255,4 @@ class GestionActividadForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Solo tipos de gestión activos; al editar se conserva el que ya tenía el registro
         limitar_a_opciones_activas(self.fields['tipo_gestion'], self.instance.tipo_gestion_id)

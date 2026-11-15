@@ -32,16 +32,22 @@
 
     <!-- Buscador idéntico al Tubo -->
     <div class="row mb-4">
-        <div class="col-12 col-md-8 col-lg-6">
+        <div class="col-12 col-lg-9">
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control borde-guinda" 
                         placeholder="Buscar por código, problema o acción..." 
                         value="{{ query|default_if_none:'' }}">
+                    <select name="funcionario" class="form-select borde-guinda" onchange="this.form.submit()" aria-label="Filtrar por funcionario">
+                        <option value="">Todos los funcionarios</option>
+                        {% for prof in profesionales_equipo %}
+                            <option value="{{ prof.pk }}" {% if funcionario_filtro == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.nombres }} {{ prof.apellido_paterno }}</option>
+                        {% endfor %}
+                    </select>
                     <button class="btn text-white fw-bold fondo-guinda borde-guinda" type="submit">
                         Buscar
                     </button>
-                    {% if query %}
+                    {% if query or funcionario_filtro %}
                         <a href="{% url 'actividadApp:actividades_delegacion' %}" class="btn btn-outline-secondary">Limpiar</a>
                     {% endif %}
                 </div>

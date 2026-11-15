@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %}Acceso denegado - SGR{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Acceso denegado</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5 mb-5 max-ancho-640">
+    <div class="card shadow-sm border-0 redondeado-15 text-center p-5">
+        <i class="bi bi-shield-lock fs-1 texto-guinda"></i>
+        <h4 class="fw-bold mt-3 texto-guinda">Error 403: no tienes permiso</h4>
+        <p class="text-muted mt-2 mb-4">
+            {% if exception %}{{ exception }}{% else %}No tienes autorización para realizar esta acción.{% endif %}
+        </p>
+        <div>
+            <a href="javascript:history.back()" class="btn text-white fw-bold px-4 fondo-guinda redondeado-8">Volver</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
