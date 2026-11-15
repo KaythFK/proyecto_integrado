@@ -149,3 +149,20 @@ def puede_modificar_compromiso(user, compromiso):
             return True
 
     return False
+
+
+def validar_periodo_abierto(meta):
+    """
+    [HU-25 / KAN-100] Valida que el período asociado a la meta o indicador 
+    no haya finalizado (comparando la fecha actual con la fecha de término).
+    Si el período ya expiró/cerró por fecha, bloquea la modificación.
+    """
+    if meta and hasattr(meta, 'id_periodo') and meta.id_periodo:
+        periodo = meta.id_periodo
+        
+        # Verificamos si la fecha actual es posterior a la fecha de término del período
+        if hasattr(periodo, 'fecha_termino') and periodo.fecha_termino:
+            if date.today() > periodo.fecha_termino:
+                raise ValidationError("No se pueden modificar indicadores o metas de un período que ya ha finalizado.")
+                
+    return meta

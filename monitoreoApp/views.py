@@ -9,6 +9,8 @@ from .models import Meta, Indicador
 from .forms import MetaForm, IndicadorForm
 from tuboApp.models import Compromiso
 from datetime import date
+from django.core.exceptions import ValidationError
+from config.utils import validar_periodo_abierto
 
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
@@ -264,16 +266,24 @@ def crear_indicador(request):
         form = IndicadorForm(request.POST)
         if form.is_valid():
             try:
+                # 1. Creamos la instancia sin guardar en BD aún para poder validarla
+                indicador = form.save(commit=False)
+                
+                # 2. Validamos que el período de la meta no esté vencido (KAN-100)
+                validar_periodo_abierto(indicador.meta_id_meta)
+                
+                # 3. Si pasa la validación, guardamos con la transacción
                 with transaction.atomic():
-                    indicador = form.save(commit=False)
                     indicador.estado = True
-                    indicador.save()
+                    indicador.save() # O form.save() ya que la instancia tiene los datos
                     
                     # --- AUDITORÍA ---
                     registrar_auditoria(request, "CREACION", "Indicador", indicador)
                     
                 messages.success(request, 'El indicador fue registrado con éxito.')
                 return redirect('monitoreoApp:lista_indicadores')
+            except ValidationError as e:
+                messages.error(request, e.message)
             except Exception as e:
                 messages.error(request, f'Error al guardar: {str(e)}')
         else:
@@ -296,6 +306,13 @@ def editar_indicador(request, id_indicador):
         form = IndicadorForm(request.POST, instance=indicador)
         if form.is_valid():
             try:
+                # 1. Obtenemos el objeto actualizado temporalmente sin guardar
+                indicador_modificado = form.save(commit=False)
+                
+                # 2. Validamos que el período asociado no haya finalizado (KAN-100)
+                validar_periodo_abierto(indicador_modificado.meta_id_meta)
+                
+                # 3. Si pasa la validación, guardamos definitivamente el formulario
                 with transaction.atomic():
                     indicador_guardado = form.save()
                     
@@ -304,6 +321,8 @@ def editar_indicador(request, id_indicador):
                     
                 messages.success(request, 'El indicador fue actualizado correctamente.')
                 return redirect('monitoreoApp:lista_indicadores')
+            except ValidationError as e:
+                messages.error(request, e.message)
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
     else:
