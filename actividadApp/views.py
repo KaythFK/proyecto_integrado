@@ -1059,3 +1059,15 @@ def detalle_vecino(request, id_vecino):
         'rol_menu': rol_menu,
     }
     return render(request, 'detalle_vecino.html', context)
+
+
+# ==========================================
+# UTILIDAD ORM PARA REPORTES Y ESTADÍSTICAS (CA3)
+# ==========================================
+def obtener_atenciones_validas_para_informe():
+    """
+    Cumple con el CA3: Retorna únicamente las atenciones/actividades válidas 
+    (excluyendo el borrado lógico con estado=True) contadas de manera única 
+    para los informes estadísticos de la municipalidad.
+    """
+    return Actividad.objects.filter(estado=True).distinct()
