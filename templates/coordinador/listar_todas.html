@@ -73,6 +73,7 @@
                     <th scope="col">Código</th>
                     <th scope="col">Fecha</th>
                     <th scope="col">Problema</th>
+                    <th scope="col">Solicitante</th>
                     <th scope="col">Estado</th>
                     <th scope="col" class="text-center">Auditoría</th>
                 </tr>
@@ -83,6 +84,23 @@
                     <td class="fw-bold text-nowrap">{{ actividad.codigo_unico }}</td>
                     <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
                     <td>{{ actividad.solicitud_problema|truncatechars:50 }}</td>
+                    
+                    <!-- Columna de Solicitante con enlace al Historial del Vecino -->
+                    <td>
+                        {% if actividad.solicitante_vecino %}
+                            <a href="{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}" class="text-decoration-none fw-bold text-primary" title="Ver historial del vecino">
+                                <i class="bi bi-person-badge"></i> {{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}
+                            </a><br>
+                            <span class="badge bg-info text-dark" style="font-size: 0.65rem;">Vecino</span>
+                            <small class="text-muted d-block" style="font-size: 0.75rem;">{{ actividad.solicitante_vecino.telefono|default:"Sin teléfono" }}</small>
+                        {% elif actividad.solicitante_profesional %}
+                            <strong>{{ actividad.solicitante_profesional.nombres }} {{ actividad.solicitante_profesional.apellido_paterno }}</strong><br>
+                            <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">Profesional interno</span>
+                        {% else %}
+                            <span class="text-muted">Sin registro</span>
+                        {% endif %}
+                    </td>
+
                     <td>
                         {% if actividad.estado_progreso == 'FINALIZADA' %}
                             <span class="badge bg-success">Finalizada</span>
@@ -107,7 +125,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-muted">No hay registros de actividades en el municipio.</td>
+                    <td colspan="6" class="text-center py-4 text-muted">No hay registros de actividades en el municipio.</td>
                 </tr>
                 {% endfor %}
             </tbody>

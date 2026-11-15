@@ -119,7 +119,9 @@
 
                             <td>
                                 {% if actividad.solicitante_vecino %}
-                                    <strong>{{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}</strong><br>
+                                    <a href="{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}" class="text-decoration-none fw-bold text-primary" title="Ver historial del vecino">
+                                        <i class="bi bi-person-badge"></i> {{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}
+                                    </a><br>
                                     <span class="badge bg-info text-dark">Vecino</span>
                                     <small class="text-muted d-block">{{ actividad.solicitante_vecino.telefono|default:"Sin teléfono" }}</small>
                                 {% elif actividad.solicitante_profesional %}

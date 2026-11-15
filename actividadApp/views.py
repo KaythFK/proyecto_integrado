@@ -7,7 +7,7 @@ import uuid
 from usuariosApp.decorators import role_required
 from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacion, GestionActividad
 from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm
-from administracionApp.models import Profesional, Auditoria # <- Añadido Auditoria
+from administracionApp.models import Profesional, Auditoria, Vecino # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
 from config.utils import puede_modificar_compromiso
@@ -1036,3 +1036,26 @@ def mis_gestiones(request):
         'gestiones': gestiones,
         'query': query
     })
+
+
+@login_required
+def detalle_vecino(request, id_vecino):
+    vecino = get_object_or_404(Vecino, pk=id_vecino)
+    actividades_vecino = Actividad.objects.filter(solicitante_vecino=vecino).order_by('-fecha_registro')
+    
+    # Determinamos el rol exacto para el menú lateral dinámico
+    if request.user.groups.filter(name='Administrador').exists():
+        rol_menu = 'administrador'
+    elif request.user.groups.filter(name='Coordinador').exists():
+        rol_menu = 'coordinador'
+    elif request.user.groups.filter(name='Delegado').exists():
+        rol_menu = 'delegado'
+    else:
+        rol_menu = 'profesional'
+
+    context = {
+        'vecino': vecino,
+        'actividades_vecino': actividades_vecino,
+        'rol_menu': rol_menu,
+    }
+    return render(request, 'detalle_vecino.html', context)

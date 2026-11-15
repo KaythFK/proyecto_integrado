@@ -53,4 +53,7 @@ urlpatterns = [
     # Gestiones registradas por el profesional que inició sesión
     path('gestiones/mis-gestiones/', views.mis_gestiones, name='mis_gestiones'),
 
+    #Historial de vecino
+    path('vecino/<int:id_vecino>/historial/', views.detalle_vecino, name='detalle_vecino'),
+
 ]
