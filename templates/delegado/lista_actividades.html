@@ -87,6 +87,7 @@
                     <th scope="col">Código</th>
                     <th scope="col">Fecha</th>
                     <th scope="col">Solicitud / Problema</th>
+                    <th scope="col">Solicitante</th>
                     <th scope="col">Progreso</th>
                     <th scope="col" class="text-center">Gestión y Acciones</th>
                 </tr>
@@ -97,6 +98,23 @@
                     <td class="fw-bold text-nowrap">{{ actividad.codigo_unico }}</td>
                     <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
                     <td>{{ actividad.solicitud_problema|truncatechars:45 }}</td>
+                    
+                    <!-- Columna de Solicitante con enlace al Historial del Vecino -->
+                    <td>
+                        {% if actividad.solicitante_vecino %}
+                            <a href="{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}" class="text-decoration-none fw-bold text-primary" title="Ver historial del vecino">
+                                <i class="bi bi-person-badge"></i> {{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}
+                            </a><br>
+                            <span class="badge bg-info text-dark" style="font-size: 0.65rem;">Vecino</span>
+                            <small class="text-muted d-block" style="font-size: 0.75rem;">{{ actividad.solicitante_vecino.telefono|default:"Sin teléfono" }}</small>
+                        {% elif actividad.solicitante_profesional %}
+                            <strong>{{ actividad.solicitante_profesional.nombres }} {{ actividad.solicitante_profesional.apellido_paterno }}</strong><br>
+                            <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">Profesional interno</span>
+                        {% else %}
+                            <span class="text-muted">Sin registro</span>
+                        {% endif %}
+                    </td>
+
                     <td>
                         <span class="badge 
                             {% if actividad.estado_progreso == 'FINALIZADA' %} bg-success 
@@ -125,6 +143,11 @@
                                     data-estado="{{ actividad.get_estado_progreso_display }}"
                                     data-problema="{{ actividad.solicitud_problema }}"
                                     data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
+                                    data-vecino-nombre="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}{% else %}No registrado{% endif %}"
+                                    data-vecino-rut="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.rut|default:'No especificado' }}{% else %}-{% endif %}"
+                                    data-vecino-tel="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.telefono|default:'Sin teléfono' }}{% else %}-{% endif %}"
+                                    data-vecino-url="{% if actividad.solicitante_vecino %}{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}{% else %}#{% endif %}"
+                                    data-tiene-vecino="{% if actividad.solicitante_vecino %}true{% else %}false{% endif %}"
                                     title="Ver detalle">
                                 <i class="bi bi-search"></i> Detalle
                             </button>
@@ -147,7 +170,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-muted">
+                    <td colspan="6" class="text-center py-4 text-muted">
                         {% if query %}
                             No se encontraron actividades en el equipo que coincidan con "{{ query }}".
                         {% else %}
@@ -161,7 +184,7 @@
     </div>
 </div>
 
-<!-- Modal de Auditoría -->
+<!-- Modal de Auditoría y Detalle -->
 <div class="modal fade" id="modalDetalleActividad" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg">
@@ -180,13 +203,30 @@
                         <p class="fs-6 fw-bold" id="detEstado"></p>
                     </div>
                 </div>
+                
+                <!-- Sección de Información del Vecino en el Modal -->
+                <div class="mb-3 p-3 bg-light rounded-3 border">
+                    <p class="text-muted mb-1 small fw-bold text-uppercase">Vecino Solicitante</p>
+                    <div id="seccionVecinoModal">
+                        <p class="mb-1"><strong>Nombre:</strong> <span id="detVecinoNombre"></span></p>
+                        <p class="mb-1"><strong>RUT:</strong> <span id="detVecinoRut"></span></p>
+                        <p class="mb-2"><strong>Teléfono:</strong> <span id="detVecinoTel"></span></p>
+                        <a id="detVecinoLink" href="#" class="btn btn-sm text-white fw-bold" style="background-color: #8B1D19;">
+                            <i class="bi bi-person-badge"></i> Ver Historial Completo del Vecino
+                        </a>
+                    </div>
+                    <div id="seccionSinVecinoModal" class="text-muted fst-italic" style="display: none;">
+                        Esta actividad no está asociada a ningún vecino (Solicitante interno u otro).
+                    </div>
+                </div>
+
                 <div class="mb-3">
                     <p class="text-muted mb-1 small fw-bold text-uppercase">Solicitud / Problema Reportado</p>
-                    <div class="p-3 bg-light rounded-3 border text-dark" id="detProblema" style="min-height: 80px;"></div>
+                    <div class="p-3 bg-light rounded-3 border text-dark" id="detProblema" style="min-height: 70px;"></div>
                 </div>
                 <div class="mb-2">
                     <p class="text-muted mb-1 small fw-bold text-uppercase">Acción Realizada</p>
-                    <div class="p-3 bg-light rounded-3 border text-dark" id="detAccion" style="min-height: 80px;"></div>
+                    <div class="p-3 bg-light rounded-3 border text-dark" id="detAccion" style="min-height: 70px;"></div>
                 </div>
             </div>
             <div class="modal-footer bg-light justify-content-end border-0">
@@ -227,7 +267,13 @@ document.addEventListener('DOMContentLoaded', () => {
         fecha: document.getElementById('detFecha'),
         estado: document.getElementById('detEstado'),
         problema: document.getElementById('detProblema'),
-        accion: document.getElementById('detAccion')
+        accion: document.getElementById('detAccion'),
+        vecinoNombre: document.getElementById('detVecinoNombre'),
+        vecinoRut: document.getElementById('detVecinoRut'),
+        vecinoTel: document.getElementById('detVecinoTel'),
+        vecinoLink: document.getElementById('detVecinoLink'),
+        seccionVecino: document.getElementById('seccionVecinoModal'),
+        seccionSinVecino: document.getElementById('seccionSinVecinoModal')
     };
 
     document.querySelectorAll('.btn-detalle').forEach(btn => {
@@ -237,6 +283,19 @@ document.addEventListener('DOMContentLoaded', () => {
             elementos.estado.textContent = this.dataset.estado;
             elementos.problema.textContent = this.dataset.problema;
             elementos.accion.textContent = this.dataset.accion;
+            
+            const tieneVecino = this.dataset.tieneVecino === 'true';
+            if (tieneVecino) {
+                elementos.vecinoNombre.textContent = this.dataset.vecinoNombre;
+                elementos.vecinoRut.textContent = this.dataset.vecinoRut;
+                elementos.vecinoTel.textContent = this.dataset.vecinoTel;
+                elementos.vecinoLink.href = this.dataset.vecinoUrl;
+                elementos.seccionVecino.style.display = 'block';
+                elementos.seccionSinVecino.style.display = 'none';
+            } else {
+                elementos.seccionVecino.style.display = 'none';
+                elementos.seccionSinVecino.style.display = 'block';
+            }
             
             elementos.estado.className = "fs-6 fw-bold";
             const estadoUpper = this.dataset.estado.toUpperCase();
@@ -285,4 +344,4 @@ function confirmarCambioActividad(event, id, codigo, estadoActualStr) {
     new bootstrap.Modal(document.getElementById('modalEstadoActividad')).show();
 }
 </script>
-{% endblock %}s
+{% endblock %}

@@ -99,7 +99,9 @@
                     
                     <td>
                         {% if actividad.solicitante_vecino %}
-                            <strong>{{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}</strong><br>
+                            <a href="{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}" class="text-decoration-none fw-bold text-primary" title="Ver historial del vecino">
+                                <i class="bi bi-person-badge"></i> {{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}
+                            </a><br>
                             <span class="badge bg-info text-dark">Vecino</span>
                             <small class="text-muted d-block">{{ actividad.solicitante_vecino.telefono|default:"Sin teléfono" }}</small>
                         {% elif actividad.solicitante_profesional %}
@@ -147,7 +149,6 @@
                             <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white" style="background-color: #8B1D19; border-radius: 6px;" title="Editar">
                                 <i class="bi bi-pencil-square"></i> Editar
                             </a>
-                            <!-- En la columna de acciones de tu tabla de actividades -->
                             <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm" style="background-color: #495057; border-radius: 6px;" title="Ver Gestiones">
                                 <i class="bi bi-briefcase"></i> Gestiones
                             </a>
