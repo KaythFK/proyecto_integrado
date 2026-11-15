@@ -3,26 +3,6 @@
 
 {% block title %}Auditoría del Sistema - Municipalidad{% endblock %}
 
-{% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:lista_auditoria' %}">Auditoría</a>
-    </li>
-</ul>
-<div class="mt-5">
-    <hr class="border-white mx-4" style="opacity: 0.3;">
-    <ul class="nav flex-column mt-4">
-        <li class="nav-item text-center">
-            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                Cerrar sesión
-            </a>
-        </li>
-    </ul>
-</div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Auditoría y Trazabilidad del Sistema</h3>
@@ -33,7 +13,7 @@
 <div class="container-fluid mt-4 mb-5 px-4">
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-        <h4 class="fw-bold m-0" style="color: #8B1D19;">Registro de Actividad (Inalterable)</h4>
+        <h4 class="fw-bold m-0 texto-guinda">Registro de Actividad (Inalterable)</h4>
         <span class="badge bg-secondary px-3 py-2 shadow-sm"><i class="bi bi-lock-fill"></i> Modo Solo Lectura</span>
     </div>
 
@@ -42,10 +22,10 @@
         <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                    <input type="text" name="q" class="form-control borde-guinda" 
                         placeholder="Buscar por evento, entidad o funcionario..." 
                         value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19;">Buscar</button>
+                    <button class="btn text-white fw-bold fondo-guinda" type="submit">Buscar</button>
                     {% if query %}
                         <a href="?" class="btn btn-outline-secondary">Limpiar</a>
                     {% endif %}
@@ -55,7 +35,7 @@
     </div>
 
     <div class="table-responsive shadow-sm rounded">
-        <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+        <table class="table table-hover align-middle mb-0 texto-090">
             <thead class="table-dark">
                 <tr>
                     <th>Fecha y Hora</th>
@@ -80,7 +60,7 @@
                         </span>
                     </td>
                     
-                    <td><span class="fw-bold" style="color: #8B1D19;">{{ reg.evento }}</span></td>
+                    <td><span class="fw-bold texto-guinda">{{ reg.evento }}</span></td>
                     
                     <!-- Columna Identificable -->
                     <td>
@@ -108,8 +88,7 @@
                             {% endif %}
                             
                             {% if reg.valor_nuevo %}
-                                <button type="button" class="btn btn-sm border-0 rounded-pill px-3 fw-bold text-white shadow-sm" 
-                                        style="background-color: #8B1D19;"
+                                <button type="button" class="btn btn-sm border-0 rounded-pill px-3 fw-bold text-white shadow-sm fondo-guinda"
                                         onclick="mostrarJSON('Nuevo', '{{ forloop.counter }}', '{{ reg.id_auditoria }}')"
                                         title="Ver datos aplicados">
                                     <i class="bi bi-file-earmark-check"></i> Después
@@ -118,7 +97,7 @@
                             {% endif %}
                             
                             {% if not reg.valor_anterior and not reg.valor_nuevo %}
-                                <span class="text-muted" style="font-size: 0.75rem;">Sin cambios</span>
+                                <span class="text-muted texto-075">Sin cambios</span>
                             {% endif %}
                         </div>
                     </td>
@@ -137,7 +116,7 @@
 <div class="modal fade" id="modalJSON" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header text-white" style="background-color: #8B1D19;">
+            <div class="modal-header text-white fondo-guinda">
                 <h5 class="modal-title fw-bold" id="modalJSONTitle">Detalle de Cambios</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>

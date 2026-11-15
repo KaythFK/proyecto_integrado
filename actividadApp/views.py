@@ -670,18 +670,9 @@ def lista_evidencias(request):
             'validacion': validacion
         })
         
-    # Menú lateral según el rol (esta pantalla la usan Administrador, Delegado y Profesional)
-    if request.user.groups.filter(name='Administrador').exists():
-        rol_menu = 'administrador'
-    elif request.user.groups.filter(name='Delegado').exists():
-        rol_menu = 'delegado'
-    else:
-        rol_menu = 'profesional'
-
     return render(request, 'administrador/evidencias/lista_evidencias.html', {
         'evidencias_con_validacion': evidencias_con_validacion,
-        'query': query,
-        'rol_menu': rol_menu
+        'query': query
     })
 
 @login_required
@@ -762,10 +753,6 @@ def cambiar_estado_evidencia(request, id_evidencia):
     return redirect('actividadApp:lista_evidencias')
 
 
-def es_solo_delegado(user):
-    # Las pantallas de validaciones las usan Delegado y Administrador: decide qué menú lateral mostrar
-    return user.groups.filter(name='Delegado').exists() and not user.groups.filter(name='Administrador').exists()
-
 @login_required
 @role_required('Administrador', 'Delegado')
 def lista_validaciones(request):
@@ -782,8 +769,7 @@ def lista_validaciones(request):
         
     return render(request, 'administrador/validaciones/lista_validaciones.html', {
         'validaciones': validaciones,
-        'query': query,
-        'es_delegado': es_solo_delegado(request.user)
+        'query': query
     })
 
 @login_required
@@ -812,6 +798,7 @@ def crear_validacion(request):
                     validacion.save()
                     
                     # [KAN-169] ACCIÓN: Sumar avance solo si está "Aprobada"
+                    periodo_abierto = True
                     if validacion.decision == 'APROBADO':
                         # 1. Cambiamos el estado de la evidencia
                         evidencia.estado_revision = 'APROBADO'
@@ -822,15 +809,20 @@ def crear_validacion(request):
                         meta = actividad.id_meta
                         indicador = Indicador.objects.filter(meta_id_meta=meta).first()
                         
-                        if indicador:
+                        # [HU-28 / KAN-126] Solo aporta al indicador si el período de la meta está abierto
+                        periodo_abierto = meta is not None and meta.id_periodo.esta_abierto
+                        if indicador and periodo_abierto:
                             indicador.avance += 1 
                             indicador.save()
                             
                             registrar_auditoria(request, "ACTUALIZACION_AVANCE", "Indicador", indicador)
 
                     registrar_auditoria(request, "CREACION", "Validacion", validacion)
-                    
-                messages.success(request, 'La validación fue registrada con éxito y el avance ha sido actualizado.')
+
+                if validacion.decision == 'APROBADO' and not periodo_abierto:
+                    messages.warning(request, f'La evidencia fue aprobada, pero no suma al indicador porque el período "{meta.id_periodo.nombre}" está cerrado.')
+                else:
+                    messages.success(request, 'La validación fue registrada con éxito y el avance ha sido actualizado.')
                 return redirect('actividadApp:lista_validaciones')
                 
             except ValidationError as e:
@@ -845,8 +837,7 @@ def crear_validacion(request):
         
     return render(request, 'administrador/validaciones/form_validacion.html', {
         'form': form,
-        'titulo': 'Registrar Validación de Evidencia',
-        'es_delegado': es_solo_delegado(request.user)
+        'titulo': 'Registrar Validación de Evidencia'
     })
 
 @login_required
@@ -871,8 +862,7 @@ def editar_validacion(request, id_validacion):
         
     return render(request, 'administrador/validaciones/form_validacion.html', {
         'form': form,
-        'titulo': 'Editar Validación',
-        'es_delegado': es_solo_delegado(request.user)
+        'titulo': 'Editar Validación'
     })
 
 @login_required

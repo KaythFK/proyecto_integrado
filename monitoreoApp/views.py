@@ -246,7 +246,7 @@ def cambiar_estado_meta(request, id_meta):
 @role_required('Administrador', 'Coordinador', 'Profesional')
 def lista_indicadores(request):
     query = request.GET.get('q')
-    indicadores = Indicador.objects.all().select_related('meta_id_meta').order_by('-id_indicador')
+    indicadores = Indicador.objects.all().select_related('meta_id_meta__id_periodo').order_by('-id_indicador')
     
     if query:
         indicadores = indicadores.filter(

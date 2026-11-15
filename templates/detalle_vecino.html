@@ -3,58 +3,6 @@
 
 {% block title %}Historial del Vecino - Sistema Municipal{% endblock %}
 
-{% block menu_lateral %}
-<ul class="nav flex-column gap-3 mt-4">
-    {% if rol_menu == 'administrador' %}
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio Administrador</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
-        </li>
-    {% elif rol_menu == 'coordinador' %}
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'tuboApp:dashboard_coordinador' %}">Visión global</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'tuboApp:listar_todas' %}">Todas las actividades</a>
-        </li>
-    {% elif rol_menu == 'delegado' %}
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:actividades_delegacion' %}">Actividades Delegación</a>
-        </li>
-    {% else %}
-        <!-- Menú por defecto para el rol Profesional -->
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
-        </li>
-    {% endif %}
-    
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
-    </li>
-</ul>
-
-<div class="mt-5">
-    <hr class="border-white mx-4" style="opacity: 0.3;">
-    <ul class="nav flex-column mt-4">
-        <li class="nav-item text-center">
-            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                Cerrar sesión
-            </a>
-        </li>
-    </ul>
-</div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0">Ficha e Historial del Vecino</h3>
@@ -63,7 +11,7 @@
 {% block contenido %}
 <div class="container mt-4 mb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold m-0" style="color: #8B1D19;">Detalle del Ciudadano</h4>
+        <h4 class="fw-bold m-0 texto-guinda">Detalle del Ciudadano</h4>
         <a href="javascript:history.back()" class="btn btn-secondary fw-bold shadow-sm">
             <i class="bi bi-arrow-left"></i> Volver
         </a>
@@ -85,9 +33,9 @@
     </div>
 
     <!-- Listado y agrupación de Actividades asociadas (KAN-184 / KAN-185) -->
-    <h4 class="fw-bold mb-3" style="color: #8B1D19;">Actividades y Atenciones Asociadas</h4>
+    <h4 class="fw-bold mb-3 texto-guinda">Actividades y Atenciones Asociadas</h4>
     
-    <div class="card shadow-sm border-0" style="border-radius: 15px; overflow: hidden;">
+    <div class="card shadow-sm border-0 redondeado-15 overflow-hidden">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -106,12 +54,12 @@
                             <td class="fw-bold text-nowrap">{{ actividad.codigo_unico }}</td>
                             <td>{{ actividad.fecha_registro|date:"d/m/Y H:i" }}</td>
                             <td>
-                                <div class="text-truncate" style="max-width: 250px;">
+                                <div class="text-truncate max-ancho-250">
                                     {{ actividad.solicitud_problema }}
                                 </div>
                             </td>
                             <td>
-                                <div class="text-truncate" style="max-width: 250px;">
+                                <div class="text-truncate max-ancho-250">
                                     {{ actividad.accion|default:"Sin acción descrita" }}
                                 </div>
                             </td>

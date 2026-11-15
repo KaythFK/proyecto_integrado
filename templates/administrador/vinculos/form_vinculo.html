@@ -3,26 +3,6 @@
 
 {% block title %}{{ titulo }}{% endblock %}
 
-{% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'comunidadApp:lista_vinculos' %}">Vínculos Familiares</a>
-    </li>
-</ul>
-<div class="mt-5">
-    <hr class="border-white mx-4" style="opacity: 0.3;">
-    <ul class="nav flex-column mt-4">
-        <li class="nav-item text-center">
-            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                Cerrar sesión
-            </a>
-        </li>
-    </ul>
-</div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Administración</h3>
@@ -30,8 +10,8 @@
 
 {% block contenido %}
 <div class="container mt-4 mb-5">
-    <div class="card shadow border-0" style="border-radius: 15px;">
-        <div class="card-header text-white px-4 py-3" style="background-color: #8B1D19; border-top-left-radius: 15px; border-top-right-radius: 15px;">
+    <div class="card shadow border-0 redondeado-15">
+        <div class="card-header text-white px-4 py-3 fondo-guinda redondeado-sup-15">
             <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
         </div>
         <div class="card-body p-4 p-md-5">
@@ -57,11 +37,11 @@
 
             <form method="POST" novalidate>
                 {% csrf_token %}
-                <h5 class="fw-bold mb-3" style="color: #C41230; border-bottom: 2px solid #C41230; padding-bottom: 8px;">
+                <h5 class="fw-bold mb-3 titulo-seccion">
                     Asignación de Relación
                 </h5>
                 
-                <div class="row p-3 rounded mb-4" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                <div class="row p-3 rounded mb-4 caja-gris">
                     {% for field in form %}
                         {% if field.name == 'padres_separados' or field.name == 'vive_con_este_vecino' %}
                             <!-- Texto a la izquierda e interruptor a la derecha en la misma línea -->
@@ -97,7 +77,7 @@
                     <a href="{% url 'comunidadApp:lista_vinculos' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto shadow-sm">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto shadow-sm" style="background-color: #C41230;">
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto shadow-sm fondo-rojo">
                         Guardar Vínculo
                     </button>
                 </div>

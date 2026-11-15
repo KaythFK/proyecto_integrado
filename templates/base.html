@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Delegaciones Regionales - La Serena{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
+    {# ?v=... obliga al navegador a descargar estilos.css de nuevo cuando cambia (subir el número en cada cambio de estilos) #}
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=2">
 </head>
 <body class="d-flex flex-column min-vh-100 bg-light">
     <div class="d-flex flex-column flex-md-row flex-grow-1">
@@ -16,6 +17,48 @@
             </div>
             
             {% block menu_lateral %}
+            {# Menú lateral estándar: es el mismo del panel de cada rol y se usa en todas las pantallas #}
+            <ul class="nav flex-column gap-3 mt-4">
+                {% if rol_menu == 'administrador' %}
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'administracionApp:lista_auditoria' %}">Auditoría</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="#">Alertas</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a></li>
+                {% elif rol_menu == 'coordinador' %}
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'tuboApp:dashboard_coordinador' %}">Visión global</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'administracionApp:lista_periodos' %}">Períodos</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:lista_indicadores' %}">Gestión de indicadores</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'tuboApp:listar_todas' %}">Todas las actividades</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a></li>
+                {% elif rol_menu == 'delegado' %}
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:dashboard_delegado' %}">Mi delegación</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'actividadApp:actividades_delegacion' %}">Actividades del equipo</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:tubo_delegacion' %}">Tubo de Compromisos</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_evidencias' %}">Revisar evidencias</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a></li>
+                {% elif rol_menu == 'profesional' %}
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'actividadApp:mis_gestiones' %}">Mis gestiones</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_evidencias' %}">Mis evidencias</a></li>
+                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a></li>
+                {% endif %}
+            </ul>
+
+            {% if user.is_authenticated %}
+            <div class="mt-5">
+                <hr class="border-white mx-4" style="opacity: 0.3;">
+                <ul class="nav flex-column mt-4">
+                    <li class="nav-item text-center">
+                        <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
+                            Cerrar sesión
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
             {% endblock %}
         </nav>
 

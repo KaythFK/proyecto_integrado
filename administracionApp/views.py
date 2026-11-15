@@ -706,6 +706,12 @@ def crear_periodo(request):
 @login_required
 def editar_periodo(request, id_periodo):
     periodo = get_object_or_404(Periodo, id_periodo=id_periodo)
+
+    # [HU-28 / KAN-129] Un período cerrado por el coordinador no se edita: primero debe reabrirse
+    if not periodo.estado:
+        messages.error(request, f'El periodo "{periodo.nombre}" está cerrado. Reábrelo antes de editarlo.')
+        return redirect('administracionApp:lista_periodos')
+    estaba_vencido = periodo.cerrado_por_fecha
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(periodo)
@@ -715,7 +721,9 @@ def editar_periodo(request, id_periodo):
                 periodo_guardado = form.save()
                 
                 # AUDITORIA
-                registrar_auditoria(request, "EDICION", "Periodo", periodo_guardado, datos_antiguos)
+                # [HU-28 / KAN-129] Si estaba vencido y se extiende su fecha, es una reapertura y se audita como tal
+                evento = "REAPERTURA" if estaba_vencido and not periodo_guardado.cerrado_por_fecha else "EDICION"
+                registrar_auditoria(request, evento, "Periodo", periodo_guardado, datos_antiguos)
                 
                 messages.success(request, f'El periodo "{periodo.nombre}" fue actualizado.')
                 return redirect('administracionApp:lista_periodos')
@@ -743,10 +751,14 @@ def cambiar_estado_periodo(request, id_periodo):
             periodo.save()
             
             # AUDITORIA
-            registrar_auditoria(request, "CAMBIO_ESTADO", "Periodo", periodo, datos_antiguos)
+            # [HU-28 / KAN-129] Cerrar y reabrir quedan auditados con su propio evento.
+            # Solo Administrador y Coordinador pueden hacerlo (autorización por rol).
+            registrar_auditoria(request, "REAPERTURA" if nuevo_estado else "CIERRE", "Periodo", periodo, datos_antiguos)
                 
-        accion = "activado" if nuevo_estado else "desactivado"
+        accion = "reabierto" if nuevo_estado else "cerrado"
         messages.success(request, f'El periodo "{periodo.nombre}" fue {accion}.')
+        if nuevo_estado and periodo.cerrado_por_fecha:
+            messages.warning(request, f'Su fecha de término ya pasó: sigue cerrado hasta que se extienda en "Editar".')
         
     return redirect('administracionApp:lista_periodos')
 

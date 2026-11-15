@@ -3,26 +3,6 @@
 
 {% block title %}Gestión de Periodos{% endblock %}
 
-{% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url url_retorno %}">Inicio</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="javascript:void(0);">Periodos</a>
-    </li>
-</ul>
-<div class="mt-5">
-    <hr class="border-white mx-4" style="opacity: 0.3;">
-    <ul class="nav flex-column mt-4">
-        <li class="nav-item text-center">
-            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                Cerrar sesión
-            </a>
-        </li>
-    </ul>
-</div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Periodos</h3>
@@ -32,8 +12,8 @@
 <div class="container mt-5 mb-5">
     
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
-        <h4 class="fw-bold m-0" style="color: #8B1D19;">Listado de Periodos</h4>
-        <a href="{% url 'administracionApp:crear_periodo' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center shadow-sm" style="background-color: #C41230; border-radius: 6px;">
+        <h4 class="fw-bold m-0 texto-guinda">Listado de Periodos</h4>
+        <a href="{% url 'administracionApp:crear_periodo' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center shadow-sm fondo-rojo redondeado-6">
             + Nuevo Periodo
         </a>
     </div>
@@ -51,10 +31,10 @@
         <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="{% url 'administracionApp:lista_periodos' %}">
                 <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                    <input type="text" name="q" class="form-control borde-guinda" 
                         placeholder="Buscar por nombre de periodo..." 
                         value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                    <button class="btn text-white fw-bold fondo-guinda borde-guinda" type="submit">
                         Buscar
                     </button>
                     {% if query %}
@@ -81,7 +61,7 @@
             <tbody>
                 {% for periodo in periodos %}
                 <tr>
-                    <td class="fw-bold">{{ periodo.nombre }} <br><span class="badge bg-secondary" style="font-size: 0.75rem;">v{{ periodo.version_parametros }}</span></td>
+                    <td class="fw-bold">{{ periodo.nombre }} <br><span class="badge bg-secondary texto-075">v{{ periodo.version_parametros }}</span></td>
                     <td class="text-nowrap">{{ periodo.fecha_inicio|date:"d/m/Y" }}</td>
                     <td class="text-nowrap">{{ periodo.fecha_termino|date:"d/m/Y" }}</td>
                     <td>{{ periodo.dias_computables }}</td>
@@ -94,10 +74,12 @@
                     
                     <!-- Columna 6: Estado separado -->
                     <td class="text-center">
-                        {% if periodo.estado %}
-                            <span class="badge bg-success">Activo</span>
+                        {% if periodo.esta_abierto %}
+                            <span class="badge bg-success">Abierto</span>
+                        {% elif not periodo.estado %}
+                            <span class="badge bg-danger">Cerrado</span>
                         {% else %}
-                            <span class="badge bg-danger">Inactivo</span>
+                            <span class="badge bg-secondary">Cerrado (vencido)</span>
                         {% endif %}
                     </td>
                     
@@ -105,21 +87,27 @@
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
                             
-                            <a href="{% url 'administracionApp:versionar_periodo' periodo.id_periodo %}" class="btn btn-sm btn-outline-dark px-2 shadow-sm" style="border-radius: 6px;" title="Crear nueva versión">
+                            <a href="{% url 'administracionApp:versionar_periodo' periodo.id_periodo %}" class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6" title="Crear nueva versión">
                                 <i class="bi bi-files"></i> Versionar
                             </a>
 
-                            <a href="{% url 'administracionApp:editar_periodo' periodo.id_periodo %}" class="btn btn-sm text-white px-3 shadow-sm" style="background-color: #8B1D19; border-radius: 6px;" title="Editar">
-                                <i class="bi bi-pencil-square"></i> Editar
+                            {% if periodo.estado %}
+                            <a href="{% url 'administracionApp:editar_periodo' periodo.id_periodo %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" title="{% if periodo.cerrado_por_fecha %}Extender la fecha de término para reabrirlo{% else %}Editar{% endif %}">
+                                <i class="bi bi-pencil-square"></i> {% if periodo.cerrado_por_fecha %}Extender{% else %}Editar{% endif %}
                             </a>
+                            {% else %}
+                            {# HU-28 KAN-130: un período cerrado no se puede editar hasta reabrirlo #}
+                            <button type="button" class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6" disabled title="Período cerrado: reábrelo para editar">
+                                <i class="bi bi-lock"></i> Editar
+                            </button>
+                            {% endif %}
                             
                             <div class="d-flex flex-column align-items-center ms-2">
-                                <span class="badge mb-1 {% if periodo.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
-                                    {% if periodo.estado %}Activo{% else %}Inactivo{% endif %}
+                                <span class="badge mb-1 {% if periodo.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                    {% if periodo.estado %}Abierto{% else %}Cerrado{% endif %}
                                 </span>
-                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Activar/Desactivar">
-                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
-                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Cerrar/Reabrir">
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                            {% if periodo.estado %}checked{% endif %}
                                            onclick="confirmarCambio(event, '{{ periodo.id_periodo }}', '{{ periodo.nombre }}', '{{ periodo.estado }}')">
                                 </div>
@@ -175,16 +163,16 @@ function confirmarCambio(event, id, nombre, estadoActualStr) {
     
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
-        titulo.innerText = 'Desactivar Periodo';
-        mensaje.innerText = '¿Estás segura de inhabilitar el periodo de:';
+        titulo.innerText = 'Cerrar Periodo';
+        mensaje.innerText = 'Al cerrarlo no se podrán modificar sus resultados. ¿Deseas cerrar el siguiente periodo?';
         btn.style.backgroundColor = '#C41230';
-        btn.innerText = 'Sí, Desactivar';
+        btn.innerText = 'Sí, Cerrar';
     } else {
         header.style.backgroundColor = '#198754';
-        titulo.innerText = 'Reactivar Periodo';
-        mensaje.innerText = '¿Deseas restaurar el periodo de:';
+        titulo.innerText = 'Reabrir Periodo';
+        mensaje.innerText = 'La reapertura quedará registrada en la auditoría. ¿Deseas reabrir el siguiente periodo?';
         btn.style.backgroundColor = '#198754';
-        btn.innerText = 'Sí, Reactivar';
+        btn.innerText = 'Sí, Reabrir';
     }
     
     nombreStr.innerText = nombre;

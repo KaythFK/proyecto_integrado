@@ -3,27 +3,6 @@
 
 {% block title %}{{ titulo }} - Sistema Municipal{% endblock %}
 
-{% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <!-- Retorno dinámico -->
-        <a class="nav-link text-white fw-bold" href="{% url url_retorno %}">Inicio</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:lista_periodos' %}">Volver al listado</a>
-    </li>
-</ul>
-<div class="mt-5">
-    <hr class="border-white mx-4" style="opacity: 0.3;">
-    <ul class="nav flex-column mt-4">
-        <li class="nav-item text-center">
-            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                Cerrar sesión
-            </a>
-        </li>
-    </ul>
-</div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Periodos</h3>
@@ -31,9 +10,9 @@
 
 {% block contenido %}
 <div class="container mt-4 mb-5">
-    <div class="card shadow border-0" style="border-radius: 15px;">
+    <div class="card shadow border-0 redondeado-15">
         
-        <div class="card-header text-white px-4 py-3" style="background-color: #8B1D19; border-top-left-radius: 15px; border-top-right-radius: 15px;">
+        <div class="card-header text-white px-4 py-3 fondo-guinda redondeado-sup-15">
             <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
         </div>
         
@@ -63,10 +42,10 @@
             <form method="POST" novalidate>
                 {% csrf_token %}
                 
-                <h5 class="fw-bold mb-3" style="color: #C41230; border-bottom: 2px solid #C41230; padding-bottom: 8px;">
+                <h5 class="fw-bold mb-3 titulo-seccion">
                     Configuración de Fechas y Umbrales
                 </h5>
-                <div class="row p-3 rounded mb-4" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                <div class="row p-3 rounded mb-4 caja-gris">
                     
                     <div class="col-12 col-md-8 mb-3">
                         <label class="form-label fw-bold text-dark">Nombre del Periodo *</label>
@@ -103,8 +82,9 @@
                     </div>
 
                     <div class="col-12 col-md-4 mb-3">
-                        <label class="form-label fw-bold text-dark">Días Computables *</label>
+                        <label class="form-label fw-bold text-dark">Días Computables (automático)</label>
                         {{ form.dias_computables }}
+                        <div class="form-text">Días hábiles (lunes a viernes) entre ambas fechas.</div>
                         {% for error in form.dias_computables.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
@@ -116,7 +96,7 @@
                         <label class="form-label fw-bold text-dark">Umbral Regular *</label>
                         <div class="input-group shadow-sm">
                             {{ form.umbral_regular }}
-                            <span class="input-group-text text-white fw-bold" style="background-color: #8B1D19;">%</span>
+                            <span class="input-group-text text-white fw-bold fondo-guinda">%</span>
                         </div>
                         {% for error in form.umbral_regular.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
@@ -127,7 +107,7 @@
                         <label class="form-label fw-bold text-dark">Umbral de Excelencia *</label>
                         <div class="input-group shadow-sm">
                             {{ form.umbral_exelencia }}
-                            <span class="input-group-text text-white fw-bold" style="background-color: #8B1D19;">%</span>
+                            <span class="input-group-text text-white fw-bold fondo-guinda">%</span>
                         </div>
                         {% for error in form.umbral_exelencia.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
@@ -140,7 +120,7 @@
                     <a href="{% url 'administracionApp:lista_periodos' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto shadow-sm">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto shadow-sm" style="background-color: #C41230;">
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto shadow-sm fondo-rojo">
                         Guardar Periodo
                     </button>
                 </div>
@@ -148,4 +128,39 @@
         </div>
     </div>
 </div>
+
+<script>
+// HU-28 (KAN-124): el calendario de término no permite fechas anteriores al inicio,
+// y los días computables se muestran calculados al cambiar las fechas
+(function () {
+    const inicio = document.getElementById('{{ form.fecha_inicio.id_for_label }}');
+    const termino = document.getElementById('{{ form.fecha_termino.id_for_label }}');
+    const dias = document.getElementById('{{ form.dias_computables.id_for_label }}');
+
+    function diasHabiles(desde, hasta) {
+        let total = 0;
+        const dia = new Date(desde + 'T00:00:00');
+        const fin = new Date(hasta + 'T00:00:00');
+        while (dia <= fin) {
+            if (dia.getDay() !== 0 && dia.getDay() !== 6) total++;
+            dia.setDate(dia.getDate() + 1);
+        }
+        return total;
+    }
+
+    function actualizar() {
+        termino.min = inicio.value || '';
+        inicio.max = termino.value || '';
+        if (inicio.value && termino.value && termino.value >= inicio.value) {
+            dias.value = diasHabiles(inicio.value, termino.value);
+        } else {
+            dias.value = '';
+        }
+    }
+
+    inicio.addEventListener('change', actualizar);
+    termino.addEventListener('change', actualizar);
+    actualizar();
+})();
+</script>
 {% endblock %}

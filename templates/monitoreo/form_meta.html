@@ -3,26 +3,6 @@
 
 {% block title %}{{ titulo }} - Sistema Municipal{% endblock %}
 
-{% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url url_retorno %}">Inicio</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:listar_metas' %}">Volver al listado</a>
-    </li>
-</ul>
-<div class="mt-5">
-    <hr class="border-white mx-4" style="opacity: 0.3;">
-    <ul class="nav flex-column mt-4">
-        <li class="nav-item text-center">
-            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                Cerrar sesión
-            </a>
-        </li>
-    </ul>
-</div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Metas</h3>
@@ -30,9 +10,9 @@
 
 {% block contenido %}
 <div class="container mt-4 mb-5">
-    <div class="card shadow border-0" style="border-radius: 15px;">
+    <div class="card shadow border-0 redondeado-15">
         
-        <div class="card-header text-white px-4 py-3" style="background-color: #8B1D19; border-top-left-radius: 15px; border-top-right-radius: 15px;">
+        <div class="card-header text-white px-4 py-3 fondo-guinda redondeado-sup-15">
             <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
         </div>
         
@@ -63,10 +43,10 @@
                 {% csrf_token %}
                 
                 <!-- 1. DEFINICIÓN DEL OBJETIVO -->
-                <h5 class="fw-bold mb-3" style="color: #C41230; border-bottom: 2px solid #C41230; padding-bottom: 8px;">
+                <h5 class="fw-bold mb-3 titulo-seccion">
                     1. Definición del Objetivo
                 </h5>
-                <div class="row mb-4 p-3 rounded" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+                <div class="row mb-4 p-3 rounded caja-gris">
                     <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Valor Objetivo *</label>
                         {{ form.valor_objetivo }}
@@ -85,7 +65,7 @@
                         <label class="form-label fw-bold text-dark">Ponderación *</label>
                         <div class="input-group shadow-sm">
                             {{ form.ponderador }}
-                            <span class="input-group-text text-white fw-bold" style="background-color: #8B1D19;">%</span>
+                            <span class="input-group-text text-white fw-bold fondo-guinda">%</span>
                         </div>
                         {% for error in form.ponderador.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
@@ -94,10 +74,10 @@
                 </div>
 
                 <!-- 2. CLASIFICACIÓN -->
-                <h5 class="fw-bold mb-3" style="color: #C41230; border-bottom: 2px solid #C41230; padding-bottom: 8px;">
+                <h5 class="fw-bold mb-3 titulo-seccion">
                     2. Clasificación
                 </h5>
-                <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6;">
+                <div class="row p-3 rounded mb-4 borde-gris">
                     <div class="col-12 col-md-6 mb-3">
                         <label class="form-label fw-bold text-dark">Período de Evaluación *</label>
                         {{ form.id_periodo }}
@@ -115,7 +95,7 @@
                 </div>
 
                 <!-- 3. ASIGNACIÓN DE RESPONSABILIDAD -->
-                <h5 class="fw-bold mb-3" style="color: #C41230; border-bottom: 2px solid #C41230; padding-bottom: 8px;">
+                <h5 class="fw-bold mb-3 titulo-seccion">
                     3. Asignación de Responsabilidad
                 </h5>
                 <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6; background-color: #f8f9fa;">
@@ -133,7 +113,7 @@
                     <a href="{% url 'monitoreoApp:listar_metas' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto" style="background-color: #C41230;">
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto fondo-rojo">
                         Guardar Meta
                     </button>
                 </div>

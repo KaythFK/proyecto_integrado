@@ -164,5 +164,33 @@ def validar_periodo_abierto(meta):
         if hasattr(periodo, 'fecha_termino') and periodo.fecha_termino:
             if date.today() > periodo.fecha_termino:
                 raise ValidationError("No se pueden modificar indicadores o metas de un período que ya ha finalizado.")
+
+        # [HU-28 / KAN-129] También bloquea si el coordinador cerró el período manualmente
+        if not periodo.estado:
+            raise ValidationError(f'El período "{periodo.nombre}" está cerrado. Debe reabrirse antes de modificar sus resultados.')
                 
     return meta
+
+
+def rol_usuario(request):
+    """
+    Procesador de contexto: deja disponible 'rol_menu' en todas las plantillas para que
+    base.html muestre el menú lateral del rol (el mismo que el de su panel).
+    Si un usuario tiene más de un rol, se usa el de mayor nivel.
+    """
+    usuario = getattr(request, 'user', None)
+    if not usuario or not usuario.is_authenticated:
+        return {'rol_menu': None}
+
+    grupos = set(usuario.groups.values_list('name', flat=True))
+    if 'Administrador' in grupos or (usuario.is_superuser and not grupos):
+        rol = 'administrador'
+    elif 'Coordinador' in grupos:
+        rol = 'coordinador'
+    elif 'Delegado' in grupos:
+        rol = 'delegado'
+    elif 'Profesional' in grupos:
+        rol = 'profesional'
+    else:
+        rol = None
+    return {'rol_menu': rol}
