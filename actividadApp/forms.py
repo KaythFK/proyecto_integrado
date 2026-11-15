@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 from .models import Actividad, Evidencia, Validacion, Ausencia, Retroalimentacion, GestionActividad
 from config.utils import validar_texto_no_vacio, validar_fecha_no_futura, validar_profesionales_distintos, validar_que_sea_delegado, validar_entero_positivo, limitar_a_opciones_activas
 from datetime import date
@@ -36,6 +37,28 @@ class ActividadForm(forms.ModelForm):
                 }
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # [HU-28 / KAN-127] Solo se ofrecen metas de períodos vigentes (abiertos y ya comenzados).
+        # Al editar, se conserva la meta que ya tenía la actividad para no perder el dato.
+        hoy = date.today()
+        filtro = Q(id_periodo__estado=True, id_periodo__fecha_inicio__lte=hoy, id_periodo__fecha_termino__gte=hoy)
+        if self.instance.pk and self.instance.id_meta_id:
+            filtro |= Q(pk=self.instance.id_meta_id)
+        self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(filtro)
+
+    def clean_id_meta(self):
+        meta = self.cleaned_data.get('id_meta')
+        # [HU-28 / KAN-127] Una actividad nueva solo se registra dentro de un período vigente.
+        # [HU-28 / KAN-129] Una actividad de un período cerrado no se puede modificar.
+        if meta and not meta.id_periodo.esta_vigente:
+            raise forms.ValidationError(
+                f'El período "{meta.id_periodo.nombre}" de esta meta no está vigente (cerrado o fuera de fecha). '
+                'No se pueden registrar ni modificar actividades en él.'
+            )
+        return meta
+
 
 class ActividadDelegadoForm(ActividadForm):
     def __init__(self, *args, **kwargs):

@@ -3,39 +3,6 @@
 
 {% block title %}Mis Gestiones - SGR{% endblock %}
 
-{% block menu_lateral %}
-    <ul class="nav flex-column gap-3 mt-5">
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:mis_gestiones' %}">Mis gestiones</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_evidencias' %}">Mis Evidencias</a>
-        </li>
-    </ul>
-
-    <div class="mt-5">
-        <hr class="border-white mx-4" style="opacity: 0.3;">
-        <ul class="nav flex-column mt-4">
-            <li class="nav-item text-center">
-                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                    Cerrar sesión
-                </a>
-            </li>
-        </ul>
-    </div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Mis Gestiones</h3>
@@ -47,10 +14,10 @@
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <div>
-            <h4 class="fw-bold m-0" style="color: #8B1D19;">Historial de Gestiones</h4>
+            <h4 class="fw-bold m-0 texto-guinda">Historial de Gestiones</h4>
             <small class="text-muted">Acciones realizadas en todas tus actividades</small>
         </div>
-        <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary fw-bold shadow-sm" style="border-radius: 8px;">
+        <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary fw-bold shadow-sm redondeado-8">
             Ir a mis actividades
         </a>
     </div>
@@ -59,10 +26,10 @@
         <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;"
+                    <input type="text" name="q" class="form-control borde-guinda"
                         placeholder="Buscar por código, tipo o descripción..."
                         value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19;">Buscar</button>
+                    <button class="btn text-white fw-bold fondo-guinda" type="submit">Buscar</button>
                     {% if query %}
                         <a href="?" class="btn btn-outline-secondary">Limpiar</a>
                     {% endif %}
@@ -103,23 +70,22 @@
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             <!-- Botón Editar -->
-                            <a href="{% url 'actividadApp:editar_gestion' ges.id_gestion %}" class="btn btn-sm text-white px-3 shadow-sm" style="background-color: #C41230; border-radius: 6px;" title="Editar Gestión">
+                            <a href="{% url 'actividadApp:editar_gestion' ges.id_gestion %}" class="btn btn-sm text-white px-3 shadow-sm fondo-rojo redondeado-6" title="Editar Gestión">
                                 <i class="bi bi-pencil-square"></i> Editar
                             </a>
                             
                             <!-- Botón Ver Actividad -->
-                            <a href="{% url 'actividadApp:lista_gestiones' ges.actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm" style="background-color: #495057; border-radius: 6px;" title="Ver Actividad">
+                            <a href="{% url 'actividadApp:lista_gestiones' ges.actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6" title="Ver Actividad">
                                 <i class="bi bi-briefcase"></i> Ver Actividad
                             </a>
 
                             <!-- Switch de Borrado Lógico (Activación / Desactivación) -->
                             <div class="d-flex flex-column align-items-center">
-                                <span class="badge mb-1 {% if ges.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.65rem;">
+                                <span class="badge mb-1 {% if ges.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-065">
                                     {% if ges.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
-                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
-                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                            data-bs-toggle="modal" 
                                            data-bs-target="#modalConfirmacion"
                                            data-bs-url="{% url 'actividadApp:cambiar_estado_gestion' ges.id_gestion %}"
@@ -157,8 +123,8 @@
         <h4 id="modalNombreItem" class="fw-bold text-dark">Gestión</h4>
       </div>
       <div class="modal-footer justify-content-center bg-light border-0">
-        <button type="button" class="btn btn-secondary px-4 fw-bold shadow-sm" data-bs-dismiss="modal" style="border-radius: 8px;">Cancelar</button>
-        <a href="#" class="btn px-4 fw-bold text-white shadow-sm" id="btnConfirmarModal" style="border-radius: 8px;">Sí, continuar</a>
+        <button type="button" class="btn btn-secondary px-4 fw-bold shadow-sm redondeado-8" data-bs-dismiss="modal">Cancelar</button>
+        <a href="#" class="btn px-4 fw-bold text-white shadow-sm redondeado-8" id="btnConfirmarModal">Sí, continuar</a>
       </div>
     </div>
   </div>

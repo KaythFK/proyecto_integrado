@@ -3,25 +3,6 @@
 
 {% block title %}Gestión de Metas - Sistema Municipal{% endblock %}
 
-{% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <!-- Utilizamos la variable dinámica sin comillas para que Django la interprete -->
-        <a class="nav-link text-white fw-bold" href="{% url url_retorno %}">Inicio</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="javascript:void(0);">Metas</a>
-    </li>
-</ul>
-<div class="mt-5">
-    <hr class="border-white mx-4" style="opacity: 0.3;">
-    <ul class="nav flex-column mt-4">
-        <li class="nav-item text-center">
-            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">Cerrar sesión</a>
-        </li>
-    </ul>
-</div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Administración de Metas</h3>
@@ -31,8 +12,8 @@
 <div class="container mt-5">
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
-        <h4 class="fw-bold m-0" style="color: #8B1D19;">Listado de Metas</h4>
-        <a href="{% url 'monitoreoApp:crear_meta' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center" style="background-color: #C41230;">
+        <h4 class="fw-bold m-0 texto-guinda">Listado de Metas</h4>
+        <a href="{% url 'monitoreoApp:crear_meta' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center fondo-rojo">
             + Nueva Meta
         </a>
     </div>
@@ -50,10 +31,10 @@
         <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="{% url 'monitoreoApp:listar_metas' %}">
                 <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                    <input type="text" name="q" class="form-control borde-guinda" 
                         placeholder="Buscar por unidad o valor objetivo..." 
                         value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">Buscar</button>
+                    <button class="btn text-white fw-bold fondo-guinda borde-guinda" type="submit">Buscar</button>
                     {% if query %}
                         <a href="{% url 'monitoreoApp:listar_metas' %}" class="btn btn-outline-secondary">Limpiar</a>
                     {% endif %}
@@ -96,7 +77,7 @@
                         </span>
                     </td>
 
-                    <td style="font-size: 0.9rem;">
+                    <td class="texto-090">
                         {% if meta.id_funcionario %}
                             <i class="bi bi-person-fill text-secondary"></i> {{ meta.id_funcionario.nombres }} {{ meta.id_funcionario.apellido_paterno }}
                         {% else %}
@@ -114,14 +95,20 @@
 
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
-                            <a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}" class="btn btn-sm text-white" style="background-color: #8B1D19; border-radius: 6px;" title="Editar">
+                            {% if meta.id_periodo.esta_abierto %}
+                            <a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}" class="btn btn-sm text-white fondo-guinda redondeado-6" title="Editar">
                                 <i class="bi bi-pencil-square"></i> Editar
                             </a>
+                            {% else %}
+                            {# HU-28 KAN-130: la meta de un período cerrado no se puede editar #}
+                            <button type="button" class="btn btn-sm btn-secondary redondeado-6" disabled title="Período cerrado">
+                                <i class="bi bi-lock"></i> Editar
+                            </button>
+                            {% endif %}
 
                             <div class="d-flex flex-column align-items-center ms-2">
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center" title="Activar/Desactivar">
-                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
-                                        style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                         {% if meta.estado %}checked{% endif %}
                                         onclick="confirmarCambioMeta(event, '{{ meta.id_meta }}', '{{ meta.estado }}')">
                                 </div>

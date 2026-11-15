@@ -38,6 +38,15 @@ class MetaForm(forms.ModelForm):
         # Solo ítems de catálogo activos; al editar se conserva el que ya tenía la meta
         limitar_a_opciones_activas(self.fields['id_item'], self.instance.id_item_id)
 
+    def clean_id_periodo(self):
+        periodo = self.cleaned_data.get('id_periodo')
+        # [HU-28 / KAN-129] No se crean ni modifican metas de un período cerrado
+        if periodo and not periodo.esta_abierto:
+            raise forms.ValidationError(
+                f'El período "{periodo.nombre}" está cerrado. Debe reabrirse antes de crear o modificar sus metas.'
+            )
+        return periodo
+
     def clean_valor_objetivo(self):
         valor = self.cleaned_data.get('valor_objetivo')
         if valor is None:

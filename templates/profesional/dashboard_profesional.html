@@ -3,39 +3,6 @@
 
 {% block title %}Panel Profesional - SGR{% endblock %}
 
-{% block menu_lateral %}
-    <ul class="nav flex-column gap-3 mt-5">
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:dashboard_profesional' %}">Mi panel</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:registrar_actividad' %}">Registrar actividad</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:listar_actividades' %}">Mis actividades</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:mis_gestiones' %}">Mis gestiones</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_evidencias' %}">Mis Evidencias</a>
-        </li>
-    </ul>
-
-    <div class="mt-5">
-        <hr class="border-white mx-4" style="opacity: 0.3;">
-        <ul class="nav flex-column mt-4">
-            <li class="nav-item text-center">
-                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                    Cerrar sesión
-                </a>
-            </li>
-        </ul>
-    </div>
-{% endblock %}
 
 {% block cabecera %}
 <div class="w-100 text-center">
@@ -53,14 +20,14 @@
     
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="fw-bold m-0" style="color: #8B1D19;">Tablero de Desempeño y Operaciones</h4>
+            <h4 class="fw-bold m-0 texto-guinda">Tablero de Desempeño y Operaciones</h4>
             <small class="text-muted">Visualización de avance, compromisos y evidencias </small>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
-            <a href="{% url 'actividadApp:mis_gestiones' %}" class="btn btn-outline-dark fw-bold px-4 py-2 shadow-sm" style="border-radius: 8px;">
+            <a href="{% url 'actividadApp:mis_gestiones' %}" class="btn btn-outline-dark fw-bold px-4 py-2 shadow-sm redondeado-8">
                 Mis gestiones
             </a>
-            <a href="{% url 'actividadApp:registrar_actividad' %}" class="btn btn-dark fw-bold px-4 py-2 shadow-sm" style="border-radius: 8px;">
+            <a href="{% url 'actividadApp:registrar_actividad' %}" class="btn btn-dark fw-bold px-4 py-2 shadow-sm redondeado-8">
                 + Nueva Actividad
             </a>
         </div>
@@ -75,7 +42,7 @@
             {% else %}
             <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-left: 5px solid #dc3545 !important; border-radius: 10px;">
             {% endif %}
-                <h6 class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.8rem;">Estado Global</h6>
+                <h6 class="text-muted fw-bold text-uppercase mb-2 texto-080">Estado Global</h6>
                 <h3 class="fw-bold m-0 {% if semaforo == 'VERDE' %}text-success{% elif semaforo == 'AMBAR' %}text-warning{% else %}text-danger{% endif %}">
                     {{ semaforo|default:"SIN DATOS" }}
                 </h3>
@@ -83,9 +50,9 @@
         </div>
 
         <div class="col-md-5">
-            <div class="card shadow-sm border-0 py-3 px-4 h-100 d-flex flex-column justify-content-center" style="border-radius: 10px;">
+            <div class="card shadow-sm border-0 py-3 px-4 h-100 d-flex flex-column justify-content-center redondeado-10">
                 <div class="text-center mb-1">
-                    <h6 class="text-muted fw-bold text-uppercase m-0" style="font-size: 0.8rem;">Cumplimiento del Periodo</h6>
+                    <h6 class="text-muted fw-bold text-uppercase m-0 texto-080">Cumplimiento del Periodo</h6>
                 </div>
                 
                 <div class="position-relative d-flex justify-content-center align-items-center mt-2" style="height: 110px;">
@@ -101,16 +68,16 @@
 
         <!-- Total Actividades -->
         <div class="col-md-2">
-            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-radius: 10px;">
-                <h6 class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.8rem;">Actividades</h6>
+            <div class="card shadow-sm border-0 text-center py-3 h-100 redondeado-10">
+                <h6 class="text-muted fw-bold text-uppercase mb-2 texto-080">Actividades</h6>
                 <h3 class="fw-bold text-dark m-0">{{ total_asignadas|default:"0" }}</h3>
             </div>
         </div>
         
         <!-- Evidencias Aprobadas -->
         <div class="col-md-2">
-            <div class="card shadow-sm border-0 text-center py-3 h-100" style="border-radius: 10px;">
-                <h6 class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.8rem;">Evidencias</h6>
+            <div class="card shadow-sm border-0 text-center py-3 h-100 redondeado-10">
+                <h6 class="text-muted fw-bold text-uppercase mb-2 texto-080">Evidencias</h6>
                 <h3 class="fw-bold text-success m-0">{{ evidencias_registradas|default:"0" }}</h3>
             </div>
         </div>
@@ -119,14 +86,14 @@
     <!-- NIVEL 2: AGENDA COLECTIVA / TUBO (RF-016) -->
     <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
         <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold m-0" style="color: #1a202c;"><i class="bi bi-calendar-event me-2"></i>Mis Compromisos (Tubo)</h6>
+            <h6 class="fw-bold m-0 texto-oscuro"><i class="bi bi-calendar-event me-2"></i>Mis Compromisos (Tubo)</h6>
             {% if total_proximos_vencer > 0 %}
                 <span class="badge bg-danger rounded-pill">{{ total_proximos_vencer }} Próximo(s) a vencer</span>
             {% endif %}
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle m-0" style="font-size: 0.9rem;">
+                <table class="table table-hover align-middle m-0 texto-090">
                     <thead class="table-light">
                         <tr>
                             <th class="px-4">Vencimiento</th>
@@ -168,7 +135,7 @@
 
     <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
         <div class="card-header bg-white border-bottom py-3">
-            <h6 class="fw-bold m-0" style="color: #1a202c;"><i class="bi bi-list-task me-2"></i>Historial de Actividades Registradas</h6>
+            <h6 class="fw-bold m-0 texto-oscuro"><i class="bi bi-list-task me-2"></i>Historial de Actividades Registradas</h6>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -208,11 +175,11 @@
                             </td>
                             <td class="text-center px-4">
                                 {% if actividad.estado_evidencia == 'APROBADO' %}
-                                    <button class="btn btn-sm btn-outline-success fw-bold w-100" style="border-radius: 6px;" disabled>Completado</button>
+                                    <button class="btn btn-sm btn-outline-success fw-bold w-100 redondeado-6" disabled>Completado</button>
                                 {% elif actividad.estado_evidencia == 'RECHAZADO' %}
-                                    <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm btn-danger fw-bold w-100" style="border-radius: 6px;" title="Corregir">Corregir</a>
+                                    <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm btn-danger fw-bold w-100 redondeado-6" title="Corregir">Corregir</a>
                                 {% else %}
-                                    <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm btn-success fw-bold w-100" style="border-radius: 6px;" title="Adjuntar">+ Evidencia</a>
+                                    <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm btn-success fw-bold w-100 redondeado-6" title="Adjuntar">+ Evidencia</a>
                                 {% endif %}
                             </td>
                         </tr>

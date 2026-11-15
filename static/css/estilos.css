@@ -70,3 +70,74 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
     align-items: center;
     gap: 5px;
 }
+
+
+
+/* Colores institucionales */
+.texto-guinda      { color: #8B1D19 !important; }
+.texto-oscuro      { color: #1a202c !important; }
+.fondo-guinda      { background-color: #8B1D19 !important; }
+.fondo-rojo        { background-color: #C41230 !important; }
+.fondo-gris-oscuro { background-color: #495057 !important; }
+.fondo-gris-claro  { background-color: #f8f9fa !important; }
+.fondo-blanco      { background-color: #ffffff !important; }
+.borde-guinda      { border-color: #8B1D19 !important; }
+.borde-gris        { border: 1px solid #dee2e6 !important; }
+
+/* Bloques de formularios */
+.caja-gris {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6 !important;
+}
+
+.titulo-seccion {
+    color: #C41230 !important;
+    border-bottom: 2px solid #C41230 !important;
+    padding-bottom: 8px !important;
+}
+
+/* Bordes redondeados */
+.redondeado-6      { border-radius: 6px !important; }
+.redondeado-8      { border-radius: 8px !important; }
+.redondeado-10     { border-radius: 10px !important; }
+.redondeado-15     { border-radius: 15px !important; }
+.redondeado-sup-15 {
+    border-top-left-radius: 15px !important;
+    border-top-right-radius: 15px !important;
+}
+
+/* Tamaños de texto */
+.texto-065 { font-size: 0.65rem !important; }
+.texto-075 { font-size: 0.75rem !important; }
+.texto-080 { font-size: 0.8rem !important; }
+.texto-085 { font-size: 0.85rem !important; }
+.texto-090 { font-size: 0.9rem !important; }
+
+/* Controles */
+.switch-estado-sgr {
+    cursor: pointer !important;
+    width: 2.5em !important;
+    height: 1.25em !important;
+}
+
+.select-estado-sgr {
+    width: auto !important;
+    min-width: 120px !important;
+}
+
+.max-ancho-250 { max-width: 250px !important; }
+
+/* =========================================
+   PESTAÑAS DEL PANEL DE CATÁLOGOS
+   ========================================= */
+#tabsCatalogos .nav-link {
+    color: #6c757d;
+    border-bottom: 1px solid #dee2e6;
+}
+#tabsCatalogos .nav-link:hover {
+    border-color: #e9ecef #e9ecef #dee2e6;
+}
+#tabsCatalogos .nav-link.active {
+    color: #C41230 !important;
+    border-bottom-color: transparent !important;
+}

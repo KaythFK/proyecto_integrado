@@ -3,36 +3,6 @@
 
 {% block title %}Actividades del Equipo - SGR{% endblock %}
 
-{% block menu_lateral %}
-    <ul class="nav flex-column gap-3 mt-5">
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:dashboard_delegado' %}">Mi delegación</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:actividades_delegacion' %}">Actividades del equipo</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:tubo_delegacion' %}">Tubo de Compromisos</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'actividadApp:lista_evidencias' %}">Revisar Evidencias</a>
-        </li>
-        <li class="nav-item text-center">
-            <a class="nav-link text-white fw-bold" href="{% url 'usuariosApp:mi_perfil' %}">Mi perfil</a>
-        </li>
-    </ul>
-
-    <div class="mt-5">
-        <hr class="border-white mx-4" style="opacity: 0.3;">
-        <ul class="nav flex-column mt-4">
-            <li class="nav-item text-center">
-                <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                    Cerrar sesión
-                </a>
-            </li>
-        </ul>
-    </div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Actividades</h3>
@@ -43,10 +13,10 @@
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
-            <h4 class="fw-bold m-0" style="color: #8B1D19;">Registro de Intervenciones Territoriales</h4>
+            <h4 class="fw-bold m-0 texto-guinda">Registro de Intervenciones Territoriales</h4>
             <p class="text-muted m-0 mt-1">Delegación: {{ delegacion_nombre }}</p>
         </div>
-        <a href="{% url 'actividadApp:registrar_actividad_delegado' %}" class="btn text-white fw-bold shadow-sm" style="background-color: #C41230; border-radius: 6px;">
+        <a href="{% url 'actividadApp:registrar_actividad_delegado' %}" class="btn text-white fw-bold shadow-sm fondo-rojo redondeado-6">
             + Nueva Actividad
         </a>
     </div>
@@ -65,10 +35,10 @@
         <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                    <input type="text" name="q" class="form-control borde-guinda" 
                         placeholder="Buscar por código, problema o acción..." 
                         value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                    <button class="btn text-white fw-bold fondo-guinda borde-guinda" type="submit">
                         Buscar
                     </button>
                     {% if query %}
@@ -105,11 +75,11 @@
                             <a href="{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}" class="text-decoration-none fw-bold text-primary" title="Ver historial del vecino">
                                 <i class="bi bi-person-badge"></i> {{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}
                             </a><br>
-                            <span class="badge bg-info text-dark" style="font-size: 0.65rem;">Vecino</span>
-                            <small class="text-muted d-block" style="font-size: 0.75rem;">{{ actividad.solicitante_vecino.telefono|default:"Sin teléfono" }}</small>
+                            <span class="badge bg-info text-dark texto-065">Vecino</span>
+                            <small class="text-muted d-block texto-075">{{ actividad.solicitante_vecino.telefono|default:"Sin teléfono" }}</small>
                         {% elif actividad.solicitante_profesional %}
                             <strong>{{ actividad.solicitante_profesional.nombres }} {{ actividad.solicitante_profesional.apellido_paterno }}</strong><br>
-                            <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">Profesional interno</span>
+                            <span class="badge bg-warning text-dark texto-065">Profesional interno</span>
                         {% else %}
                             <span class="text-muted">Sin registro</span>
                         {% endif %}
@@ -132,12 +102,12 @@
                             </a>
 
                             <!-- Botón Editar -->
-                            <a href="{% url 'actividadApp:editar_actividad_delegado' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm" style="background-color: #C41230; border-radius: 6px;" title="Editar Actividad">
+                            <a href="{% url 'actividadApp:editar_actividad_delegado' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-rojo redondeado-6" title="Editar Actividad">
                                 <i class="bi bi-pencil-square"></i> Editar
                             </a>
 
                             <!-- Botón Detalle -->
-                            <button type="button" class="btn btn-sm text-white shadow-sm btn-detalle" style="background-color: #8B1D19; border-radius: 6px;"
+                            <button type="button" class="btn btn-sm text-white shadow-sm btn-detalle fondo-guinda redondeado-6"
                                     data-codigo="{{ actividad.codigo_unico }}"
                                     data-fecha="{{ actividad.fecha|date:'d/m/Y H:i' }}"
                                     data-estado="{{ actividad.get_estado_progreso_display }}"
@@ -154,12 +124,11 @@
                             
                             <!-- Switch de Estado (Activar/Desactivar) -->
                             <div class="d-flex flex-column align-items-center ms-2">
-                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.65rem;">
+                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-065">
                                     {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Activar/Desactivar">
-                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
-                                           style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                            {% if actividad.estado %}checked{% endif %}
                                            onclick="confirmarCambioActividad(event, '{{ actividad.id_actividad }}', '{{ actividad.codigo_unico }}', '{{ actividad.estado }}')">
                                 </div>
@@ -188,7 +157,7 @@
 <div class="modal fade" id="modalDetalleActividad" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header text-white" style="background-color: #8B1D19;">
+            <div class="modal-header text-white fondo-guinda">
                 <h5 class="modal-title fw-bold">Auditoría de Actividad: <span id="detCodigo" class="text-warning"></span></h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -211,7 +180,7 @@
                         <p class="mb-1"><strong>Nombre:</strong> <span id="detVecinoNombre"></span></p>
                         <p class="mb-1"><strong>RUT:</strong> <span id="detVecinoRut"></span></p>
                         <p class="mb-2"><strong>Teléfono:</strong> <span id="detVecinoTel"></span></p>
-                        <a id="detVecinoLink" href="#" class="btn btn-sm text-white fw-bold" style="background-color: #8B1D19;">
+                        <a id="detVecinoLink" href="#" class="btn btn-sm text-white fw-bold fondo-guinda">
                             <i class="bi bi-person-badge"></i> Ver Historial Completo del Vecino
                         </a>
                     </div>

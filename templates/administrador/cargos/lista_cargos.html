@@ -3,29 +3,6 @@
 
 {% block title %}Catálogo de Cargos{% endblock %}
 
-{% block menu_lateral %}
-<ul class="nav flex-column gap-4 mt-4">
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:directorio_profesional' %}">Profesionales</a>
-    </li>
-    <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:delegaciones' %}">Delegaciones</a>
-    </li>
-</ul>
-<div class="mt-5">
-    <hr class="border-white mx-4" style="opacity: 0.3;">
-    <ul class="nav flex-column mt-4">
-        <li class="nav-item text-center">
-            <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
-                Cerrar sesión
-            </a>
-        </li>
-    </ul>
-</div>
-{% endblock %}
 
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0">Gestión de Cargos</h3>
@@ -35,8 +12,8 @@
 <div class="container mt-5">
     
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
-        <h4 class="fw-bold m-0" style="color: #8B1D19;">Catálogo de Cargos</h4>
-        <a href="{% url 'administracionApp:crear_cargo' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center" style="background-color: #C41230;">
+        <h4 class="fw-bold m-0 texto-guinda">Catálogo de Cargos</h4>
+        <a href="{% url 'administracionApp:crear_cargo' %}" class="btn text-white fw-bold align-self-stretch align-self-md-auto text-center fondo-rojo">
             + Nuevo Cargo
         </a>
     </div>
@@ -54,10 +31,10 @@
         <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="{% url 'administracionApp:lista_cargos' %}">
                 <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control" style="border-color: #8B1D19;" 
+                    <input type="text" name="q" class="form-control borde-guinda" 
                         placeholder="Buscar por nombre de cargo..." 
                         value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold" type="submit" style="background-color: #8B1D19; border-color: #8B1D19;">
+                    <button class="btn text-white fw-bold fondo-guinda borde-guinda" type="submit">
                         Buscar
                     </button>
                     {% if query %}
@@ -102,18 +79,17 @@
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             
                             <!-- Botón Editar con color rojo institucional -->
-                            <a href="{% url 'administracionApp:editar_cargo' cargo.id_cargo %}" class="btn btn-sm text-white px-3 shadow-sm" style="background-color: #8B1D19; border-radius: 6px;">
+                            <a href="{% url 'administracionApp:editar_cargo' cargo.id_cargo %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
                                 Editar
                             </a>
                             
                             <div class="d-flex flex-column align-items-center">
-                                <span class="badge mb-1 {% if cargo.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white" style="font-size: 0.75rem;">
+                                <span class="badge mb-1 {% if cargo.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
                                     {% if cargo.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
 
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
-                                    <input class="form-check-input switch-estado m-0" type="checkbox" role="switch"
-                                        style="cursor: pointer; width: 2.5em; height: 1.25em;"
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                         {% if cargo.estado %}checked{% endif %}
                                         onclick="confirmarCambio(event, '{{ cargo.id_cargo }}', '{{ cargo.nombre }}', '{{ cargo.estado }}')">
                                 </div>
