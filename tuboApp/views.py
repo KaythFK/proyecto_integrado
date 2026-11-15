@@ -14,11 +14,10 @@ from administracionApp.models import Profesional, Auditoria
 import json
 from django.forms.models import model_to_dict
 from config.utils import puede_modificar_compromiso
+from django.core.exceptions import PermissionDenied
 
 
 def url_tubo_segun_rol(user):
-    # HU-13 CA3: tras guardar, cada rol vuelve a SU pantalla del tubo (antes todos iban a la del
-    # Administrador y al delegado lo sacaba del sistema por no tener ese rol)
     if user.groups.filter(name='Administrador').exists():
         return 'tuboApp:tubo'
     if user.groups.filter(name='Delegado').exists():
@@ -28,7 +27,7 @@ def url_tubo_segun_rol(user):
     return 'tuboApp:tubo'
 
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
-def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
+def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None, extra=None):
     """
     Función centralizada para registrar auditoría con descripciones legibles.
     """
@@ -39,6 +38,8 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
         diccionario_nuevo = model_to_dict(objeto_instancia)
         datos_nuevos_limpios = {k: str(v) for k, v in diccionario_nuevo.items()}
         datos_nuevos_limpios['descripcion_legible'] = str(objeto_instancia)
+        if extra:
+            datos_nuevos_limpios.update({k: str(v) for k, v in extra.items()})
         
         datos_anteriores_limpios = None
         if datos_anteriores:
@@ -56,6 +57,57 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
     except Exception as e:
         print(f"Error interno registrando auditoría: {e}")
 # ---------------------------------------
+
+
+@login_required
+@role_required('Administrador', 'Coordinador', 'Delegado')
+def reasignar_compromiso(request, id_compromiso):
+    """Traspasa el compromiso a otro funcionario y lo deja en auditoría con el motivo."""
+    destino = url_tubo_segun_rol(request.user)
+    if request.method != 'POST':
+        return redirect(destino)
+
+    compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
+
+    if not puede_modificar_compromiso(request.user, compromiso):
+        raise PermissionDenied('No tienes permiso para reasignar este compromiso: pertenece a otro funcionario o delegación.')
+
+    if not compromiso.estado or compromiso.estado_progreso == 'REALIZADO':
+        messages.error(request, 'Solo se pueden reasignar compromisos activos que no estén realizados.')
+        return redirect(destino)
+
+    nuevo_responsable = Profesional.objects.filter(pk=request.POST.get('nuevo_responsable') or None, estado=True).first()
+    motivo = (request.POST.get('motivo') or '').strip()
+    responsable_anterior = compromiso.id_funcionario
+
+    if not nuevo_responsable:
+        messages.error(request, 'Debes seleccionar un nuevo responsable activo.')
+        return redirect(destino)
+    if nuevo_responsable.pk == responsable_anterior.pk:
+        messages.error(request, 'El nuevo responsable debe ser distinto del actual.')
+        return redirect(destino)
+    es_admin_o_coord = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+    if not es_admin_o_coord and nuevo_responsable.id_delegacion_id != responsable_anterior.id_delegacion_id:
+        messages.error(request, 'Solo puedes reasignar a funcionarios de la misma delegación.')
+        return redirect(destino)
+    if len(motivo) < 10:
+        messages.error(request, 'Debes indicar el motivo de la reasignación (mínimo 10 caracteres).')
+        return redirect(destino)
+
+    with transaction.atomic():
+        datos_antiguos = model_to_dict(compromiso)
+        compromiso.id_funcionario = nuevo_responsable
+        compromiso.save()
+
+        registrar_auditoria(request, "REASIGNACION", "Compromiso", compromiso, datos_antiguos, extra={
+            'responsable_anterior': f'{responsable_anterior.nombres} {responsable_anterior.apellido_paterno}',
+            'responsable_nuevo': f'{nuevo_responsable.nombres} {nuevo_responsable.apellido_paterno}',
+            'motivo': motivo,
+        })
+
+    messages.success(request, f'El compromiso {compromiso.id_actividad.codigo_unico} fue reasignado a '
+                              f'{nuevo_responsable.nombres} {nuevo_responsable.apellido_paterno}.')
+    return redirect(destino)
 
 
 @login_required
@@ -86,10 +138,8 @@ def actualizar_progreso_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
 
-        # HU-13 CA1: el delegado solo puede cambiar compromisos de su delegación
         if not puede_modificar_compromiso(request.user, compromiso):
-            messages.error(request, 'No tienes permiso para modificar este compromiso.')
-            return redirect(url_tubo_segun_rol(request.user))
+            raise PermissionDenied('No tienes permiso para modificar este compromiso: pertenece a otro funcionario o delegación.')
 
         nuevo_estado = request.POST.get('nuevo_estado')
         
@@ -164,6 +214,10 @@ def cambiar_estado_tubo(request, id_compromiso):
 def agregar_observacion_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
+
+        if not puede_modificar_compromiso(request.user, compromiso):
+            raise PermissionDenied('No tienes permiso para agregar observaciones a este compromiso: pertenece a otro funcionario o delegación.')
+
         texto_obs = request.POST.get('texto_observacion')
         
         if texto_obs and texto_obs.strip():

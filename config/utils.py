@@ -115,24 +115,29 @@ def validar_evidencia_no_duplicada(evidencia):
     return evidencia
 
 def limitar_a_opciones_activas(campo, valor_actual=None):
-    """
-    Deja en un campo de selección solo los elementos de catálogo activos (estado=True).
-    Si el registro que se edita ya usa un elemento desactivado, ese elemento se mantiene
-    para no perder el dato histórico, pero no aparece al crear registros nuevos.
-    """
+    """Deja solo opciones activas del catálogo; al editar conserva la que ya tenía el registro."""
     filtro = Q(estado=True)
     if valor_actual is not None:
         filtro |= Q(pk=valor_actual)
     campo.queryset = campo.queryset.filter(filtro).order_by('nombre')
 
 
+def validar_acceso_actividad(user, actividad):
+    """Admin y Coordinador: todas. Delegado: las de su delegación. Profesional: las suyas. Si no, 403."""
+    from django.core.exceptions import PermissionDenied
+    if user.groups.filter(name__in=['Administrador', 'Coordinador']).exists():
+        return
+    profesional = getattr(user, 'profesional', None)
+    if profesional is not None:
+        if user.groups.filter(name='Delegado').exists() and actividad.id_profesional.id_delegacion_id == profesional.id_delegacion_id:
+            return
+        if user.groups.filter(name='Profesional').exists() and actividad.id_profesional_id == profesional.pk:
+            return
+    raise PermissionDenied('No tienes permiso para acceder a esta actividad: está asignada a otro funcionario o delegación.')
+
+
 def puede_modificar_compromiso(user, compromiso):
-    """
-    HU-13 (CA1): decide si el usuario puede cambiar el estado de un compromiso.
-    - Administrador y Coordinador: cualquier compromiso.
-    - Delegado: solo compromisos de funcionarios de su misma delegación.
-    - Profesional: solo los compromisos asignados a él.
-    """
+    """Admin y Coordinador: todos. Delegado: los de su delegación. Profesional: los suyos."""
     if user.groups.filter(name__in=['Administrador', 'Coordinador']).exists():
         return True
 
@@ -165,7 +170,6 @@ def validar_periodo_abierto(meta):
             if date.today() > periodo.fecha_termino:
                 raise ValidationError("No se pueden modificar indicadores o metas de un período que ya ha finalizado.")
 
-        # [HU-28 / KAN-129] También bloquea si el coordinador cerró el período manualmente
         if not periodo.estado:
             raise ValidationError(f'El período "{periodo.nombre}" está cerrado. Debe reabrirse antes de modificar sus resultados.')
                 
@@ -173,11 +177,7 @@ def validar_periodo_abierto(meta):
 
 
 def rol_usuario(request):
-    """
-    Procesador de contexto: deja disponible 'rol_menu' en todas las plantillas para que
-    base.html muestre el menú lateral del rol (el mismo que el de su panel).
-    Si un usuario tiene más de un rol, se usa el de mayor nivel.
-    """
+    """Entrega rol_menu a todas las plantillas para el menú lateral de base.html."""
     usuario = getattr(request, 'user', None)
     if not usuario or not usuario.is_authenticated:
         return {'rol_menu': None}

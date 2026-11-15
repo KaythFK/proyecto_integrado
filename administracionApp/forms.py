@@ -198,7 +198,6 @@ class PeriodoForm(forms.ModelForm):
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Evaluación Semestre 1'}),
             'fecha_inicio': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
             'fecha_termino': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
-            # HU-28 CA1: se calcula solo a partir de las fechas (no se escribe a mano)
             'dias_computables': forms.NumberInput(attrs={'class': 'form-control bg-light text-muted fw-bold', 'readonly': 'readonly', 'style': 'cursor: not-allowed;'}),
             'umbral_regular': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': '0'}),
             'umbral_exelencia': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'min': '0'}),
@@ -230,7 +229,6 @@ class PeriodoForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # El usuario no envía este valor: lo calcula clean() con las fechas
         self.fields['dias_computables'].required = False
         self.fields['dias_computables'].disabled = True
 
@@ -251,7 +249,6 @@ class PeriodoForm(forms.ModelForm):
         umbral_exelencia = cleaned_data.get('umbral_exelencia')
 
         if fecha_inicio and fecha_termino:
-            # HU-28 CA1: la fecha de término puede ser posterior o IGUAL a la de inicio
             if fecha_termino < fecha_inicio:
                 self.add_error('fecha_termino', "La fecha de término debe ser igual o posterior a la fecha de inicio.")
             else:

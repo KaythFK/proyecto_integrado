@@ -707,7 +707,6 @@ def crear_periodo(request):
 def editar_periodo(request, id_periodo):
     periodo = get_object_or_404(Periodo, id_periodo=id_periodo)
 
-    # [HU-28 / KAN-129] Un período cerrado por el coordinador no se edita: primero debe reabrirse
     if not periodo.estado:
         messages.error(request, f'El periodo "{periodo.nombre}" está cerrado. Reábrelo antes de editarlo.')
         return redirect('administracionApp:lista_periodos')
@@ -721,7 +720,6 @@ def editar_periodo(request, id_periodo):
                 periodo_guardado = form.save()
                 
                 # AUDITORIA
-                # [HU-28 / KAN-129] Si estaba vencido y se extiende su fecha, es una reapertura y se audita como tal
                 evento = "REAPERTURA" if estaba_vencido and not periodo_guardado.cerrado_por_fecha else "EDICION"
                 registrar_auditoria(request, evento, "Periodo", periodo_guardado, datos_antiguos)
                 
@@ -751,7 +749,6 @@ def cambiar_estado_periodo(request, id_periodo):
             periodo.save()
             
             # AUDITORIA
-            # [HU-28 / KAN-129] Cerrar y reabrir quedan auditados con su propio evento.
             # Solo Administrador y Coordinador pueden hacerlo (autorización por rol).
             registrar_auditoria(request, "REAPERTURA" if nuevo_estado else "CIERRE", "Periodo", periodo, datos_antiguos)
                 

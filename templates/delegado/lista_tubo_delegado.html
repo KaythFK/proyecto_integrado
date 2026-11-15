@@ -29,16 +29,24 @@
 
     <div class="card shadow-sm border-0 p-3 mb-4 redondeado-15 fondo-gris-claro">
         <form method="GET" action="{% url 'monitoreoApp:tubo_delegacion' %}" class="row g-2 align-items-center">
-            <div class="col-12 col-md-9">
+            <div class="col-12 col-md-6">
                 <input type="text" name="q" class="form-control borde-guinda" 
                     placeholder="Buscar por código, problema o territorio..." 
                     value="{{ query|default_if_none:'' }}">
+            </div>
+            <div class="col-12 col-md-3">
+                <select name="funcionario" class="form-select borde-guinda" onchange="this.form.submit()" aria-label="Filtrar por funcionario">
+                    <option value="">Todos los funcionarios</option>
+                    {% for prof in profesionales_equipo %}
+                        <option value="{{ prof.pk }}" {% if funcionario_filtro == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.nombres }} {{ prof.apellido_paterno }}{% if prof.pk in ausentes_hoy %} (ausente hoy){% endif %}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="col-12 col-md-3 d-flex gap-2">
                 <button class="btn text-white fw-bold w-100 shadow-sm fondo-guinda" type="submit">
                     Buscar
                 </button>
-                {% if query %}
+                {% if query or funcionario_filtro %}
                     <a href="{% url 'monitoreoApp:tubo_delegacion' %}" class="btn btn-outline-secondary w-100 fw-bold shadow-sm">Limpiar</a>
                 {% endif %}
             </div>
@@ -65,6 +73,9 @@
                     
                     <td>
                         <strong>{{ compromiso.id_funcionario.nombres }} {{ compromiso.id_funcionario.apellido_paterno }}</strong>
+                        {% if compromiso.id_funcionario_id in ausentes_hoy %}
+                            <br><span class="badge bg-warning text-dark">Ausente hoy</span>
+                        {% endif %}
                     </td>
                     
                     <td>{{ compromiso.territorio }}</td>
@@ -110,9 +121,17 @@
                     </td>
 
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6" data-bs-toggle="modal" data-bs-target="#modalObs{{ compromiso.id_compromiso }}">
-                            <i class="bi bi-chat-left-text"></i> Observaciones
-                        </button>
+                        <div class="d-flex justify-content-center gap-2 flex-nowrap">
+                            <button type="button" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6" data-bs-toggle="modal" data-bs-target="#modalObs{{ compromiso.id_compromiso }}">
+                                <i class="bi bi-chat-left-text"></i> Observaciones
+                            </button>
+                            {% if compromiso.estado and compromiso.estado_progreso != 'REALIZADO' %}
+                            <button type="button" class="btn btn-sm btn-outline-dark shadow-sm redondeado-6"
+                                    onclick="abrirReasignar('{{ compromiso.id_compromiso }}', '{{ compromiso.id_actividad.codigo_unico|escapejs }}', '{{ compromiso.id_funcionario_id }}', '{{ compromiso.id_funcionario.nombres|escapejs }} {{ compromiso.id_funcionario.apellido_paterno|escapejs }}')">
+                                <i class="bi bi-person-gear"></i> Reasignar
+                            </button>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
@@ -172,4 +191,53 @@
     </div>
 </div>
 {% endfor %}
+
+<div class="modal fade" id="modalReasignar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header text-white fondo-guinda">
+                <h5 class="modal-title fw-bold">Reasignar compromiso <span id="reasignarCodigo"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="POST" id="formReasignar" action="">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <p class="mb-3">Responsable actual: <strong id="reasignarActual"></strong></p>
+                    <div class="mb-3">
+                        <label class="fw-bold mb-2" for="nuevoResponsable">Nuevo responsable *</label>
+                        <select name="nuevo_responsable" id="nuevoResponsable" class="form-select" required>
+                            <option value="">Selecciona un funcionario...</option>
+                            {% for prof in profesionales_equipo %}
+                                <option value="{{ prof.pk }}">{{ prof.nombres }} {{ prof.apellido_paterno }}{% if prof.pk in ausentes_hoy %} (ausente hoy){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-1">
+                        <label class="fw-bold mb-2" for="motivoReasignacion">Motivo *</label>
+                        <textarea name="motivo" id="motivoReasignacion" class="form-control" rows="3" minlength="10" required
+                                  placeholder="Ej: El responsable está con licencia médica hasta el 30/11."></textarea>
+                        <div class="form-text">Queda registrado en la auditoría junto al responsable anterior, el nuevo, tu nombre y la fecha.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn text-white px-4 fw-bold fondo-rojo">Reasignar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function abrirReasignar(idCompromiso, codigo, idActual, nombreActual) {
+    document.getElementById('formReasignar').action = "{% url 'tuboApp:reasignar_compromiso' 0 %}".replace('/0/', '/' + idCompromiso + '/');
+    document.getElementById('reasignarCodigo').innerText = codigo;
+    document.getElementById('reasignarActual').innerText = nombreActual;
+    const select = document.getElementById('nuevoResponsable');
+    select.value = '';
+    Array.from(select.options).forEach(function (op) { op.hidden = (op.value === idActual); });
+    document.getElementById('motivoReasignacion').value = '';
+    new bootstrap.Modal(document.getElementById('modalReasignar')).show();
+}
+</script>
 {% endblock %}

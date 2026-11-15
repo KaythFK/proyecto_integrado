@@ -59,7 +59,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                # Rol del usuario para el menú lateral estándar de base.html
                 'config.utils.rol_usuario',
             ],
         },

@@ -109,9 +109,6 @@ class Periodo(models.Model):
     def __str__(self):
         return str(self.nombre)
 
-    # --- HU-28: estado de medición del período ---
-    # Un período está CERRADO si el coordinador lo cerró (estado=False)
-    # o si ya pasó su fecha de término. Solo un período abierto acepta cambios en sus resultados.
     @property
     def cerrado_por_fecha(self):
         return date.today() > self.fecha_termino
@@ -122,12 +119,10 @@ class Periodo(models.Model):
 
     @property
     def esta_vigente(self):
-        # Abierto y ya comenzado: es cuando se pueden registrar actividades (CA2)
         return self.esta_abierto and self.fecha_inicio <= date.today()
 
     @staticmethod
     def calcular_dias_computables(fecha_inicio, fecha_termino):
-        # CA1: días hábiles (lunes a viernes) entre ambas fechas, incluyéndolas
         if not fecha_inicio or not fecha_termino or fecha_termino < fecha_inicio:
             return 0
         dias = 0

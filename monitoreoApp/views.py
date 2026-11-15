@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required
-from actividadApp.models import Actividad
+from actividadApp.models import Actividad, Ausencia
 from .models import Meta, Indicador
 from .forms import MetaForm, IndicadorForm
 from tuboApp.models import Compromiso
@@ -126,11 +126,25 @@ def tubo_delegacion(request):
             Q(id_actividad__solicitud_problema__icontains=query) |
             Q(territorio__icontains=query)
         ).distinct()
+
+    funcionario_filtro = request.GET.get('funcionario') or ''
+    if funcionario_filtro.isdigit():
+        compromisos = compromisos.filter(id_funcionario_id=int(funcionario_filtro))
         
+    hoy = date.today()
+    profesionales_equipo = Profesional.objects.filter(id_delegacion=delegacion_actual, estado=True).order_by('nombres')
+    ausentes_hoy = set(Ausencia.objects.filter(
+        profesional_ausente__id_delegacion=delegacion_actual, estado=True,
+        fecha_inicio__lte=hoy, fecha_termino__gte=hoy
+    ).values_list('profesional_ausente_id', flat=True))
+
     context = {
         'compromisos': compromisos,
         'query': query,
-        'delegacion_nombre': delegacion_actual.nombre
+        'delegacion_nombre': delegacion_actual.nombre,
+        'profesionales_equipo': profesionales_equipo,
+        'ausentes_hoy': ausentes_hoy,
+        'funcionario_filtro': funcionario_filtro,
     }
     return render(request, 'delegado/lista_tubo_delegado.html', context)
 

@@ -10,10 +10,10 @@ from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, Retroalim
 from administracionApp.models import Profesional, Auditoria, Vecino # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
-from config.utils import puede_modificar_compromiso
+from config.utils import puede_modificar_compromiso, validar_acceso_actividad
 from django.db import transaction
 from config.utils import validar_evidencia_no_duplicada
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 import json
 from django.forms.models import model_to_dict
 
@@ -178,6 +178,7 @@ def registrar_actividad(request, actividad_id=None):
 @role_required('Profesional')
 def editar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+    validar_acceso_actividad(request.user, actividad)
     if request.method == 'POST':
         datos_antiguos = model_to_dict(actividad)
         form = ActividadForm(request.POST, instance=actividad)
@@ -197,6 +198,7 @@ def editar_actividad(request, id_actividad):
 @role_required('Profesional')
 def registrar_evidencia(request, actividad_id):
     actividad = get_object_or_404(Actividad, id_actividad=actividad_id)
+    validar_acceso_actividad(request.user, actividad)
     
     if request.method == 'POST':
         archivo_vinculo = request.POST.get('archivo_vinculo', 'evidencia_adjunta.pdf')
@@ -233,6 +235,7 @@ def registrar_evidencia(request, actividad_id):
 @role_required('Profesional')
 def desactivar_actividad(request, codigo_unico):
     actividad = get_object_or_404(Actividad, codigo_unico=codigo_unico)
+    validar_acceso_actividad(request.user, actividad)
     datos_antiguos = model_to_dict(actividad)
     actividad.estado = not actividad.estado 
     actividad.save()
@@ -248,10 +251,8 @@ def actualizar_estado_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
 
-        # HU-13 CA1: el profesional solo puede cambiar sus propios compromisos
         if not puede_modificar_compromiso(request.user, compromiso):
-            messages.error(request, 'No tienes permiso para modificar este compromiso.')
-            return redirect('actividadApp:dashboard_profesional')
+            raise PermissionDenied('No tienes permiso para modificar este compromiso: está asignado a otro funcionario.')
 
         nuevo_estado = request.POST.get('estado_progreso')
         estados_validos = dict(Compromiso.OPCIONES_ESTADO_PROGRESO).keys()
@@ -269,8 +270,6 @@ def actualizar_estado_tubo(request, id_compromiso):
                     compromiso.fecha_termino = None
                 compromiso.save()
 
-                # HU-13 CA3: la actividad refleja el estado del compromiso (igual que en el tubo del
-                # Administrador/Delegado), así un compromiso realizado no queda como pendiente
                 if nuevo_estado == 'INGRESADO':
                     actividad.estado_progreso = 'PENDIENTE'
                 elif nuevo_estado == 'REALIZADO':
@@ -302,11 +301,17 @@ def actividades_delegacion(request):
             Q(codigo_unico__icontains=query) |
             Q(solicitud_problema__icontains=query)
         ).distinct()
+
+    funcionario_filtro = request.GET.get('funcionario') or ''
+    if funcionario_filtro.isdigit():
+        actividades = actividades.filter(id_profesional_id=int(funcionario_filtro))
         
     context = {
         'actividades': actividades,
         'query': query,
-        'delegacion_nombre': delegacion_actual.nombre
+        'delegacion_nombre': delegacion_actual.nombre,
+        'profesionales_equipo': Profesional.objects.filter(id_delegacion=delegacion_actual, estado=True).order_by('nombres'),
+        'funcionario_filtro': funcionario_filtro,
     }
     return render(request, 'delegado/lista_actividades.html', context)
 
@@ -426,6 +431,7 @@ def cambiar_estado_actividad_delegado(request, id_actividad):
 def actualizar_progreso_actividad(request, id_actividad):
     if request.method == 'POST':
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+        validar_acceso_actividad(request.user, actividad)
         nuevo_estado = request.POST.get('nuevo_estado')
         
         estados_validos = dict(Actividad.OPCIONES_ESTADO_PROGRESO).keys()
@@ -809,7 +815,6 @@ def crear_validacion(request):
                         meta = actividad.id_meta
                         indicador = Indicador.objects.filter(meta_id_meta=meta).first()
                         
-                        # [HU-28 / KAN-126] Solo aporta al indicador si el período de la meta está abierto
                         periodo_abierto = meta is not None and meta.id_periodo.esta_abierto
                         if indicador and periodo_abierto:
                             indicador.avance += 1 
@@ -889,6 +894,7 @@ def cambiar_estado_validacion(request, id_validacion):
 def lista_gestiones(request, id_actividad):
     """ Muestra la tabla de gestiones para una actividad específica con su barra de búsqueda """
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+    validar_acceso_actividad(request.user, actividad)
     gestiones = GestionActividad.objects.filter(actividad=actividad).select_related('tipo_gestion', 'profesional').order_by('-fecha_registro')
     
     # --- FILTRO DE BÚSQUEDA ---
@@ -909,6 +915,7 @@ def lista_gestiones(request, id_actividad):
 @role_required('Profesional', 'Delegado', 'Administrador')
 def crear_gestion(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+    validar_acceso_actividad(request.user, actividad)
     
     if request.method == 'POST':
         form = GestionActividadForm(request.POST)
@@ -944,6 +951,7 @@ def crear_gestion(request, id_actividad):
 @role_required('Profesional', 'Delegado', 'Administrador')
 def editar_gestion(request, id_gestion):
     gestion = get_object_or_404(GestionActividad, id_gestion=id_gestion)
+    validar_acceso_actividad(request.user, gestion.actividad)
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(gestion) # --- AUDITORÍA ---
@@ -974,6 +982,7 @@ def editar_gestion(request, id_gestion):
 def cambiar_estado_gestion(request, id_gestion):
     if request.method == 'POST':
         gestion = get_object_or_404(GestionActividad, id_gestion=id_gestion)
+        validar_acceso_actividad(request.user, gestion.actividad)
         
         with transaction.atomic():
             datos_antiguos = model_to_dict(gestion) # --- AUDITORÍA ---
@@ -1011,7 +1020,6 @@ def lista_todas_gestiones(request):
 @login_required
 @role_required('Profesional')
 def mis_gestiones(request):
-    # Gestiones que registró el profesional que inició sesión, en todas sus actividades
     query = request.GET.get('q')
     gestiones = GestionActividad.objects.filter(profesional=request.user.profesional).select_related('actividad', 'tipo_gestion').order_by('-fecha_registro')
 
