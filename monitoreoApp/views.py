@@ -8,6 +8,7 @@ from actividadApp.models import Actividad, Ausencia
 from .models import Meta, Indicador
 from .forms import MetaForm, IndicadorForm
 from tuboApp.models import Compromiso
+from tuboApp.filters import CompromisoFilter
 from datetime import date
 from django.core.exceptions import ValidationError
 from config.utils import validar_periodo_abierto
@@ -118,7 +119,7 @@ def tubo_delegacion(request):
     # Filtro estricto: Solo compromisos de funcionarios que pertenecen a la delegación del usuario
     compromisos = Compromiso.objects.filter(
         id_funcionario__id_delegacion=delegacion_actual
-    ).order_by('-fecha_comprometida')
+    ).order_by('fecha_comprometida', 'id_compromiso')
 
     if query:
         compromisos = compromisos.filter(
@@ -127,24 +128,21 @@ def tubo_delegacion(request):
             Q(territorio__icontains=query)
         ).distinct()
 
-    funcionario_filtro = request.GET.get('funcionario') or ''
-    if funcionario_filtro.isdigit():
-        compromisos = compromisos.filter(id_funcionario_id=int(funcionario_filtro))
-        
     hoy = date.today()
     profesionales_equipo = Profesional.objects.filter(id_delegacion=delegacion_actual, estado=True).order_by('nombres')
+    filtro = CompromisoFilter(request.GET, queryset=compromisos, responsables=profesionales_equipo)
     ausentes_hoy = set(Ausencia.objects.filter(
         profesional_ausente__id_delegacion=delegacion_actual, estado=True,
         fecha_inicio__lte=hoy, fecha_termino__gte=hoy
     ).values_list('profesional_ausente_id', flat=True))
 
     context = {
-        'compromisos': compromisos,
+        'compromisos': filtro.qs if filtro.is_valid() else compromisos.none(),
+        'filtro': filtro,
         'query': query,
         'delegacion_nombre': delegacion_actual.nombre,
         'profesionales_equipo': profesionales_equipo,
         'ausentes_hoy': ausentes_hoy,
-        'funcionario_filtro': funcionario_filtro,
     }
     return render(request, 'delegado/lista_tubo_delegado.html', context)
 

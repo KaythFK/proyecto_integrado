@@ -15,7 +15,7 @@ import secrets
 import string
 from django.urls import reverse
 from tuboApp.models import Compromiso
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import json
 from django.forms.models import model_to_dict
@@ -108,7 +108,7 @@ def crear_actividad(request):
                         Compromiso.objects.create(
                             id_actividad=actividad,
                             territorio='Por definir',
-                            fecha_comprometida=date.today(),
+                            fecha_comprometida=actividad.fecha_comprometida or date.today() + timedelta(days=7),
                             id_funcionario=funcionario_asignado,
                             estado_progreso='INGRESADO',
                             organizacion=actividad.id_organizacion  # el compromiso exige organización
@@ -154,9 +154,10 @@ def editar_actividad(request, id_actividad):
                             id_actividad=actividad,
                             defaults={
                                 'territorio': 'Por definir',
-                                'fecha_comprometida': date.today(),
+                                'fecha_comprometida': actividad.fecha_comprometida or date.today() + timedelta(days=7),
                                 'id_funcionario': funcionario_asignado,
-                                'estado_progreso': 'INGRESADO'
+                                'estado_progreso': 'INGRESADO',
+                                'organizacion': actividad.id_organizacion
                             }
                         )
                         messages.success(request, f'La actividad {actividad.codigo_unico} fue actualizada y asegurada en el Tubo.')

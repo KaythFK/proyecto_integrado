@@ -28,25 +28,36 @@
     {% endif %}
 
     <div class="card shadow-sm border-0 p-3 mb-4 redondeado-15 fondo-gris-claro">
-        <form method="GET" action="{% url 'monitoreoApp:tubo_delegacion' %}" class="row g-2 align-items-center">
-            <div class="col-12 col-md-6">
-                <input type="text" name="q" class="form-control borde-guinda" 
-                    placeholder="Buscar por código, problema o territorio..." 
+        <form method="GET" action="{% url 'monitoreoApp:tubo_delegacion' %}" class="row g-2 align-items-end">
+            <div class="col-12 col-lg-4">
+                <label class="form-label small fw-bold mb-1">Buscar</label>
+                <input type="text" name="q" class="form-control borde-guinda"
+                    placeholder="Código o problema..."
                     value="{{ query|default_if_none:'' }}">
             </div>
-            <div class="col-12 col-md-3">
-                <select name="funcionario" class="form-select borde-guinda" onchange="this.form.submit()" aria-label="Filtrar por funcionario">
-                    <option value="">Todos los funcionarios</option>
-                    {% for prof in profesionales_equipo %}
-                        <option value="{{ prof.pk }}" {% if funcionario_filtro == prof.pk|stringformat:"s" %}selected{% endif %}>{{ prof.nombres }} {{ prof.apellido_paterno }}{% if prof.pk in ausentes_hoy %} (ausente hoy){% endif %}</option>
-                    {% endfor %}
-                </select>
+            <div class="col-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1">Responsable</label>
+                {{ filtro.form.responsable }}
             </div>
-            <div class="col-12 col-md-3 d-flex gap-2">
-                <button class="btn text-white fw-bold w-100 shadow-sm fondo-guinda" type="submit">
-                    Buscar
-                </button>
-                {% if query or funcionario_filtro %}
+            <div class="col-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1">Estado</label>
+                {{ filtro.form.estado }}
+            </div>
+            <div class="col-12 col-lg-4">
+                <label class="form-label small fw-bold mb-1">Territorio</label>
+                {{ filtro.form.territorio }}
+            </div>
+            <div class="col-6 col-lg-3">
+                <label class="form-label small fw-bold mb-1">Comprometida desde</label>
+                {{ filtro.form.desde }}
+            </div>
+            <div class="col-6 col-lg-3">
+                <label class="form-label small fw-bold mb-1">Comprometida hasta</label>
+                {{ filtro.form.hasta }}
+            </div>
+            <div class="col-12 col-lg-6 d-flex gap-2">
+                <button class="btn text-white fw-bold w-100 shadow-sm fondo-guinda" type="submit">Filtrar</button>
+                {% if request.GET %}
                     <a href="{% url 'monitoreoApp:tubo_delegacion' %}" class="btn btn-outline-secondary w-100 fw-bold shadow-sm">Limpiar</a>
                 {% endif %}
             </div>
@@ -68,6 +79,9 @@
             </thead>
             <tbody>
                 {% for compromiso in compromisos %}
+                {% ifchanged compromiso.fecha_comprometida|date:"F Y" %}
+                <tr class="table-light"><td colspan="7" class="fw-bold texto-guinda py-2"><i class="bi bi-calendar3 me-2"></i>{{ compromiso.fecha_comprometida|date:"F Y"|capfirst }}</td></tr>
+                {% endifchanged %}
                 <tr class="{% if compromiso.esta_vencido %}table-danger{% endif %}">
                     <td class="fw-bold text-nowrap">{{ compromiso.id_actividad.codigo_unico }}</td>
                     
