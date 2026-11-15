@@ -6,7 +6,11 @@
 {% block menu_lateral %}
 <ul class="nav flex-column gap-4 mt-4">
     <li class="nav-item text-center">
-        <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio</a>
+        {% if request.user.groups.all.0.name == 'Coordinador' %}
+            <a class="nav-link text-white fw-bold" href="{% url 'tuboApp:dashboard_coordinador' %}">Inicio Coordinación</a>
+        {% else %}
+            <a class="nav-link text-white fw-bold" href="{% url 'administracionApp:dashboard_admin' %}">Inicio Administrador</a>
+        {% endif %}
     </li>
     <li class="nav-item text-center">
         <a class="nav-link text-white fw-bold" href="{% url 'monitoreoApp:lista_indicadores' %}">Indicadores</a>
