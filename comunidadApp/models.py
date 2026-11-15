@@ -3,30 +3,50 @@ from django.db import models
 
 class OrganizacionComunitaria(models.Model):
     
-    class TipoMarco(models.TextChoices):
+    class TipoOrganizacion(models.TextChoices):
         TERRITORIAL = 'TERRITORIAL', 'Territorial'
         FUNCIONAL = 'FUNCIONAL', 'Funcional'
 
+    class SubtipoOrganizacion(models.TextChoices):
+        JUNTA_VECINOS = 'JUNTA_VECINOS', 'Junta de Vecinos'
+        UNION_COMUNAL = 'UNION_COMUNAL', 'Unión Comunal'
+        CLUB_DEPORTIVO = 'CLUB_DEPORTIVO', 'Club Deportivo y Recreativo'
+        ADULTO_MAYOR = 'ADULTO_MAYOR', 'Agrupación de Adulto Mayor'
+        CENTRO_MADRES = 'CENTRO_MADRES', 'Centro de Madres y Vecinales'
+        CULTURAL = 'CULTURAL', 'Agrupación Cultural o Artística'
+        OTRO = 'OTRO', 'Otro Subtipo'
+
     id_organizacion = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=150) 
-    tipo_marco = models.CharField(max_length=50, choices=TipoMarco.choices) 
     
-    # Lo dejamos como texto libre y opcional
-    subtipo = models.CharField(max_length=100, blank=True, null=True) 
+    tipo = models.CharField(
+        max_length=50, 
+        choices=TipoOrganizacion.choices,
+        default=TipoOrganizacion.TERRITORIAL
+    ) 
     
-    direccion = models.CharField(max_length=200, blank=True, null=True) 
-    territorio = models.CharField(max_length=45, blank=True, null=True) 
-    socios_activos = models.IntegerField(default=0, blank=True, null=True)
-    fecha_formacion = models.DateField(blank=True, null=True)
-    fecha_inscripcion_reg_date = models.DateField(blank=True, null=True)
-    n_reg_pj = models.IntegerField(blank=True, null=True)
-    n_reg_dir = models.IntegerField(blank=True, null=True)
-    id_delegacion = models.ForeignKey('administracionApp.Delegacion', models.DO_NOTHING, db_column='id_delegacion', blank=True, null=True) 
+    subtipo = models.CharField(
+        max_length=100, 
+        choices=SubtipoOrganizacion.choices, 
+        default=SubtipoOrganizacion.JUNTA_VECINOS
+    ) 
+    
+    # Campos obligatorios reales
+    direccion = models.CharField(max_length=200) 
+    territorio = models.CharField(max_length=45) 
+    socios_activos = models.IntegerField()
+    fecha_formacion = models.DateField()
+    fecha_inscripcion_reg_date = models.DateField()
+    n_reg_pj = models.IntegerField()
+    n_reg_dir = models.IntegerField()
+    
+    id_delegacion = models.ForeignKey('administracionApp.Delegacion', models.DO_NOTHING, db_column='id_delegacion') 
     organizacion_matriz = models.ForeignKey('self', models.DO_NOTHING, db_column='id_organizacion_matriz', blank=True, null=True) 
     estado = models.BooleanField(default=True)
 
     def __str__(self):
         return str(self.nombre)
+        
         
 class AfiliacionVecino(models.Model):
     id_afiliacion = models.AutoField(primary_key=True) 
@@ -51,6 +71,7 @@ class CargaFamiliar(models.Model):
     apellido_paterno = models.CharField(max_length=60)
     apellido_materno = models.CharField(max_length=60, blank=True, null=True)
     fecha_nacimiento = models.DateField()
+    genero = models.CharField(max_length=10, choices=[('M', 'Masculino'), ('F', 'Femenino'), ('O', 'Otro')])
     estado = models.BooleanField(default=True)
 
     def __str__(self):
@@ -79,3 +100,72 @@ class VinculoFamiliar(models.Model):
         verbose_name_plural = 'Vínculos Familiares'
 
 
+# ==========================================
+# MÓDULOS DE CELEBRACIONES Y EVENTOS MASIVOS
+# ==========================================
+
+class CatalogoCelebracion(models.Model):
+    id_catcel = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=100, unique=True)
+    estado = models.BooleanField(default=True)
+
+    def __str__(self):
+        return str(self.nombre)
+        
+    class Meta:
+        db_table = 'catalogo_celebracion'
+        verbose_name_plural = 'Catálogo de Celebraciones'
+
+
+class Celebracion(models.Model):
+    id_celebracion = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=200) 
+    tipo = models.ForeignKey('CatalogoCelebracion', on_delete=models.DO_NOTHING, db_column='id_catalogo')
+    descripcion = models.TextField(blank=True, null=True)
+    fecha_tentativa = models.DateField()
+    estado = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.nombre} ({self.tipo.nombre})"
+    
+    class Meta:
+        db_table = 'celebracion_global'
+        verbose_name_plural = 'Celebraciones Globales'
+
+
+class CelebracionDelegacion(models.Model):
+    id_cel_delegacion = models.AutoField(primary_key=True)
+    celebracion = models.ForeignKey('Celebracion', on_delete=models.CASCADE, db_column='id_celebracion')
+    delegacion = models.ForeignKey('administracionApp.Delegacion', on_delete=models.DO_NOTHING, db_column='id_delegacion')
+    
+    activa = models.BooleanField(default=False) 
+    fecha_ejecucion = models.DateField(blank=True, null=True) 
+    lugar = models.CharField(max_length=200, blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.delegacion} - {self.celebracion.nombre}"
+        
+    class Meta:
+        db_table = 'celebracion_delegacion'
+        verbose_name_plural = 'Celebraciones por Delegación'
+
+
+class BeneficiarioCelebracion(models.Model):
+    id_beneficiario_cel = models.AutoField(primary_key=True)
+    celebracion_delegacion = models.ForeignKey('CelebracionDelegacion', on_delete=models.CASCADE, db_column='id_cel_delegacion')
+    
+    vecino = models.ForeignKey('administracionApp.Vecino', on_delete=models.DO_NOTHING, db_column='id_vecino', blank=True, null=True)
+    carga_familiar = models.ForeignKey('CargaFamiliar', on_delete=models.DO_NOTHING, db_column='id_carga', blank=True, null=True)
+    
+    beneficio_entregado = models.BooleanField(default=False) 
+    fecha_entrega = models.DateTimeField(blank=True, null=True) 
+    observacion = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        if self.carga_familiar:
+            return f"Carga: {self.carga_familiar} (Delegación: {self.celebracion_delegacion.delegacion})"
+        return f"Vecino: {self.vecino} (Delegación: {self.celebracion_delegacion.delegacion})"
+
+    class Meta:
+        db_table = 'beneficiario_celebracion'
+        verbose_name_plural = 'Beneficiarios de Celebraciones' 

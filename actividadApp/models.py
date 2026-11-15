@@ -85,7 +85,6 @@ class GestionActividad(models.Model):
         verbose_name_plural = 'Gestiones de Actividades'
 
 class Evidencia(models.Model):
-    # Opciones para ENUM de estado_revision
     OPCIONES_ESTADO_REVISION = [
         ('PENDIENTE', 'Pendiente'),
         ('REVISADO', 'Revisado'),
@@ -94,10 +93,11 @@ class Evidencia(models.Model):
     ]
 
     id_evidencia = models.AutoField(primary_key=True)
-    archivo_vinculo = models.CharField(max_length=255)
+    # Esto guardará los archivos físicos en una subcarpeta 'media/evidencias/' 
+    archivo_foto = models.ImageField(upload_to='evidencias/') 
     fecha = models.DateTimeField(auto_now_add=True)
-    metadatos = models.JSONField()
-    estado_revision = models.CharField(max_length=20, choices=OPCIONES_ESTADO_REVISION, default='PENDIENTE') # <--- Con choices y default
+    metadatos = models.JSONField(blank=True, null=True) # Para guardar info adicional si lo requieres
+    estado_revision = models.CharField(max_length=20, choices=OPCIONES_ESTADO_REVISION, default='PENDIENTE')
     estado = models.BooleanField(default=True)
     id_actividad = models.ForeignKey('Actividad', models.DO_NOTHING, db_column='id_actividad')
 
