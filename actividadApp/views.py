@@ -6,11 +6,11 @@ from datetime import datetime, date, timedelta
 import uuid
 from usuariosApp.decorators import role_required
 from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacion, GestionActividad
-from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm
+from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm, ActividadProfesionalForm
 from administracionApp.models import Profesional, Auditoria, Vecino # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
-from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada
+from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias
 from django.db import transaction
 from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -130,20 +130,27 @@ def listar_actividades(request):
     }
     return render(request, 'profesional/listar_actividades.html', context)
 
+# No olvides importar las funciones y utilidades arriba en tu views.py:
+# from config.utils import validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal
+# from django.core.exceptions import ValidationError
+
 @login_required
 @role_required('Profesional')
 def registrar_actividad(request, actividad_id=None):
     if request.method == 'POST':
-        form = ActividadForm(request.POST) 
+        # Le pasamos el usuario logueado
+        form = ActividadProfesionalForm(request.POST, usuario_actual=request.user) 
+        
         if form.is_valid():
+            # Si is_valid() es True, significa que pasó todas las reglas de utils.py
             nueva_actividad = form.save(commit=False)
+            
             año_actual = datetime.now().year
             codigo_random = str(uuid.uuid4()).split('-')[0][:6].upper() 
             nueva_actividad.codigo_unico = f"ACT-{año_actual}-{codigo_random}"
             nueva_actividad.estado = True
             nueva_actividad.save()
             
-            # AUDITORIA
             registrar_auditoria(request, "CREACION", "Actividad", nueva_actividad)
             
             if nueva_actividad.en_tubo:
@@ -152,28 +159,27 @@ def registrar_actividad(request, actividad_id=None):
                     fecha_comprometida=nueva_actividad.fecha_comprometida or date.today() + timedelta(days=7), 
                     estado_progreso='INGRESADO',
                     estado=True,
-                    id_funcionario=nueva_actividad.id_profesional,
+                    id_funcionario=nueva_actividad.id_profesional, 
                     id_actividad=nueva_actividad,
-                    organizacion=nueva_actividad.id_organizacion  # el compromiso exige organización
+                    organizacion=nueva_actividad.id_organizacion  
                 )
                 registrar_auditoria(request, "CREACION", "Compromiso", nuevo_compromiso)
-                
-                messages.success(request, f'¡Actividad registrada! Se ha creado un compromiso en el Tubo asociado al código {nueva_actividad.codigo_unico}.')
+                messages.success(request, f'¡Actividad registrada! Compromiso código {nueva_actividad.codigo_unico}.')
             else:
                 messages.success(request, f'¡Actividad registrada con éxito! Código: {nueva_actividad.codigo_unico}')
             
             return redirect('actividadApp:dashboard_profesional') 
         else:
-            messages.error(request, 'No se pudo guardar. Revisa los campos marcados en rojo.')
+            messages.error(request, 'No se pudo guardar. Revisa las alertas en el formulario.')
     else:
-        form = ActividadForm() 
+        # GET: Renderizamos el formulario pasándole el usuario
+        form = ActividadProfesionalForm(usuario_actual=request.user) 
 
     context = {
         'form': form,
         'titulo': 'Nueva Intervención Profesional'
     }
     return render(request, 'profesional/registrar_actividad.html', context)
-
 @login_required
 @role_required('Profesional')
 def editar_actividad(request, id_actividad):

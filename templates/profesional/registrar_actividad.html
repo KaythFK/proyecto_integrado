@@ -3,7 +3,6 @@
 
 {% block title %}{{ titulo }}{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Actividades</h3>
 {% endblock %}
@@ -11,13 +10,10 @@
 {% block contenido %}
 <div class="container mt-4 mb-5">
     <div class="card shadow border-0 redondeado-15">
-        
         <div class="card-header text-white px-4 py-3 fondo-guinda redondeado-sup-15">
-            <h4 class="mb-0 fw-bold">{{ titulo|default:"Crear Actividad" }}</h4>
-        </div>        
+            <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
+        </div>
         <div class="card-body p-4 p-md-5">
-            <p class="text-muted mb-4">Completa los datos solicitados. Los campos marcados son obligatorios para el registro en el sistema.</p>
-
             {% if messages %}
                 {% for message in messages %}
                     <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
@@ -27,129 +23,60 @@
                 {% endfor %}
             {% endif %}
 
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger shadow-sm border-danger border-2 mb-4">
+                    <h6 class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill"></i> Atención:</h6>
+                    <ul class="mb-0 ps-3">
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
             <form method="POST" novalidate>
                 {% csrf_token %}
-
                 <h5 class="fw-bold mb-3 titulo-seccion">
-                    1. Identificación del Requerimiento y Plazos
+                    Formulario de Registro de Intervención
                 </h5>
-                <div class="row mb-4 p-3 rounded caja-gris">
-                    
-                    <div class="col-12 col-md-4 mb-3">
-                        <label class="form-label fw-bold text-dark">Código Único</label>
-                        <input type="text" class="form-control text-muted" style="background-color: #e9ecef; border: 1px solid #ced4da;" value="Generado automáticamente" disabled readonly>
-                        <div class="text-muted small fw-bold mt-1">El sistema asignará un código seguro.</div>
-                    </div>
+                
+                <div class="row p-3 rounded mb-4 caja-gris">
+                    {% for field in form %}
+                        {% if field.name != 'en_tubo' %}
+                            <div class="col-12 {% if field.name == 'solicitud_problema' or field.name == 'accion' %}col-md-12{% else %}col-md-6{% endif %} mb-3">
+                                <label class="form-label fw-bold text-dark">
+                                    {{ field.label }} {% if field.field.required %}*{% endif %}
+                                </label>
+                                {{ field }}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
 
-                    <div class="col-12 col-md-4 mb-3">
-                        <label class="form-label fw-bold text-dark">Fecha Comprometida</label>
-                        {{ form.fecha_comprometida }}
-                        {% for error in form.fecha_comprometida.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                        <div class="text-muted small fw-bold mt-1">Plazo máximo esperado.</div>
-                    </div>
-                    
-                    <div class="col-12 col-md-4 mb-3">
-                        <label class="form-label fw-bold text-dark">Fecha Finalización</label>
-                        {{ form.fecha_finalizacion }}
-                        {% for error in form.fecha_finalizacion.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                        <div class="text-muted small fw-bold mt-1">Solo si la actividad ya está terminada.</div>
-                    </div>
-
-                    <div class="col-12 col-md-8 mb-3">
-                        <label class="form-label fw-bold text-dark">Estado Progreso *</label>
-                        {{ form.estado_progreso }}
-                        {% for error in form.estado_progreso.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-
-                    <div class="col-12 col-md-4 mb-3 d-flex align-items-center">
-                        <div class="form-check mt-md-4">
-                            {{ form.en_tubo }} 
-                            <label class="form-check-label fw-bold text-dark ms-1" for="{{ form.en_tubo.id_for_label }}">
-                                ¿Ingresar al Tubo de Compromisos?
+                    <!-- Switch moderno y estilizado para el Tubo -->
+                    <div class="col-12 mb-3">
+                        <div class="border rounded p-3 d-flex justify-content-between align-items-center bg-white shadow-sm">
+                            <label class="form-check-label fw-bold text-dark mb-0" for="{{ form.en_tubo.id_for_label }}">
+                                {{ form.en.tubo.label|default:"¿Genera compromiso en el Tubo?" }}
                             </label>
+                            <div class="form-check form-switch m-0">
+                                {{ form.en_tubo }}
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="col-12 mb-3">
-                        <label class="form-label fw-bold text-dark">Solicitud Problema *</label>
-                        {{ form.solicitud_problema }}
-                        {% for error in form.solicitud_problema.errors %}
+                        {% for error in form.en_tubo.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
                 </div>
-
-                <h5 class="fw-bold mb-3 titulo-seccion">
-                    2. Solicitantes y Asignaciones
-                </h5>
-                <div class="row mb-4 p-3 rounded caja-gris">
-                    
-                    <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Solicitante Profesional</label>
-                        {{ form.solicitante_profesional }}
-                        {% for error in form.solicitante_profesional.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-
-                    <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Solicitante Vecino</label>
-                        {{ form.solicitante_vecino }}
-                        {% for error in form.solicitante_vecino.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-
-                    <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">ID Profesional (Responsable) *</label>
-                        {{ form.id_profesional }}
-                        {% for error in form.id_profesional.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-
-                    <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">ID Meta *</label>
-                        {{ form.id_meta }}
-                        {% for error in form.id_meta.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-
-                    <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Organización Comunitaria *</label>
-                        {{ form.id_organizacion }}
-                        {% for error in form.id_organizacion.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <h5 class="fw-bold mb-3 titulo-seccion">
-                    3. Gestión y Resolución
-                </h5>
-                <div class="row p-3 rounded mb-4 borde-gris">
-                    <div class="col-12 mb-3">
-                        <label class="form-label fw-bold text-dark">Acción Realizada</label>
-                        {{ form.accion }}
-                        {% for error in form.accion.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                </div>
-
+                
                 <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
-                    <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto shadow-sm">
+                    <a href="{% url 'actividadApp:dashboard_profesional' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto shadow-sm">
                         Cancelar
                     </a>
                     <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto shadow-sm fondo-rojo">
-                        Guardar registro
+                        Registrar Actividad
                     </button>
                 </div>
             </form>
