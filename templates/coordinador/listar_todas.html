@@ -54,7 +54,7 @@
                 {% for actividad in actividades %}
                 <tr>
                     <td class="fw-bold text-nowrap">{{ actividad.codigo_unico }}</td>
-                    <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                    <td class="text-nowrap">{{ actividad.fecha_registro|date:"d/m/Y H:i" }}</td>
                     <td>{{ actividad.solicitud_problema|truncatechars:50 }}</td>
                     
                     <!-- Columna de Solicitante con enlace al Historial del Vecino -->
@@ -83,25 +83,67 @@
                         {% endif %}
                     </td>
                     <td class="text-center" style="width: 180px;">
-                        <div class="d-flex flex-column align-items-center gap-2">
-                            <!-- Botón Principal del Modal de Auditoría -->
-                            <button type="button" class="btn btn-sm text-white px-3 fw-bold fondo-rojo redondeado-6 w-100"
-                                    data-codigo="{{ actividad.codigo_unico }}"
-                                    data-fecha="{{ actividad.fecha|date:'d/m/Y H:i' }}"
-                                    data-estado="{{ actividad.get_estado_progreso_display }}"
-                                    data-problema="{{ actividad.solicitud_problema }}"
-                                    data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
-                                    data-url="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}"
-                                    title="Revisar detalles completos"
-                                    onclick="mostrarDetalle(this)">
-                                Ver Detalle
-                            </button>
+                        <div class="d-flex flex-column align-items-center gap-1">
                             
-                            <!-- Botón directo a Mensajes / Bitácora -->
-                            <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm w-100" title="Ver historial de mensajes">
-                                <i class="bi bi-chat-text-fill"></i> Mensajes
-                            </a>
+                            <!-- Fila 1: Dos botones arriba (Editar y Gestiones) -->
+                            <div class="d-flex justify-content-between gap-1 w-100">
+                                <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-rojo redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Editar Actividad">
+                                    Editar
+                                </a>
+                                <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Ver Gestiones">
+                                    Gestiones
+                                </a>
+                            </div>
+
+                            <!-- Fila 2: Dos botones al medio (Evidencias y Mensajes) -->
+                            <div class="d-flex justify-content-between gap-1 w-100">
+                                <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Evidencias">
+                                    Evidencias
+                                </a>
+                                <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Ver historial de mensajes y bitácora">
+                                    Mensajes
+                                </a>
+                            </div>
+
+                            <!-- Fila 3: Tarjeta de Estado y Switch Centrado -->
+                            <div class="d-flex flex-column align-items-center p-1 bg-light rounded border shadow-sm w-100 mt-1">
+                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-065">
+                                    {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+                                <div class="form-check form-switch p-0 m-0 d-flex justify-content-center w-100" title="Activar/Desactivar">
+                                    <input class="form-check-input m-0 switch-estado switch-estado-sgr shadow-sm" type="checkbox" role="switch"
+                                           style="margin-left: 0; cursor: pointer; width: 2.1em; height: 1em;"
+                                           data-bs-toggle="modal" 
+                                           data-bs-target="#modalConfirmacion"
+                                           data-bs-url="{% url 'actividadApp:desactivar_actividad' actividad.codigo_unico %}"
+                                           data-bs-codigo="{{ actividad.codigo_unico }}"
+                                           data-bs-accion="{% if actividad.estado %}desactivar{% else %}reactivar{% endif %}"
+                                           {% if actividad.estado %}checked{% endif %}
+                                           onchange="this.checked = !this.checked;"> 
+                                </div>
+                            </div>
+
                         </div>
+
+                        <!-- Template de evidencias que exige el script del modal -->
+                        <template id="evidencias-{{ actividad.pk }}">
+                            {% for ev in actividad.evidencia_set.all %}
+                            <div class="d-flex align-items-center gap-3 p-2 mb-2 border rounded bg-light">
+                                {% if ev.archivo_foto %}
+                                <a href="{{ ev.archivo_foto.url }}" target="_blank" title="Abrir foto">
+                                    <img src="{{ ev.archivo_foto.url }}" alt="Evidencia" class="rounded border" style="width: 64px; height: 64px; object-fit: cover;">
+                                </a>
+                                {% endif %}
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">{{ ev.fecha|date:"d/m/Y H:i" }}</div>
+                                    {% if ev.archivo_foto %}<a href="{{ ev.archivo_foto.url }}" target="_blank" class="small">Ver foto</a>{% else %}<span class="small text-muted">Sin foto</span>{% endif %}
+                                </div>
+                                <span class="badge {% if ev.estado_revision == 'APROBADO' %}bg-success{% elif ev.estado_revision == 'RECHAZADO' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ ev.get_estado_revision_display }}</span>
+                            </div>
+                            {% empty %}
+                            <p class="text-muted m-0">La actividad no tiene evidencias registradas.</p>
+                            {% endfor %}
+                        </template>
                     </td>
                 </tr>
                 {% empty %}
@@ -137,9 +179,13 @@
                     <p class="text-muted mb-1 small fw-bold text-uppercase">Solicitud / Problema reportado</p>
                     <div class="p-3 bg-light rounded shadow-sm border text-dark" id="detProblema" style="min-height: 80px;"></div>
                 </div>
-                <div class="mb-2">
+                <div class="mb-4">
                     <p class="text-muted mb-1 small fw-bold text-uppercase">Acción realizada</p>
                     <div class="p-3 bg-light rounded shadow-sm border text-dark" id="detAccion" style="min-height: 80px;"></div>
+                </div>
+                <div class="mb-2">
+                    <p class="text-muted mb-1 small fw-bold text-uppercase">Evidencias</p>
+                    <div id="detEvidencias"></div>
                 </div>
             </div>
             <div class="modal-footer bg-light justify-content-between border-0">
@@ -161,6 +207,7 @@ function mostrarDetalle(boton) {
     document.getElementById('detFecha').textContent = boton.dataset.fecha;
     document.getElementById('detProblema').textContent = boton.dataset.problema;
     document.getElementById('detAccion').textContent = boton.dataset.accion;
+    document.getElementById('detEvidencias').innerHTML = document.getElementById('evidencias-' + boton.dataset.id).innerHTML;
     
     // Inyectamos dinámicamente la URL de detalle al botón del modal
     document.getElementById('btnIrBitacora').href = boton.dataset.url;

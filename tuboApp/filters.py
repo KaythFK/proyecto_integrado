@@ -1,3 +1,5 @@
+from datetime import date
+
 import django_filters
 from django import forms
 
@@ -21,10 +23,16 @@ class CompromisoFilter(django_filters.FilterSet):
     hasta = django_filters.DateFilter(
         field_name='fecha_comprometida', lookup_expr='lte',
         widget=forms.DateInput(attrs={'class': 'form-control borde-guinda', 'type': 'date'}))
+    vencidos = django_filters.BooleanFilter(method='filtrar_vencidos', widget=forms.HiddenInput)
 
     class Meta:
         model = Compromiso
         fields = []
+
+    def filtrar_vencidos(self, queryset, name, value):
+        if value:
+            return queryset.filter(fecha_comprometida__lt=date.today()).exclude(estado_progreso='REALIZADO')
+        return queryset
 
     def __init__(self, *args, responsables=None, **kwargs):
         super().__init__(*args, **kwargs)
