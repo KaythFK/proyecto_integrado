@@ -55,7 +55,7 @@
                 {% for actividad in actividades %}
                 <tr>
                     <td class="fw-bold text-nowrap">{{ actividad.codigo_unico }}</td>
-                    <td class="text-nowrap">{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                    <td class="text-nowrap">{{ actividad.fecha_registro|date:"d/m/Y H:i" }}</td>
                     <td>{{ actividad.solicitud_problema|truncatechars:50 }}</td>
                     
                     <!-- Columna de Solicitante con enlace al Historial del Vecino -->
@@ -86,14 +86,33 @@
                     <td class="text-center">
                         <button type="button" class="btn btn-sm text-white px-3 fw-bold fondo-rojo redondeado-6"
                                 data-codigo="{{ actividad.codigo_unico }}"
-                                data-fecha="{{ actividad.fecha|date:'d/m/Y H:i' }}"
+                                data-fecha="{{ actividad.fecha_registro|date:'d/m/Y H:i' }}"
                                 data-estado="{{ actividad.get_estado_progreso_display }}"
                                 data-problema="{{ actividad.solicitud_problema }}"
                                 data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
                                 title="Revisar detalles completos"
+                                data-id="{{ actividad.pk }}"
                                 onclick="mostrarDetalle(this)">
                             Ver Detalle
                         </button>
+                        <template id="evidencias-{{ actividad.pk }}">
+                            {% for ev in actividad.evidencia_set.all %}
+                            <div class="d-flex align-items-center gap-3 p-2 mb-2 border rounded bg-light">
+                                {% if ev.archivo_foto %}
+                                <a href="{{ ev.archivo_foto.url }}" target="_blank" title="Abrir foto">
+                                    <img src="{{ ev.archivo_foto.url }}" alt="Evidencia" class="rounded border" style="width: 64px; height: 64px; object-fit: cover;">
+                                </a>
+                                {% endif %}
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">{{ ev.fecha|date:"d/m/Y H:i" }}</div>
+                                    {% if ev.archivo_foto %}<a href="{{ ev.archivo_foto.url }}" target="_blank" class="small">Ver foto</a>{% else %}<span class="small text-muted">Sin foto</span>{% endif %}
+                                </div>
+                                <span class="badge {% if ev.estado_revision == 'APROBADO' %}bg-success{% elif ev.estado_revision == 'RECHAZADO' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ ev.get_estado_revision_display }}</span>
+                            </div>
+                            {% empty %}
+                            <p class="text-muted m-0">La actividad no tiene evidencias registradas.</p>
+                            {% endfor %}
+                        </template>
                     </td>
                 </tr>
                 {% empty %}
@@ -129,9 +148,13 @@
                     <p class="text-muted mb-1 small fw-bold text-uppercase">Solicitud / Problema reportado</p>
                     <div class="p-3 bg-light rounded shadow-sm border text-dark" id="detProblema" style="min-height: 80px;"></div>
                 </div>
-                <div class="mb-2">
+                <div class="mb-4">
                     <p class="text-muted mb-1 small fw-bold text-uppercase">Acción realizada</p>
                     <div class="p-3 bg-light rounded shadow-sm border text-dark" id="detAccion" style="min-height: 80px;"></div>
+                </div>
+                <div class="mb-2">
+                    <p class="text-muted mb-1 small fw-bold text-uppercase">Evidencias</p>
+                    <div id="detEvidencias"></div>
                 </div>
             </div>
             <div class="modal-footer bg-light justify-content-end border-0">
@@ -149,6 +172,7 @@ function mostrarDetalle(boton) {
     document.getElementById('detFecha').textContent = boton.dataset.fecha;
     document.getElementById('detProblema').textContent = boton.dataset.problema;
     document.getElementById('detAccion').textContent = boton.dataset.accion;
+    document.getElementById('detEvidencias').innerHTML = document.getElementById('evidencias-' + boton.dataset.id).innerHTML;
     
     const estadoEl = document.getElementById('detEstado');
     estadoEl.textContent = boton.dataset.estado;
