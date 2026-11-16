@@ -3,7 +3,6 @@
 
 {% block title %}Listado de Evidencias - Sistema Municipal{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Evidencias</h3>
 {% endblock %}
@@ -15,10 +14,10 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <h4 class="fw-bold m-0 texto-guinda">Registro de Evidencias</h4>
-            <p class="text-muted m-0 mt-1">Revisión y validación de respaldos enviados.</p>
+            <p class="text-muted m-0 mt-1">Revisión y validación de respaldos fotográficos.</p>
         </div>
         
-        <!-- Botón global solo para Administrador por seguridad -->
+        <!-- Botón global exclusivo para Administrador -->
         {% if request.user.profesional.cargo.nombre == 'Administrador' %}
         <a href="{% url 'actividadApp:crear_evidencia' %}" class="btn text-white fw-bold shadow-sm fondo-rojo redondeado-6">
             + Registrar Evidencia Global
@@ -51,7 +50,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Actividad</th>
-                            <th>Archivo Respaldo</th>
+                            <th>Fotografía de Respaldo</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -61,11 +60,15 @@
                         <tr>
                             <td><span class="badge bg-dark fs-6">{{ item.evidencia.id_actividad.codigo_unico }}</span></td>
                             
-                            <!-- Botón de Ver Archivo con color institucional -->
+                            <!-- Botón para ver la foto real en el servidor -->
                             <td>
-                                <a href="{{ item.evidencia.archivo_vinculo }}" target="_blank" class="btn btn-sm text-white fw-bold shadow-sm fondo-guinda redondeado-6">
-                                    <i class="bi bi-box-arrow-up-right"></i> Ver Archivo
-                                </a>
+                                {% if item.evidencia.archivo_foto %}
+                                    <a href="{{ item.evidencia.archivo_foto.url }}" target="_blank" class="btn btn-sm text-white fw-bold shadow-sm fondo-guinda redondeado-6">
+                                        <i class="bi bi-box-arrow-up-right"></i> Ver Foto
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">Sin archivo</span>
+                                {% endif %}
                             </td>
                             
                             <td>
@@ -85,9 +88,14 @@
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-2">
                                     {% if item.evidencia.estado_revision == 'PENDIENTE' %}
-                                        <a href="{% url 'actividadApp:crear_validacion' %}?evidencia={{ item.evidencia.id_evidencia }}" class="btn btn-sm text-white fw-bold shadow-sm" style="background-color: #ff9900; border-radius: 6px;" title="Revisar y Validar">
-                                            <i class="bi bi-check-circle"></i> Validar
-                                        </a>
+                                        <!-- Aquí evaluamos la variable global 'puede_validar' -->
+                                        {% if puede_validar %}
+                                            <a href="{% url 'actividadApp:crear_validacion' %}?evidencia={{ item.evidencia.id_evidencia }}" class="btn btn-sm text-white fw-bold shadow-sm fondo-guinda redondeado-6" title="Revisar y Validar">
+                                                <i class="bi bi-check-circle"></i> Validar
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted small fst-italic">En revisión por jefatura</span>
+                                        {% endif %}
                                     {% else %}
                                         <span class="text-muted mt-1"><small><i class="bi bi-check2-all"></i> Evaluada</small></span>
                                     {% endif %}
@@ -96,7 +104,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center py-4 text-muted">No hay evidencias pendientes en tu área.</td>
+                            <td colspan="4" class="text-center py-4 text-muted">No hay evidencias registradas en este listado.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

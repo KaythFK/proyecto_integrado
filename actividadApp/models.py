@@ -1,6 +1,10 @@
 from datetime import date
-
 from django.db import models
+from datetime import datetime
+from PIL import Image
+from io import BytesIO
+from django.core.files.uploadedfile import InMemoryUploadedFile
+import sys
 
 # Create your models here.
 
@@ -93,13 +97,57 @@ class Evidencia(models.Model):
     ]
 
     id_evidencia = models.AutoField(primary_key=True)
-    # Esto guardará los archivos físicos en una subcarpeta 'media/evidencias/' 
     archivo_foto = models.ImageField(upload_to='evidencias/') 
     fecha = models.DateTimeField(auto_now_add=True)
-    metadatos = models.JSONField(blank=True, null=True) # Para guardar info adicional si lo requieres
+    metadatos = models.JSONField(blank=True, null=True) 
     estado_revision = models.CharField(max_length=20, choices=OPCIONES_ESTADO_REVISION, default='PENDIENTE')
     estado = models.BooleanField(default=True)
     id_actividad = models.ForeignKey('Actividad', models.DO_NOTHING, db_column='id_actividad')
+
+    def save(self, *args, **kwargs):
+        """
+        Sobrescribe el método save para:
+        1. Comprimir y redimensionar la imagen automáticamente con Pillow.
+        2. Nombrar el archivo combinando el código de la actividad y la fecha/hora actual.
+        """
+        if self.archivo_foto:
+            try:
+                # 1. Abrir la imagen con Pillow
+                img = Image.open(self.archivo_foto)
+                
+                # Si la imagen tiene transparencia (como PNG), convertirla a RGB para evitar errores en JPG
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+
+                # 2. Redimensionar si es muy ancha (máximo 1280px para mantener excelente calidad y bajo peso)
+                max_ancho = 1280
+                if img.width > max_ancho:
+                    output_alto = int((max_ancho / img.width) * img.height)
+                    img = img.resize((max_ancho, output_alto), Image.Resampling.LANCZOS)
+
+                # 3. Guardar en memoria RAM optimizando la calidad al 85%
+                output = BytesIO()
+                img.save(output, format='JPEG', quality=85, optimize=True)
+                output.seek(0)
+
+                # 4. Generar el nombre estructurado: CODIGO_ACTIVIDAD_FECHA_HORA.jpg
+                codigo_actividad = self.id_actividad.codigo_unico if self.id_actividad else "general"
+                fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
+                nombre_archivo = f"{codigo_actividad}_{fecha_actual}.jpg"
+
+                # 5. Reemplazar el archivo original por la versión optimizada y renombrada
+                self.archivo_foto = InMemoryUploadedFile(
+                    output,
+                    'ImageField',
+                    nombre_archivo,
+                    'image/jpeg',
+                    sys.getsizeof(output),
+                    None
+                )
+            except Exception as e:
+                print(f"No se pudo optimizar la imagen: {e}")
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Evidencia {self.id_evidencia} ({self.get_estado_revision_display()})"

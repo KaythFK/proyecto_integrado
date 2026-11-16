@@ -10,7 +10,7 @@ from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, Retroalim
 from administracionApp.models import Profesional, Auditoria, Vecino # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
-from config.utils import puede_modificar_compromiso, validar_acceso_actividad
+from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol
 from django.db import transaction
 from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -201,32 +201,37 @@ def registrar_evidencia(request, actividad_id):
     validar_acceso_actividad(request.user, actividad)
     
     if request.method == 'POST':
-        archivo_vinculo = request.POST.get('archivo_vinculo', 'evidencia_adjunta.pdf')
-        anotaciones = request.POST.get('anotaciones', '')
-        autor_nombre = request.user.username if request.user.is_authenticated else 'Profesional'
-
-        metadatos_dict = {
-            "codigo_actividad": actividad.codigo_unico,
-            "autor": autor_nombre,
-            "observacion": anotaciones,
-            "origen": "Panel Profesional"
-        }
-        
-        nueva_evidencia = Evidencia.objects.create(
-            archivo_vinculo=archivo_vinculo,
-            metadatos=metadatos_dict,
-            estado_revision='PENDIENTE',
-            estado=True,
-            id_actividad=actividad
-        )
-        
-        # AUDITORIA
-        registrar_auditoria(request, "CREACION", "Evidencia", nueva_evidencia)
-        
-        messages.success(request, f'Evidencia vinculada correctamente al código {actividad.codigo_unico}.')
-        return redirect('actividadApp:dashboard_profesional')
+        # Se incluye request.FILES para aceptar la fotografía adjunta
+        form = EvidenciaForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    evidencia = form.save(commit=False)
+                    evidencia.id_actividad = actividad  # Asignamos la actividad de la ruta
+                    evidencia.estado = True
+                    
+                    autor_nombre = request.user.username if request.user.is_authenticated else 'Profesional'
+                    evidencia.metadatos = {
+                        "codigo_actividad": actividad.codigo_unico,
+                        "autor": autor_nombre,
+                        "origen": "Panel Profesional"
+                    }
+                    evidencia.save()
+                    
+                    # AUDITORIA
+                    registrar_auditoria(request, "CREACION", "Evidencia", evidencia)
+                
+                messages.success(request, f'Evidencia vinculada correctamente al código {actividad.codigo_unico}.')
+                return redirect('actividadApp:dashboard_profesional')
+            except Exception as e:
+                messages.error(request, f'Error al guardar la evidencia: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores del formulario.')
+    else:
+        form = EvidenciaForm(initial={'id_actividad': actividad})
 
     context = {
+        'form': form,
         'actividad': actividad,
     }
     return render(request, 'profesional/registrar_evidencia.html', context)
@@ -641,33 +646,18 @@ def cambiar_estado_retroalimentacion(request, id_retroalimentacion):
 @role_required('Administrador', 'Profesional', 'Delegado')
 def lista_evidencias(request):
     query = request.GET.get('q')
-    profesional_actual = getattr(request.user, 'profesional', None)
     
-    # 1. Obtenemos todas las evidencias como base
-    evidencias = Evidencia.objects.all().select_related('id_actividad').order_by('-id_evidencia')
+    # Aplicamos la regla modular de filtrado por rol
+    evidencias = filtrar_evidencias_por_rol(request.user)
     
-    # 2. FILTRO DE SEGURIDAD POR ROL
-    if profesional_actual:
-        if request.user.groups.filter(name='Administrador').exists():
-            # El Administrador pasa directo y ve TODO
-            pass 
-        elif request.user.groups.filter(name='Delegado').exists():
-            # El Delegado SOLO ve las evidencias de los profesionales de SU delegación
-            delegacion_actual = profesional_actual.id_delegacion
-            evidencias = evidencias.filter(id_actividad__id_profesional__id_delegacion=delegacion_actual)
-        else:
-            # El Profesional normal SOLO ve sus propias evidencias
-            evidencias = evidencias.filter(id_actividad__id_profesional=profesional_actual)
-    
-    # 3. Lógica de búsqueda (barra de texto)
+    # Lógica de búsqueda por texto
     if query:
         evidencias = evidencias.filter(
-            Q(archivo_vinculo__icontains=query) |
+            Q(archivo_foto__icontains=query) |
             Q(estado_revision__icontains=query) |
             Q(id_actividad__codigo_unico__icontains=query)
         ).distinct()
 
-    # 4. Armar el diccionario para el HTML
     evidencias_con_validacion = []
     for ev in evidencias:
         validacion = Validacion.objects.filter(id_evidencia=ev).first()
@@ -682,10 +672,10 @@ def lista_evidencias(request):
     })
 
 @login_required
-@role_required('Administrador', 'Profesional')
+@role_required('Administrador')
 def crear_evidencia(request):
     if request.method == 'POST':
-        form = EvidenciaForm(request.POST)
+        form = EvidenciaForm(request.POST, request.FILES)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -694,11 +684,13 @@ def crear_evidencia(request):
                     
                     evidencia.metadatos = {
                         "registrado_por": request.user.username,
-                        "origen": "Plataforma Web Municipal",
+                        "origen": "Panel de Administración Global",
                         "fecha_sistema": str(date.today())
                     }
                     
                     evidencia.save()
+                    
+                    # --- ¡AQUÍ ESTÁ ASEGURADA LA AUDITORÍA! ---
                     registrar_auditoria(request, "CREACION", "Evidencia", evidencia)
                     
                 messages.success(request, 'La evidencia fue registrada con éxito.')
@@ -712,7 +704,7 @@ def crear_evidencia(request):
         
     return render(request, 'administrador/evidencias/form_evidencia.html', {
         'form': form,
-        'titulo': 'Registrar Evidencia'
+        'titulo': 'Registrar Evidencia Global'
     })
 
 @login_required
@@ -722,7 +714,8 @@ def editar_evidencia(request, id_evidencia):
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(evidencia)
-        form = EvidenciaForm(request.POST, instance=evidencia)
+        # Se incluye request.FILES por si editan y cambian la foto
+        form = EvidenciaForm(request.POST, request.FILES, instance=evidencia)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -770,7 +763,7 @@ def lista_validaciones(request):
             Q(resultado__icontains=query) |
             Q(decision__icontains=query) |
             Q(id_validador__nombres__icontains=query) |
-            Q(id_evidencia__archivo_vinculo__icontains=query)
+            Q(id_evidencia__archivo_foto__icontains=query)
         ).distinct()
         
     return render(request, 'administrador/validaciones/lista_validaciones.html', {

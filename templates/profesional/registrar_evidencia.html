@@ -1,54 +1,71 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Registrar Evidencia - Sistema Municipal{% endblock %}
-
-
-{% block cabecera %}
-<h3 class="text-white fw-bold m-0 text-center">Gestión de Evidencias</h3>
-{% endblock %}
-
 {% block contenido %}
-{% include 'parciales/mensajes.html' %}
-<div class="container mt-5 mb-5" style="max-width: 800px;">
-    
-    <div class="card shadow-sm border-0 p-4 redondeado-15 fondo-gris-claro">
-        
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="fw-bold m-0 texto-guinda">Adjuntar Respaldo</h4>
-            <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary fw-bold shadow-sm redondeado-8">
-                <i class="bi bi-arrow-left"></i> Volver
-            </a>
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow border-0">
+                <div class="card-header bg-danger text-white py-3">
+                    <h4 class="mb-0 fw-bold"><i class="bi bi-upload"></i> Registrar Evidencia para Actividad</h4>
+                </div>
+                <div class="card-body p-4">
+
+                    <!-- BLOQUE DE ERRORES CLAROS Y VISIBLES -->
+                    {% if form.errors %}
+                        <div class="alert alert-danger alert-dismissible fade show shadow-sm mb-4" role="alert">
+                            <h5 class="alert-heading fw-bold">
+                                <i class="bi bi-exclamation-triangle-fill"></i> ¡Atención con los datos ingresados!
+                            </h5>
+                            <p class="mb-2">Por favor corrige los siguientes detalles para poder guardar la evidencia:</p>
+                            <ul class="mb-0 ps-3">
+                                {% for field in form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endif %}
+
+                    <!-- FORMULARIO DE SUBIDA -->
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.archivo_foto.id_for_label }}" class="form-label fw-bold">Fotografía o Archivo de Respaldo</label>
+                            {{ form.archivo_foto }}
+                            <div class="form-text text-muted">Formatos permitidos: JPG, PNG, WEBP. Tamaño máximo: 10 MB.</div>
+                            {% if form.archivo_foto.errors %}
+                                <div class="text-danger small mt-1">{{ form.archivo_foto.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="{{ form.comentarios.id_for_label }}" class="form-label fw-bold">Comentarios u Observaciones</label>
+                            {{ form.comentarios }}
+                            {% if form.comentarios.errors %}
+                                <div class="text-danger small mt-1">{{ form.comentarios.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{% url 'actividadApp:dashboard_profesional' %}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-danger fw-bold shadow-sm px-4">
+                                <i class="bi bi-check-lg"></i> Guardar Evidencia
+                            </button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
         </div>
-
-        <!-- Alerta informativa con los datos de la actividad -->
-        <div class="alert alert-secondary shadow-sm mb-4" style="border-radius: 10px; border-left: 5px solid #8B1D19;">
-            <strong class="text-dark">Actividad seleccionada:</strong> <span class="badge bg-dark">{{ actividad.codigo_unico }}</span> <br>
-            <small class="text-muted">{{ actividad.solicitud_problema }}</small>
-        </div>
-
-        <form method="POST" action="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" enctype="multipart/form-data">
-            {% csrf_token %}
-            
-            <div class="mb-4">
-                <label class="form-label fw-bold texto-guinda">Archivo o Vínculo de Evidencia</label>
-                <input type="text" name="archivo_vinculo" class="form-control shadow-sm p-2" style="border-color: #8B1D19; border-radius: 8px;" placeholder="Ej: enlace de Drive o nombre del archivo" required>
-                <div class="form-text">Ingresa el enlace de la fotografía o documento que respalda la intervención.</div>
-            </div>
-
-            <div class="mb-4">
-                <label class="form-label fw-bold texto-guinda">Anotaciones u Observaciones (Opcional)</label>
-                <textarea name="anotaciones" class="form-control shadow-sm p-2" style="border-color: #8B1D19; border-radius: 8px;" rows="4" placeholder="Agrega cualquier detalle relevante sobre esta evidencia..."></textarea>
-            </div>
-
-            <div class="d-flex justify-content-end gap-3 mt-4">
-                <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-secondary px-4 fw-bold shadow-sm redondeado-8">Cancelar</a>
-                <button type="submit" class="btn px-4 fw-bold text-white shadow-sm" style="background-color: #C41230; border-radius: 8px;">
-                    Guardar Evidencia
-                </button>
-            </div>
-        </form>
-        
     </div>
 </div>
 {% endblock %}
