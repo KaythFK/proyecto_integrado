@@ -8,6 +8,8 @@ from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
 from datetime import date
+from actividadApp.models import Actividad
+from .forms import ObservacionRegistroForm
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
 from administracionApp.models import Profesional, Auditoria
@@ -285,3 +287,35 @@ def listar_todas_actividades(request):
     }
 
     return render(request, 'coordinador/listar_todas.html', context)
+
+
+
+@login_required
+def detalle_actividad(request, pk):
+    actividad = get_object_or_404(Actividad, pk=pk)
+    compromiso = Compromiso.objects.filter(id_actividad=actividad).first()
+    observaciones = ObservacionCompromiso.objects.filter(id_actividad=actividad)
+
+    if request.method == 'POST':
+        form = ObservacionRegistroForm(request.POST)
+        if form.is_valid():
+            nueva_obs = form.save(commit=False)
+            nueva_obs.id_actividad = actividad
+            
+            if compromiso:
+                nueva_obs.id_compromiso = compromiso
+                
+            if hasattr(request.user, 'profesional'):
+                nueva_obs.autor = request.user.profesional
+            
+            nueva_obs.save()
+            messages.success(request, "Observación registrada correctamente.")
+            return redirect('tuboApp:detalle_actividad', pk=pk)
+    else:
+        form = ObservacionRegistroForm()
+
+    return render(request, 'coordinador/detalle_registros.html', {
+        'actividad': actividad,
+        'observaciones': observaciones,
+        'form': form,
+    })

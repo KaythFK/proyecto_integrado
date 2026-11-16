@@ -11,4 +11,5 @@ urlpatterns = [
     path('reasignar/<int:id_compromiso>/', views.reasignar_compromiso, name='reasignar_compromiso'),
     path('dashboard/', views.dashboard_coordinador, name='dashboard_coordinador'),
     path('actividades-globales/', views.listar_todas_actividades, name='listar_todas'),
+    path('detalle-actividad/<int:pk>/', views.detalle_actividad, name='detalle_actividad'),
 ]

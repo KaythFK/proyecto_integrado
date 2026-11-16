@@ -3,7 +3,6 @@
 
 {% block title %}Actividades - Sistema Municipal{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0">Gestión de Actividades</h3>
 {% endblock %}
@@ -123,22 +122,34 @@
                         </button>
                     </td>
                     
+                    <!-- COLUMNA ACCIONES REORGANIZADA Y LIMPIA -->
                     <td class="text-center">
-                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                        <div class="d-flex flex-column align-items-center gap-2">
                             
-                            <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white fondo-guinda redondeado-6" title="Editar">
-                                <i class="bi bi-pencil-square"></i> Editar
+                            <!-- Fila 1: Editar y Gestiones (Textos restaurados para máxima claridad) -->
+                            <div class="d-flex justify-content-center gap-2 w-100">
+                                <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white fondo-guinda redondeado-6" title="Editar">
+                                    <i class="bi bi-pencil-square"></i> Editar
+                                </a>
+                                <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6" title="Ver Gestiones">
+                                    <i class="bi bi-briefcase"></i> Gestiones
+                                </a>
+                            </div>
+
+                            <!-- Fila 2: Burbuja de texto para Mensajes -->
+                            <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm w-100" title="Ver historial de mensajes">
+                                <i class="bi bi-chat-text-fill"></i> Mensajes
                             </a>
-                            <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6" title="Ver Gestiones">
-                                <i class="bi bi-briefcase"></i> Gestiones
-                            </a>
-                            <div class="d-flex flex-column align-items-center">
-                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+
+                            <!-- Fila 3: Tarjeta de Estado y Switch Centrado -->
+                            <div class="d-flex flex-column align-items-center p-2 bg-light rounded border shadow-sm w-100 mt-1">
+                                <span class="badge mb-2 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
                                     {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
 
-                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
-                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
+                                <div class="form-check form-switch p-0 m-0 d-flex justify-content-center w-100">
+                                    <input class="form-check-input m-0 switch-estado-sgr shadow-sm" type="checkbox" role="switch"
+                                        style="margin-left: 0; cursor: pointer; width: 2.5em; height: 1.2em;"
                                         {% if actividad.estado %}checked{% endif %}
                                         onclick="confirmarCambio(event, '{{ actividad.id_actividad }}', '{{ actividad.codigo_unico }}', '{{ actividad.estado }}')">
                                 </div>
@@ -148,6 +159,7 @@
                     </td>
                 </tr>
 
+                <!-- MODAL SOLICITUD -->
                 <div class="modal fade" id="modalSolicitud{{ actividad.id_actividad }}" tabindex="-1" aria-labelledby="modalLabelSol{{ actividad.id_actividad }}" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -160,9 +172,7 @@
                             <div class="modal-body">
                                 <h6 class="fw-bold text-secondary">Solicitud / Problema:</h6>
                                 <p class="text-break">{{ actividad.solicitud_problema }}</p>
-                                
                                 <hr>
-                                
                                 <h6 class="fw-bold text-secondary">Acción registrada:</h6>
                                 <p class="text-break">{{ actividad.accion|default:"Sin acción registrada." }}</p>
                             </div>
@@ -173,6 +183,7 @@
                     </div>
                 </div>
 
+                <!-- MODAL EVIDENCIAS -->
                 <div class="modal fade" id="modalEvi{{ actividad.id_actividad }}" tabindex="-1" aria-labelledby="modalLabelEvi{{ actividad.id_actividad }}" aria-hidden="true">
                     <div class="modal-dialog modal-lg modal-dialog-scrollable">
                         <div class="modal-content">

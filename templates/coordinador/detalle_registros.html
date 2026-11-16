@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalle y Bitácora - Actividad{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Bitácora de Observaciones</h3>
+{% endblock %}
+
+{% block contenido %}
+{% include 'parciales/mensajes.html' %}
+<div class="container mt-4 mb-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="javascript:history.back()" class="btn btn-outline-secondary fw-bold shadow-sm">
+            <i class="bi bi-arrow-left"></i> Volver al listado
+        </a>
+        <h4 class="fw-bold m-0 texto-guinda">Código: {{ actividad.codigo_unico }}</h4>
+    </div>
+
+    <div class="row">
+        <!-- Columna Izquierda: Información de la Actividad -->
+        <div class="col-md-5 mb-4">
+            <div class="card shadow-sm border-0 redondeado-15 h-100">
+                <div class="card-header text-white fondo-guinda redondeado-sup-15 py-3">
+                    <h5 class="mb-0 fw-bold">Información del Registro</h5>
+                </div>
+                <div class="card-body bg-light">
+                    <p class="text-muted small fw-bold mb-1 text-uppercase">Problema / Solicitud</p>
+                    <p class="fs-6 text-dark">{{ actividad.solicitud_problema }}</p>
+                    
+                    <p class="text-muted small fw-bold mb-1 text-uppercase">Acción Realizada</p>
+                    <p class="fs-6 text-dark">{{ actividad.accion|default:"Sin acción registrada." }}</p>
+                    
+                    <p class="text-muted small fw-bold mb-1 text-uppercase">Estado Actual</p>
+                    <span class="badge bg-dark fs-6">{{ actividad.get_estado_progreso_display }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Historial y Formulario de la HU-24 -->
+        <div class="col-md-7 mb-4">
+            <div class="card shadow-sm border-0 redondeado-15 h-100">
+                <div class="card-header bg-dark text-white redondeado-sup-15 py-3">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-chat-left-text"></i> Historial de Conversación</h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    
+                    <!-- Contenedor del Historial en orden cronológico -->
+                    <div class="flex-grow-1 overflow-auto mb-4" style="max-height: 400px; padding-right: 5px;">
+                        {% for obs in observaciones %}
+                            <div class="card mb-3 shadow-sm border-0 bg-light">
+                                <div class="card-body py-2 px-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1 border-bottom pb-1">
+                                        <span class="fw-bold text-primary small"><i class="bi bi-person-fill"></i> {{ obs.autor }}</span>
+                                        <span class="text-muted" style="font-size: 0.75rem;">{{ obs.fecha|date:"d/m/Y H:i" }}</span>
+                                    </div>
+                                    <p class="mb-0 text-dark small">{{ obs.texto }}</p>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-journal-x fs-1 opacity-50 mb-2"></i>
+                                <p class="mb-0">No hay observaciones registradas en este registro todavía.</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Formulario de Ingreso -->
+                    <div class="mt-auto border-top pt-3">
+                        <form method="POST">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <label class="form-label fw-bold small text-secondary">Agregar nueva nota u observación:</label>
+                                {{ form.texto }}
+                            </div>
+                            <div class="text-end">
+                                <button type="submit" class="btn text-white fw-bold fondo-rojo px-4 shadow-sm">
+                                    Registrar Observación
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

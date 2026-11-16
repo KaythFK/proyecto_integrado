@@ -3,7 +3,6 @@
 
 {% block title %}Todas las actividades - SGR Coordinación{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Coordinación General SGR</h3>
 {% endblock %}
@@ -48,7 +47,7 @@
                     <th scope="col">Problema</th>
                     <th scope="col">Solicitante</th>
                     <th scope="col">Estado</th>
-                    <th scope="col" class="text-center">Auditoría</th>
+                    <th scope="col" class="text-center">Auditoría / Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -83,18 +82,50 @@
                             <span class="badge bg-secondary">Pendiente</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm text-white px-3 fw-bold fondo-rojo redondeado-6"
-                                data-codigo="{{ actividad.codigo_unico }}"
-                                data-fecha="{{ actividad.fecha_registro|date:'d/m/Y H:i' }}"
-                                data-estado="{{ actividad.get_estado_progreso_display }}"
-                                data-problema="{{ actividad.solicitud_problema }}"
-                                data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
-                                title="Revisar detalles completos"
-                                data-id="{{ actividad.pk }}"
-                                onclick="mostrarDetalle(this)">
-                            Ver Detalle
-                        </button>
+                    <td class="text-center" style="width: 180px;">
+                        <div class="d-flex flex-column align-items-center gap-1">
+                            
+                            <!-- Fila 1: Dos botones arriba (Editar y Gestiones) -->
+                            <div class="d-flex justify-content-between gap-1 w-100">
+                                <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-rojo redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Editar Actividad">
+                                    Editar
+                                </a>
+                                <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Ver Gestiones">
+                                    Gestiones
+                                </a>
+                            </div>
+
+                            <!-- Fila 2: Dos botones al medio (Evidencias y Mensajes) -->
+                            <div class="d-flex justify-content-between gap-1 w-100">
+                                <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Evidencias">
+                                    Evidencias
+                                </a>
+                                <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Ver historial de mensajes y bitácora">
+                                    Mensajes
+                                </a>
+                            </div>
+
+                            <!-- Fila 3: Tarjeta de Estado y Switch Centrado -->
+                            <div class="d-flex flex-column align-items-center p-1 bg-light rounded border shadow-sm w-100 mt-1">
+                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-065">
+                                    {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+                                <div class="form-check form-switch p-0 m-0 d-flex justify-content-center w-100" title="Activar/Desactivar">
+                                    <input class="form-check-input m-0 switch-estado switch-estado-sgr shadow-sm" type="checkbox" role="switch"
+                                           style="margin-left: 0; cursor: pointer; width: 2.1em; height: 1em;"
+                                           data-bs-toggle="modal" 
+                                           data-bs-target="#modalConfirmacion"
+                                           data-bs-url="{% url 'actividadApp:desactivar_actividad' actividad.codigo_unico %}"
+                                           data-bs-codigo="{{ actividad.codigo_unico }}"
+                                           data-bs-accion="{% if actividad.estado %}desactivar{% else %}reactivar{% endif %}"
+                                           {% if actividad.estado %}checked{% endif %}
+                                           onchange="this.checked = !this.checked;"> 
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Template de evidencias que exige el script del modal -->
                         <template id="evidencias-{{ actividad.pk }}">
                             {% for ev in actividad.evidencia_set.all %}
                             <div class="d-flex align-items-center gap-3 p-2 mb-2 border rounded bg-light">
@@ -157,7 +188,11 @@
                     <div id="detEvidencias"></div>
                 </div>
             </div>
-            <div class="modal-footer bg-light justify-content-end border-0">
+            <div class="modal-footer bg-light justify-content-between border-0">
+                <!-- Enlace dinámico hacia la página de Bitácora / Notas desde el modal -->
+                <a href="#" id="btnIrBitacora" class="btn text-white fondo-guinda px-4 fw-bold shadow-sm">
+                    <i class="bi bi-chat-text-fill"></i> Ver Bitácora y Notas
+                </a>
                 <button type="button" class="btn btn-secondary px-4 fw-bold shadow-sm" data-bs-dismiss="modal">Cerrar Visor</button>
             </div>
         </div>
@@ -173,6 +208,9 @@ function mostrarDetalle(boton) {
     document.getElementById('detProblema').textContent = boton.dataset.problema;
     document.getElementById('detAccion').textContent = boton.dataset.accion;
     document.getElementById('detEvidencias').innerHTML = document.getElementById('evidencias-' + boton.dataset.id).innerHTML;
+    
+    // Inyectamos dinámicamente la URL de detalle al botón del modal
+    document.getElementById('btnIrBitacora').href = boton.dataset.url;
     
     const estadoEl = document.getElementById('detEstado');
     estadoEl.textContent = boton.dataset.estado;

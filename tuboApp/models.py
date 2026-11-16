@@ -48,14 +48,18 @@ class Compromiso(models.Model):
 class ObservacionCompromiso(models.Model):
     id_observacioncomp = models.AutoField(primary_key=True)
     texto = models.TextField()
-    fecha = models.DateTimeField()
-    id_compromiso = models.ForeignKey('Compromiso', models.DO_NOTHING, db_column='id_compromiso')
+    fecha = models.DateTimeField(auto_now_add=True)
+    id_compromiso = models.ForeignKey('Compromiso', models.DO_NOTHING, db_column='id_compromiso', blank=True, null=True)
+    id_actividad = models.ForeignKey('actividadApp.Actividad', models.DO_NOTHING, db_column='id_actividad', blank=True, null=True)
+    autor = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_profesional')
 
     def __str__(self):
-        return f"Observación {self.id_observacioncomp}"
+        return f"Observación {self.id_observacioncomp} por {self.autor}"
 
     class Meta:
         db_table = 'observacion_compromiso'
+        ordering = ['fecha'] 
+        verbose_name_plural = 'Observaciones de Registros'
 
 
 class HistorialEstado(models.Model):
