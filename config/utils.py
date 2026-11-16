@@ -4,6 +4,7 @@ from datetime import date
 from django.db import models
 
 from administracionApp.models import Delegacion
+from actividadApp.models import Evidencia
 from django.db.models import Q
 
 
@@ -177,12 +178,13 @@ def validar_periodo_abierto(meta):
 
 
 def rol_usuario(request):
-    """Entrega rol_menu a todas las plantillas para el menú lateral de base.html."""
+    """Entrega rol_menu y permisos de validación a todas las plantillas para el menú lateral de base.html."""
     usuario = getattr(request, 'user', None)
     if not usuario or not usuario.is_authenticated:
-        return {'rol_menu': None}
+        return {'rol_menu': None, 'puede_validar': False}
 
     grupos = set(usuario.groups.values_list('name', flat=True))
+    
     if 'Administrador' in grupos or (usuario.is_superuser and not grupos):
         rol = 'administrador'
     elif 'Coordinador' in grupos:
@@ -193,4 +195,64 @@ def rol_usuario(request):
         rol = 'profesional'
     else:
         rol = None
-    return {'rol_menu': rol}
+
+    # --- AQUÍ ESTABA EL DETALLE ---
+    # Aseguramos que Administrador, Delegado o Superusuario tengan permitido validar
+    puede_validar = usuario.is_superuser or 'Administrador' in grupos or 'Delegado' in grupos
+
+    return {
+        'rol_menu': rol,
+        'puede_validar': puede_validar
+    }
+
+def validar_imagen_evidencia(archivo):
+    """
+    Valida que el archivo subido sea una imagen permitida (JPG, PNG, WEBP)
+    y que no supere el tamaño máximo de 10 MB para fotos de terreno.
+    """
+    if not archivo:
+        raise ValidationError("Debe seleccionar un archivo de imagen válido.")
+
+    # 1. Validar extensiones permitidas
+    extensiones_permitidas = ['.jpg', '.jpeg', '.png', '.webp']
+    nombre_archivo = archivo.name.lower()
+    
+    if not any(nombre_archivo.endswith(ext) for ext in extensiones_permitidas):
+        raise ValidationError(
+            "Formato de archivo no permitido. Solo se aceptan imágenes en formato JPG, PNG o WEBP."
+        )
+
+    # 2. Validar tamaño máximo (10 MB = 10 * 1024 * 1024 bytes)
+    tamano_maximo = 10 * 1024 * 1024 
+    if archivo.size > tamano_maximo:
+        raise ValidationError(
+            "El archivo es demasiado pesado. El tamaño máximo permitido para las fotografías es de 10 MB."
+        )
+        
+    return archivo
+
+
+
+def filtrar_evidencias_por_rol(user):
+    """
+    Retorna el queryset de evidencias filtrado estrictamente según el rol del usuario:
+    - Administrador: Ve todo.
+    - Delegado: Ve las evidencias de los profesionales de su delegación.
+    - Profesional: Ve únicamente sus propias evidencias.
+    """
+    evidencias = Evidencia.objects.all().select_related('id_actividad').order_by('-id_evidencia')
+    profesional_actual = getattr(user, 'profesional', None)
+
+    if user.groups.filter(name='Administrador').exists():
+        return evidencias
+    
+    if user.groups.filter(name='Delegado').exists():
+        if profesional_actual and profesional_actual.id_delegacion:
+            return evidencias.filter(id_actividad__id_profesional__id_delegacion=profesional_actual.id_delegacion)
+        return Evidencia.objects.none()
+
+    # Si es un profesional normal
+    if profesional_actual:
+        return evidencias.filter(id_actividad__id_profesional=profesional_actual)
+    
+    return Evidencia.objects.none()

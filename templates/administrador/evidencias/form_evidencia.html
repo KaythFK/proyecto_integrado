@@ -3,7 +3,6 @@
 
 {% block title %}{{ titulo }}{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Administración</h3>
 {% endblock %}
@@ -35,7 +34,8 @@
                 </div>
             {% endif %}
 
-            <form method="POST" novalidate>
+            <!-- ¡IMPORTANTE! Se añadió enctype="multipart/form-data" -->
+            <form method="POST" enctype="multipart/form-data" novalidate>
                 {% csrf_token %}
                 <h5 class="fw-bold mb-3 titulo-seccion">
                     Información de la Evidencia

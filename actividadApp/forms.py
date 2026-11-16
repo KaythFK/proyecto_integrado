@@ -1,7 +1,15 @@
 from django import forms
 from django.db.models import Q
 from .models import Actividad, Evidencia, Validacion, Ausencia, Retroalimentacion, GestionActividad
-from config.utils import validar_texto_no_vacio, validar_fecha_no_futura, validar_profesionales_distintos, validar_que_sea_delegado, validar_entero_positivo, limitar_a_opciones_activas
+from config.utils import (
+    validar_texto_no_vacio, 
+    validar_fecha_no_futura, 
+    validar_profesionales_distintos, 
+    validar_que_sea_delegado, 
+    validar_entero_positivo, 
+    limitar_a_opciones_activas,
+    validar_imagen_evidencia  # <-- Validador modular de imágenes
+)
 from datetime import date
 from administracionApp.models import Profesional
 
@@ -21,7 +29,6 @@ class ActividadForm(forms.ModelForm):
             'id_meta': forms.Select(attrs={'class': 'form-select'}),
             'id_organizacion': forms.Select(attrs={'class': 'form-select'}),
 
-            # Nuevos campos de fecha con formato DD-MM-AAAA y selector de calendario
             'fecha_comprometida': forms.DateInput(
                 format='%d-%m-%Y', 
                 attrs={
@@ -58,12 +65,9 @@ class ActividadForm(forms.ModelForm):
 
 class ActividadDelegadoForm(ActividadForm):
     def __init__(self, *args, **kwargs):
-        # Extraemos la delegación de forma segura
         delegacion = kwargs.pop('delegacion', None)
-        # Inicializamos el formulario padre
         super().__init__(*args, **kwargs)
         
-        # Filtramos los selectores solo si se pasó una delegación
         if delegacion:
             profesionales_equipo = Profesional.objects.filter(id_delegacion=delegacion, estado=True)
             self.fields['id_profesional'].queryset = profesionales_equipo
@@ -74,7 +78,7 @@ class ActividadDelegadoForm(ActividadForm):
 class AusenciaForm(forms.ModelForm):
     class Meta:
         model = Ausencia
-        exclude = ['estado'] # Permitimos que el sistema controle el estado por defecto al crear
+        exclude = ['estado']
         
         labels = {
             'tipo_ausencia': 'Tipo de Ausencia / Permiso',
@@ -138,10 +142,8 @@ class RetroalimentacionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Opcional: Filtrar el queryset del receptor para que solo liste profesionales que son delegados
-        # (Ajusta la consulta según cómo identifiques a los delegados en tu base de datos)
         self.fields['receptor'].queryset = Profesional.objects.filter(
-            id_delegacion__isnull=False # O el filtro equivalente en tu modelo
+            id_delegacion__isnull=False
         ).distinct()
 
     def clean_tipo(self):
@@ -162,40 +164,35 @@ class RetroalimentacionForm(forms.ModelForm):
         cleaned_data = super().clean()
         receptor = cleaned_data.get('receptor')
         retroalimentado = cleaned_data.get('retroalimentado')
-        
-        # Validar que no se autorretroalimente
         validar_profesionales_distintos(receptor, retroalimentado)
-        
         return cleaned_data
 
 
 class EvidenciaForm(forms.ModelForm):
     class Meta:
         model = Evidencia
-        exclude = ['estado', 'metadatos'] # Excluimos metadatos para generarlo automático atrás
+        exclude = ['estado', 'metadatos', 'estado_revision', 'id_actividad']
         
         labels = {
-            'archivo_vinculo': 'Archivo o Enlace de Evidencia',
-            'estado_revision': 'Estado de Revisión',
+            'archivo_foto': 'Fotografía de Evidencia',
             'id_actividad': 'Actividad Asociada',
         }
         
         widgets = {
-            'archivo_vinculo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: /media/evidencias/doc.pdf', 'required': True}),
-            'estado_revision': forms.Select(attrs={'class': 'form-select', 'required': True}), # <--- Ahora es un Select limpio gracias al ENUM
+            'archivo_foto': forms.ClearableFileInput(attrs={'class': 'form-control', 'required': True}),
             'id_actividad': forms.Select(attrs={'class': 'form-select', 'required': True}),
         }
 
-    def clean_archivo_vinculo(self):
-        return validar_texto_no_vacio(self.cleaned_data.get('archivo_vinculo'), "El archivo o vínculo")
-
+    def clean_archivo_foto(self):
+        archivo = self.cleaned_data.get('archivo_foto')
+        return validar_imagen_evidencia(archivo)
 
 
 
 class ValidacionForm(forms.ModelForm):
     class Meta:
         model = Validacion
-        exclude = ['estado', 'resultado'] # Excluimos lo que ya borramos
+        exclude = ['estado', 'resultado']
         
         labels = {
             'decision': 'Decisión de Validación',
@@ -216,8 +213,6 @@ class ValidacionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['id_evidencia'].queryset = Evidencia.objects.select_related('id_actividad').all()
-        
-        # Muestra solo la evidencia y el código único de la actividad
         self.fields['id_evidencia'].label_from_instance = lambda obj: f"Evidencia #{obj.pk} - {obj.id_actividad.codigo_unico}"
 
     def clean_version(self):
