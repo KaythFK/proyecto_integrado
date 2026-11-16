@@ -206,8 +206,9 @@ class ValidacionForm(forms.ModelForm):
             'decision': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'observacion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Detalles o comentarios de la validación...'}),
             'version': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'required': True}),
-            'id_evidencia': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'id_validador': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            # Los hacemos ocultos o de solo lectura para que se autocomlenen de forma segura
+            'id_evidencia': forms.HiddenInput(),
+            'id_validador': forms.HiddenInput(),
         }
 
     def __init__(self, *args, **kwargs):

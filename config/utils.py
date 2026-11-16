@@ -256,3 +256,29 @@ def filtrar_evidencias_por_rol(user):
         return evidencias.filter(id_actividad__id_profesional=profesional_actual)
     
     return Evidencia.objects.none()
+
+
+
+def validar_actividad_permite_evidencias(actividad):
+    """
+    Valida que la actividad no tenga ya una evidencia aprobada.
+    Bloquea la subida de nuevos respaldos si ya fue auditada positivamente.
+    """
+    ya_aprobada = Evidencia.objects.filter(id_actividad=actividad, estado_revision='APROBADO').exists()
+    
+    if ya_aprobada:
+        raise ValidationError(
+            f"La actividad {actividad.codigo_unico} ya cuenta con una evidencia validada y aprobada. No se pueden adjuntar más archivos."
+        )
+    return actividad
+
+
+def validar_actividad_finalizada(actividad):
+    """
+    Bloquea el cambio de estado de progreso si la actividad ya fue marcada como FINALIZADA.
+    """
+    if actividad.estado_progreso == 'FINALIZADA':
+        raise ValidationError(
+            f"La actividad {actividad.codigo_unico} ya se encuentra FINALIZADA. No es posible retroceder su estado de progreso."
+        )
+    return actividad

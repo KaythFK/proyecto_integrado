@@ -10,7 +10,7 @@ from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, Retroalim
 from administracionApp.models import Profesional, Auditoria, Vecino # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
-from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol
+from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada
 from django.db import transaction
 from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -194,20 +194,30 @@ def editar_actividad(request, id_actividad):
         'titulo': f'Editar Actividad: {actividad.codigo_unico}'
     })
 
+# No olvides importar la función arriba:
+# from config.utils import validar_actividad_permite_evidencias
+
 @login_required
-@role_required('Profesional')
+@role_required('Profesional', 'Delegado', 'Administrador')
 def registrar_evidencia(request, actividad_id):
     actividad = get_object_or_404(Actividad, id_actividad=actividad_id)
     validar_acceso_actividad(request.user, actividad)
     
+    # NUEVO: Escudo modular desde utils.py
+    try:
+        validar_actividad_permite_evidencias(actividad)
+    except ValidationError as e:
+        mensaje_error = str(e.message if hasattr(e, 'message') else e.messages[0])
+        messages.warning(request, mensaje_error)
+        return redirect(request.META.get('HTTP_REFERER', 'actividadApp:dashboard_profesional'))
+    
     if request.method == 'POST':
-        # Se incluye request.FILES para aceptar la fotografía adjunta
         form = EvidenciaForm(request.POST, request.FILES)
         if form.is_valid():
             try:
                 with transaction.atomic():
                     evidencia = form.save(commit=False)
-                    evidencia.id_actividad = actividad  # Asignamos la actividad de la ruta
+                    evidencia.id_actividad = actividad
                     evidencia.estado = True
                     
                     autor_nombre = request.user.username if request.user.is_authenticated else 'Profesional'
@@ -218,11 +228,14 @@ def registrar_evidencia(request, actividad_id):
                     }
                     evidencia.save()
                     
-                    # AUDITORIA
                     registrar_auditoria(request, "CREACION", "Evidencia", evidencia)
                 
                 messages.success(request, f'Evidencia vinculada correctamente al código {actividad.codigo_unico}.')
+                
+                if request.user.groups.filter(name='Delegado').exists():
+                    return redirect('actividadApp:actividades_delegacion')
                 return redirect('actividadApp:dashboard_profesional')
+                
             except Exception as e:
                 messages.error(request, f'Error al guardar la evidencia: {str(e)}')
         else:
@@ -437,8 +450,16 @@ def actualizar_progreso_actividad(request, id_actividad):
     if request.method == 'POST':
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
         validar_acceso_actividad(request.user, actividad)
-        nuevo_estado = request.POST.get('nuevo_estado')
         
+        # NUEVO ESCUDO: Verificamos que no esté finalizada antes de intentar cambiarla
+        try:
+            validar_actividad_finalizada(actividad)
+        except ValidationError as e:
+            mensaje = str(e.message if hasattr(e, 'message') else e.messages[0])
+            messages.warning(request, mensaje)
+            return redirect(request.META.get('HTTP_REFERER', '/'))
+
+        nuevo_estado = request.POST.get('nuevo_estado')
         estados_validos = dict(Actividad.OPCIONES_ESTADO_PROGRESO).keys()
         
         if nuevo_estado in estados_validos:
@@ -774,12 +795,11 @@ def lista_validaciones(request):
 @login_required
 @role_required('Administrador', 'Delegado')
 def crear_validacion(request):
-    evidencia_id = request.GET.get('evidencia')
-    initial_data = {}
+    evidencia_id = request.GET.get('evidencia') or request.POST.get('id_evidencia')
+    evidencia_obj = get_object_or_404(Evidencia, pk=evidencia_id) if evidencia_id else None
     
-    if evidencia_id:
-        evidencia_obj = get_object_or_404(Evidencia, pk=evidencia_id)
-        initial_data['id_evidencia'] = evidencia_obj
+    # Obtenemos el perfil profesional del usuario actual logueado para asignarlo como validador automático
+    profesional_actual = getattr(request.user, 'profesional', None)
 
     if request.method == 'POST':
         form = ValidacionForm(request.POST)
@@ -787,6 +807,13 @@ def crear_validacion(request):
             try:
                 with transaction.atomic():
                     validacion = form.save(commit=False)
+                    
+                    # ASIGNACIÓN AUTOMÁTICA Y SEGURA (Evita modificaciones malintencionadas)
+                    if evidencia_obj:
+                        validacion.id_evidencia = evidencia_obj
+                    if profesional_actual:
+                        validacion.id_validador = profesional_actual
+                    
                     evidencia = validacion.id_evidencia
                     
                     # [KAN-170] ESCUDO: Bloqueo de suma duplicada
@@ -799,11 +826,9 @@ def crear_validacion(request):
                     # [KAN-169] ACCIÓN: Sumar avance solo si está "Aprobada"
                     periodo_abierto = True
                     if validacion.decision == 'APROBADO':
-                        # 1. Cambiamos el estado de la evidencia
                         evidencia.estado_revision = 'APROBADO'
                         evidencia.save()
                         
-                        # 2. Buscamos el indicador asociado a la meta de esta actividad
                         actividad = evidencia.id_actividad
                         meta = actividad.id_meta
                         indicador = Indicador.objects.filter(meta_id_meta=meta).first()
@@ -812,7 +837,6 @@ def crear_validacion(request):
                         if indicador and periodo_abierto:
                             indicador.avance += 1 
                             indicador.save()
-                            
                             registrar_auditoria(request, "ACTUALIZACION_AVANCE", "Indicador", indicador)
 
                     registrar_auditoria(request, "CREACION", "Validacion", validacion)
@@ -824,18 +848,25 @@ def crear_validacion(request):
                 return redirect('actividadApp:lista_validaciones')
                 
             except ValidationError as e:
-                # Si el escudo detecta duplicado, muestra el mensaje de error en rojo
                 messages.error(request, str(e.message if hasattr(e, 'message') else e.messages[0]))
             except Exception as e:
                 messages.error(request, f'Error al guardar: {str(e)}')
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
+        # Pre-llenamos los datos iniciales para el formulario oculto
+        initial_data = {}
+        if evidencia_obj:
+            initial_data['id_evidencia'] = evidencia_obj
+        if profesional_actual:
+            initial_data['id_validador'] = profesional_actual
+            
         form = ValidacionForm(initial=initial_data)
         
     return render(request, 'administrador/validaciones/form_validacion.html', {
         'form': form,
-        'titulo': 'Registrar Validación de Evidencia'
+        'titulo': 'Registrar Validación de Evidencia',
+        'evidencia': evidencia_obj
     })
 
 @login_required
