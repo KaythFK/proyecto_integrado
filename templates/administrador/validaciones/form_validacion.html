@@ -3,7 +3,6 @@
 
 {% block title %}{{ titulo }}{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Validaciones</h3>
 {% endblock %}
@@ -37,12 +36,47 @@
 
             <form method="POST" novalidate>
                 {% csrf_token %}
+                
+                <!-- Campos ocultos de seguridad para que la evidencia y el validador viajen solos por detrás -->
+                {{ form.id_evidencia }}
+                {{ form.id_validador }}
+
+                <!-- TARJETA CON INFORMACIÓN Y FOTO EN GRANDE -->
+                {% if evidencia %}
+                <div class="card mb-4 shadow-sm border bg-light">
+                    <div class="card-body p-4 text-center">
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-info-circle"></i> Información y Evidencia de la Actividad</h5>
+                        
+                        <!-- FOTO EN GRANDE -->
+                        {% if evidencia.archivo_foto %}
+                            <div class="mb-3 bg-white p-2 rounded border d-inline-block shadow-sm">
+                                <img src="{{ evidencia.archivo_foto.url }}" alt="Fotografía de Evidencia" class="img-fluid rounded" style="max-height: 500px; width: auto; object-fit: contain;">
+                            </div>
+                        {% endif %}
+                        
+                        <!-- DATOS DE LA ACTIVIDAD -->
+                        <div class="row text-start mt-2 px-md-4">
+                            <div class="col-md-6 mb-1">
+                                <p class="mb-1"><strong>Código de Actividad:</strong> <span class="texto-guinda">{{ evidencia.id_actividad.codigo_unico }}</span></p>
+                                <p class="mb-1"><strong>Profesional a cargo:</strong> {{ evidencia.id_actividad.id_profesional }}</p>
+                            </div>
+                            <div class="col-md-6 mb-1">
+                                <p class="mb-1"><strong>Fecha de Registro:</strong> {{ evidencia.fecha|date:"d/m/Y H:i" }}</p>
+                                <p class="mb-0"><strong>Solicitud / Problema:</strong> {{ evidencia.id_actividad.solicitud_problema }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 <h5 class="fw-bold mb-3 titulo-seccion">
                     Detalles de la Validación Técnica
                 </h5>
                 
                 <div class="row p-3 rounded mb-4 caja-gris">
                     {% for field in form %}
+                        <!-- FILTRAMOS PARA QUE NUNCA SE MUESTREN LOS CAMPOS DE EVIDENCIA NI VALIDADOR EN PANTALLA -->
+                        {% if field.name != 'id_evidencia' and field.name != 'id_validador' %}
                         <div class="col-12 {% if field.name == 'observacion' %}col-md-12{% else %}col-md-6{% endif %} mb-3">
                             <label class="form-label fw-bold text-dark">
                                 {{ field.label }} {% if field.field.required %}*{% endif %}
@@ -52,6 +86,7 @@
                                 <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                             {% endfor %}
                         </div>
+                        {% endif %}
                     {% endfor %}
                 </div>
                 
