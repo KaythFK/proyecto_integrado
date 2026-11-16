@@ -3,7 +3,6 @@
 
 {% block title %}Todas las actividades - SGR Coordinación{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Coordinación General SGR</h3>
 {% endblock %}
@@ -48,7 +47,7 @@
                     <th scope="col">Problema</th>
                     <th scope="col">Solicitante</th>
                     <th scope="col">Estado</th>
-                    <th scope="col" class="text-center">Auditoría</th>
+                    <th scope="col" class="text-center">Auditoría / Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -83,17 +82,26 @@
                             <span class="badge bg-secondary">Pendiente</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">
-                        <button type="button" class="btn btn-sm text-white px-3 fw-bold fondo-rojo redondeado-6"
-                                data-codigo="{{ actividad.codigo_unico }}"
-                                data-fecha="{{ actividad.fecha|date:'d/m/Y H:i' }}"
-                                data-estado="{{ actividad.get_estado_progreso_display }}"
-                                data-problema="{{ actividad.solicitud_problema }}"
-                                data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
-                                title="Revisar detalles completos"
-                                onclick="mostrarDetalle(this)">
-                            Ver Detalle
-                        </button>
+                    <td class="text-center" style="width: 180px;">
+                        <div class="d-flex flex-column align-items-center gap-2">
+                            <!-- Botón Principal del Modal de Auditoría -->
+                            <button type="button" class="btn btn-sm text-white px-3 fw-bold fondo-rojo redondeado-6 w-100"
+                                    data-codigo="{{ actividad.codigo_unico }}"
+                                    data-fecha="{{ actividad.fecha|date:'d/m/Y H:i' }}"
+                                    data-estado="{{ actividad.get_estado_progreso_display }}"
+                                    data-problema="{{ actividad.solicitud_problema }}"
+                                    data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
+                                    data-url="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}"
+                                    title="Revisar detalles completos"
+                                    onclick="mostrarDetalle(this)">
+                                Ver Detalle
+                            </button>
+                            
+                            <!-- Botón directo a Mensajes / Bitácora -->
+                            <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm w-100" title="Ver historial de mensajes">
+                                <i class="bi bi-chat-text-fill"></i> Mensajes
+                            </a>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
@@ -134,7 +142,11 @@
                     <div class="p-3 bg-light rounded shadow-sm border text-dark" id="detAccion" style="min-height: 80px;"></div>
                 </div>
             </div>
-            <div class="modal-footer bg-light justify-content-end border-0">
+            <div class="modal-footer bg-light justify-content-between border-0">
+                <!-- Enlace dinámico hacia la página de Bitácora / Notas desde el modal -->
+                <a href="#" id="btnIrBitacora" class="btn text-white fondo-guinda px-4 fw-bold shadow-sm">
+                    <i class="bi bi-chat-text-fill"></i> Ver Bitácora y Notas
+                </a>
                 <button type="button" class="btn btn-secondary px-4 fw-bold shadow-sm" data-bs-dismiss="modal">Cerrar Visor</button>
             </div>
         </div>
@@ -149,6 +161,9 @@ function mostrarDetalle(boton) {
     document.getElementById('detFecha').textContent = boton.dataset.fecha;
     document.getElementById('detProblema').textContent = boton.dataset.problema;
     document.getElementById('detAccion').textContent = boton.dataset.accion;
+    
+    // Inyectamos dinámicamente la URL de detalle al botón del modal
+    document.getElementById('btnIrBitacora').href = boton.dataset.url;
     
     const estadoEl = document.getElementById('detEstado');
     estadoEl.textContent = boton.dataset.estado;

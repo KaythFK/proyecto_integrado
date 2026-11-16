@@ -130,36 +130,50 @@
                                 </form>
                             </td>
                             
-                            <td class="text-center">
-                                <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    
-                                    <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white px-3 shadow-sm fondo-rojo redondeado-6" title="Editar Actividad">
-                                        <i class="bi bi-pencil-square"></i> Editar
-                                    </a>
-                                    <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6" title="Ver Gestiones">
-                                        <i class="bi bi-briefcase"></i> Gestiones
-                                    </a>
-                                    <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6" title="Evidencias">
-                                        <i class="bi bi-camera"></i> Evidencias
-                                    </a>
-                                    
-                                    <div class="d-flex flex-column align-items-center">
-                                        <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-065">
-                                            {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
-                                        </span>
-                                        <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
-                                            <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
-                                                   data-bs-toggle="modal" 
-                                                   data-bs-target="#modalConfirmacion"
-                                                   data-bs-url="{% url 'actividadApp:desactivar_actividad' actividad.codigo_unico %}"
-                                                   data-bs-codigo="{{ actividad.codigo_unico }}"
-                                                   data-bs-accion="{% if actividad.estado %}desactivar{% else %}reactivar{% endif %}"
-                                                   {% if actividad.estado %}checked{% endif %}
-                                                   onchange="this.checked = !this.checked;"> 
-                                        </div>
-                                    </div>
+                            <!-- COLUMNA DE GESTIÓN REORGANIZADA (2 arriba, 2 al medio, estado abajo) -->
+                    <td class="text-center" style="width: 180px;">
+                        <div class="d-flex flex-column align-items-center gap-1">
+                            
+                            <!-- Fila 1: Dos botones arriba (Editar y Gestiones) -->
+                            <div class="d-flex justify-content-between gap-1 w-100">
+                                <a href="{% url 'actividadApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-rojo redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Editar Actividad">
+                                    Editar
+                                </a>
+                                <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Ver Gestiones">
+                                    Gestiones
+                                </a>
+                            </div>
+
+                            <!-- Fila 2: Dos botones al medio (Evidencias y Mensajes) -->
+                            <div class="d-flex justify-content-between gap-1 w-100">
+                                <a href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Evidencias">
+                                    Evidencias
+                                </a>
+                                <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Ver historial de mensajes y bitácora">
+                                    Mensajes
+                                </a>
+                            </div>
+
+                            <!-- Fila 3: Tarjeta de Estado y Switch Centrado -->
+                            <div class="d-flex flex-column align-items-center p-1 bg-light rounded border shadow-sm w-100 mt-1">
+                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-065">
+                                    {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+                                <div class="form-check form-switch p-0 m-0 d-flex justify-content-center w-100" title="Activar/Desactivar">
+                                    <input class="form-check-input m-0 switch-estado switch-estado-sgr shadow-sm" type="checkbox" role="switch"
+                                        style="margin-left: 0; cursor: pointer; width: 2.1em; height: 1em;"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modalConfirmacion"
+                                        data-bs-url="{% url 'actividadApp:desactivar_actividad' actividad.codigo_unico %}"
+                                        data-bs-codigo="{{ actividad.codigo_unico }}"
+                                        data-bs-accion="{% if actividad.estado %}desactivar{% else %}reactivar{% endif %}"
+                                        {% if actividad.estado %}checked{% endif %}
+                                        onchange="this.checked = !this.checked;"> 
                                 </div>
-                            </td>
+                            </div>
+
+                        </div>
+                    </td>
                         </tr>
                         {% empty %}
                         <tr>
