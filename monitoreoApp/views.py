@@ -15,7 +15,7 @@ from config.utils import validar_periodo_abierto
 
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
-from administracionApp.models import Profesional, Auditoria
+from administracionApp.models import Profesional, Auditoria, Periodo
 import json
 from django.forms.models import model_to_dict
 
@@ -65,30 +65,87 @@ def obtener_url_retorno(user):
 @login_required
 @role_required('Delegado')
 def dashboard_delegado(request):
-    """ UML: consultarResumenEjecutivo() """
-    # 1. Obtener la delegación del delegado conectado
     delegacion_actual = request.user.profesional.id_delegacion
-    
-    # 2. Métricas de Actividades (Solo de su equipo)
+    hoy = date.today()
+
+    periodos = Periodo.objects.order_by('-fecha_inicio')
+    periodo = None
+    if (request.GET.get('periodo') or '').isdigit():
+        periodo = periodos.filter(pk=request.GET['periodo']).first()
+    if periodo is None:
+        periodo = periodos.filter(estado=True, fecha_inicio__lte=hoy, fecha_termino__gte=hoy).first() or periodos.first()
+
     actividades_equipo = Actividad.objects.filter(id_profesional__id_delegacion=delegacion_actual, estado=True)
-    total_actividades = actividades_equipo.count()
-    en_proceso = actividades_equipo.filter(estado_progreso='EN_PROCESO').count()
-    finalizadas = actividades_equipo.filter(estado_progreso='FINALIZADA').count()
-    
-    # 3. Métricas del Tubo de Compromisos (Solo de su equipo)
     compromisos_equipo = Compromiso.objects.filter(id_funcionario__id_delegacion=delegacion_actual, estado=True)
-    tubo_total = compromisos_equipo.count()
-    tubo_vencidos = compromisos_equipo.filter(fecha_comprometida__lt=date.today()).exclude(estado_progreso='REALIZADO').count()
-    
+    if periodo:
+        actividades_equipo = actividades_equipo.filter(id_meta__id_periodo=periodo)
+        compromisos_equipo = compromisos_equipo.filter(fecha_comprometida__range=(periodo.fecha_inicio, periodo.fecha_termino))
+
+    filas, cumplimiento_delegacion, semaforo_delegacion, metas_en_rojo = resumen_indicadores(delegacion_actual, periodo)
+
     context = {
-        'total_actividades': total_actividades,
-        'en_proceso': en_proceso,
-        'finalizadas': finalizadas,
-        'tubo_total': tubo_total,
-        'tubo_vencidos': tubo_vencidos,
         'delegacion_nombre': delegacion_actual.nombre,
+        'periodos': periodos,
+        'periodo': periodo,
+        'filas': filas,
+        'cumplimiento_delegacion': cumplimiento_delegacion,
+        'semaforo_delegacion': semaforo_delegacion,
+        'metas_en_rojo': metas_en_rojo,
+        'total_actividades': actividades_equipo.count(),
+        'en_proceso': actividades_equipo.filter(estado_progreso='EN_PROCESO').count(),
+        'finalizadas': actividades_equipo.filter(estado_progreso='FINALIZADA').count(),
+        'tubo_total': compromisos_equipo.count(),
+        'tubo_vencidos': compromisos_equipo.filter(fecha_comprometida__lt=hoy).exclude(estado_progreso='REALIZADO').count(),
     }
     return render(request, 'delegado/dashboard_delegado.html', context)
+
+
+def semaforo_segun_umbral(cumplimiento, periodo):
+    """Umbrales del período; si están guardados como fracción (0.6) se pasan a porcentaje (60)."""
+    regular = float(periodo.umbral_regular)
+    excelencia = float(periodo.umbral_exelencia)
+    if excelencia <= 1:
+        regular, excelencia = regular * 100, excelencia * 100
+    if cumplimiento >= excelencia:
+        return 'VERDE'
+    if cumplimiento >= regular:
+        return 'AMARILLO'
+    return 'ROJO'
+
+
+def resumen_indicadores(delegacion, periodo):
+    """Cumplimiento por funcionario (ponderado por meta, tope 120%) y de la delegación, en pocas consultas."""
+    if periodo is None:
+        return [], None, None, 0
+    metas = list(Meta.objects.filter(id_periodo=periodo, id_funcionario__id_delegacion=delegacion, estado=True)
+                 .select_related('id_funcionario', 'id_item'))
+    avances = {}
+    for ind in Indicador.objects.filter(meta_id_meta__in=metas, estado=True):
+        avances[ind.meta_id_meta_id] = avances.get(ind.meta_id_meta_id, 0) + float(ind.avance)
+
+    por_funcionario = {}
+    metas_en_rojo = 0
+    for meta in metas:
+        objetivo = float(meta.valor_objetivo)
+        cumplimiento = min(avances.get(meta.pk, 0) / objetivo * 100, 120) if objetivo else 0
+        if semaforo_segun_umbral(cumplimiento, periodo) == 'ROJO':
+            metas_en_rojo += 1
+        fila = por_funcionario.setdefault(meta.id_funcionario_id, {'funcionario': meta.id_funcionario, 'metas': 0, 'suma': 0, 'peso': 0})
+        fila['metas'] += 1
+        fila['suma'] += cumplimiento * float(meta.ponderador)
+        fila['peso'] += float(meta.ponderador)
+
+    filas = []
+    for fila in por_funcionario.values():
+        fila['cumplimiento'] = round(fila['suma'] / fila['peso'], 1) if fila['peso'] else 0
+        fila['semaforo'] = semaforo_segun_umbral(fila['cumplimiento'], periodo)
+        filas.append(fila)
+    filas.sort(key=lambda f: f['cumplimiento'])
+
+    if not filas:
+        return [], None, None, 0
+    cumplimiento_delegacion = round(sum(f['cumplimiento'] for f in filas) / len(filas), 1)
+    return filas, cumplimiento_delegacion, semaforo_segun_umbral(cumplimiento_delegacion, periodo), metas_en_rojo
 
 @login_required
 @role_required('Delegado')

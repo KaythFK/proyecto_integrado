@@ -7,7 +7,7 @@ import uuid
 from usuariosApp.decorators import role_required
 from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacion, GestionActividad
 from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm
-from administracionApp.models import Profesional, Auditoria, Vecino # <- Añadido Auditoria
+from administracionApp.models import Profesional, Auditoria, Vecino, Periodo # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
 from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol
@@ -82,7 +82,7 @@ def dashboard_profesional(request):
     if porcentaje_avance >= 80:
         semaforo = 'VERDE'
     elif porcentaje_avance >= 50:
-        semaforo = 'AMBAR'
+        semaforo = 'AMARILLO'
     else:
         semaforo = 'ROJO'
 
@@ -310,6 +310,14 @@ def actividades_delegacion(request):
     funcionario_filtro = request.GET.get('funcionario') or ''
     if funcionario_filtro.isdigit():
         actividades = actividades.filter(id_profesional_id=int(funcionario_filtro))
+
+    estado_filtro = request.GET.get('estado') or ''
+    if estado_filtro in dict(Actividad.OPCIONES_ESTADO_PROGRESO):
+        actividades = actividades.filter(estado_progreso=estado_filtro)
+
+    periodo_filtro = request.GET.get('periodo') or ''
+    if periodo_filtro.isdigit():
+        actividades = actividades.filter(id_meta__id_periodo_id=int(periodo_filtro))
         
     context = {
         'actividades': actividades,
@@ -317,6 +325,10 @@ def actividades_delegacion(request):
         'delegacion_nombre': delegacion_actual.nombre,
         'profesionales_equipo': Profesional.objects.filter(id_delegacion=delegacion_actual, estado=True).order_by('nombres'),
         'funcionario_filtro': funcionario_filtro,
+        'opciones_estado': Actividad.OPCIONES_ESTADO_PROGRESO,
+        'estado_filtro': estado_filtro,
+        'periodos': Periodo.objects.order_by('-fecha_inicio'),
+        'periodo_filtro': periodo_filtro,
     }
     return render(request, 'delegado/lista_actividades.html', context)
 
