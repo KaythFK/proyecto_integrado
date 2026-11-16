@@ -3,7 +3,6 @@
 
 {% block title %}Actividades del Equipo - SGR{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Actividades</h3>
 {% endblock %}
@@ -73,7 +72,7 @@
             <thead class="table-dark">
                 <tr>
                     <th scope="col">Código</th>
-                    <th scope="col">Fecha</th>
+                    <th scope="col">Fecha Registro</th>
                     <th scope="col">Solicitud / Problema</th>
                     <th scope="col">Solicitante</th>
                     <th scope="col">Progreso</th>
@@ -84,6 +83,7 @@
                 {% for actividad in actividades %}
                 <tr>
                     <td class="fw-bold text-nowrap">{{ actividad.codigo_unico }}</td>
+                    <!-- CORREGIDO: Se usa fecha_registro en lugar de fecha -->
                     <td class="text-nowrap">{{ actividad.fecha_registro|date:"d/m/Y H:i" }}</td>
                     <td>{{ actividad.solicitud_problema|truncatechars:45 }}</td>
                     
@@ -114,8 +114,9 @@
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
                             
-                            <!-- Botón Evidencias -->
-                            <a href="#" class="btn btn-sm text-white shadow-sm" style="background-color: #e9950b; border-radius: 6px;" title="Gestionar Evidencias">
+                            
+                            <!-- Botón Evidencias Vinculado a la Actividad -->
+                            <a href="{% url 'actividadApp:lista_evidencias' %}?q={{ actividad.codigo_unico }}" class="btn btn-sm text-white shadow-sm" style="background-color: #e9950b; border-radius: 6px;" title="Ver Evidencias de esta Actividad">
                                 <i class="bi bi-folder-check"></i> Evidencias
                             </a>
 
@@ -124,7 +125,8 @@
                                 <i class="bi bi-pencil-square"></i> Editar
                             </a>
 
-                            <!-- Botón Detalle -->
+                            <!-- Botón Detalle con extracción segura de evidencia/foto si existe -->
+                            {% with primera_evidencia=actividad.evidencia_set.first %}
                             <button type="button" class="btn btn-sm text-white shadow-sm btn-detalle fondo-guinda redondeado-6"
                                     data-codigo="{{ actividad.codigo_unico }}"
                                     data-fecha="{{ actividad.fecha_registro|date:'d/m/Y H:i' }}"
@@ -136,9 +138,11 @@
                                     data-vecino-tel="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.telefono|default:'Sin teléfono' }}{% else %}-{% endif %}"
                                     data-vecino-url="{% if actividad.solicitante_vecino %}{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}{% else %}#{% endif %}"
                                     data-tiene-vecino="{% if actividad.solicitante_vecino %}true{% else %}false{% endif %}"
+                                    data-foto-url="{% if primera_evidencia and primera_evidencia.archivo_foto %}{{ primera_evidencia.archivo_foto.url }}{% else %}{% endif %}"
                                     title="Ver detalle">
                                 <i class="bi bi-search"></i> Detalle
                             </button>
+                            {% endwith %}
                             
                             <!-- Switch de Estado (Activar/Desactivar) -->
                             <div class="d-flex flex-column align-items-center ms-2">
@@ -207,6 +211,14 @@
                     </div>
                 </div>
 
+                <!-- Sección para Ver la Fotografía de Evidencia -->
+                <div class="mb-3 p-3 bg-light rounded-3 border text-center" id="seccionEvidenciaModal" style="display: none;">
+                    <p class="text-muted mb-2 small fw-bold text-uppercase text-start">Fotografía de Evidencia Adjunta</p>
+                    <a id="btnVerFotoEvidencia" href="#" target="_blank" class="btn btn-sm text-white fw-bold shadow-sm" style="background-color: #e9950b;">
+                        <i class="bi bi-image"></i> Ver Fotografía de Evidencia en Grande
+                    </a>
+                </div>
+
                 <div class="mb-3">
                     <p class="text-muted mb-1 small fw-bold text-uppercase">Solicitud / Problema Reportado</p>
                     <div class="p-3 bg-light rounded-3 border text-dark" id="detProblema" style="min-height: 70px;"></div>
@@ -260,7 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
         vecinoTel: document.getElementById('detVecinoTel'),
         vecinoLink: document.getElementById('detVecinoLink'),
         seccionVecino: document.getElementById('seccionVecinoModal'),
-        seccionSinVecino: document.getElementById('seccionSinVecinoModal')
+        seccionSinVecino: document.getElementById('seccionSinVecinoModal'),
+        seccionEvidencia: document.getElementById('seccionEvidenciaModal'),
+        btnVerFoto: document.getElementById('btnVerFotoEvidencia')
     };
 
     document.querySelectorAll('.btn-detalle').forEach(btn => {
@@ -282,6 +296,15 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 elementos.seccionVecino.style.display = 'none';
                 elementos.seccionSinVecino.style.display = 'block';
+            }
+
+            // Manejo de la foto de evidencia en el modal
+            const fotoUrl = this.dataset.fotoUrl;
+            if (fotoUrl && fotoUrl.trim() !== '') {
+                elementos.btnVerFoto.href = fotoUrl;
+                elementos.seccionEvidencia.style.display = 'block';
+            } else {
+                elementos.seccionEvidencia.style.display = 'none';
             }
             
             elementos.estado.className = "fs-6 fw-bold";

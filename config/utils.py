@@ -1,11 +1,12 @@
 from django.core.exceptions import ValidationError
-from datetime import date
+from datetime import date, timezone, timedelta
 
 from django.db import models
 
 from administracionApp.models import Delegacion
-from actividadApp.models import Evidencia
+from actividadApp.models import Evidencia, Actividad
 from django.db.models import Q
+from django.utils.timezone import localdate
 
 
 
@@ -256,3 +257,63 @@ def filtrar_evidencias_por_rol(user):
         return evidencias.filter(id_actividad__id_profesional=profesional_actual)
     
     return Evidencia.objects.none()
+
+
+
+def validar_actividad_permite_evidencias(actividad):
+    """
+    Valida que la actividad no tenga ya una evidencia aprobada.
+    Bloquea la subida de nuevos respaldos si ya fue auditada positivamente.
+    """
+    ya_aprobada = Evidencia.objects.filter(id_actividad=actividad, estado_revision='APROBADO').exists()
+    
+    if ya_aprobada:
+        raise ValidationError(
+            f"La actividad {actividad.codigo_unico} ya cuenta con una evidencia validada y aprobada. No se pueden adjuntar más archivos."
+        )
+    return actividad
+
+
+def validar_actividad_finalizada(actividad):
+    """
+    Bloquea el cambio de estado de progreso si la actividad ya fue marcada como FINALIZADA.
+    """
+    if actividad.estado_progreso == 'FINALIZADA':
+        raise ValidationError(
+            f"La actividad {actividad.codigo_unico} ya se encuentra FINALIZADA. No es posible retroceder su estado de progreso."
+        )
+    return actividad
+
+
+
+def validar_datos_vecino_actividad(vecino):
+    if not vecino:
+        raise ValidationError("Debe asociar un vecino solicitante a la actividad.")
+    if not vecino.nombres or not vecino.telefono:
+        raise ValidationError("El vecino no tiene nombre o teléfono registrado.")
+
+def validar_tope_diario_actividades(profesional):
+    # Usamos localdate() directo para evitar el choque de librerías
+    hoy = localdate()
+    
+    cantidad_hoy = Actividad.objects.filter(
+        id_profesional=profesional, 
+        fecha_registro__date=hoy
+    ).count()
+    
+    if cantidad_hoy >= 7:
+        raise ValidationError("Superaste el tope máximo de 7 registros diarios.")
+
+def validar_cierre_semanal(fecha_realizacion):
+    hoy = localdate()
+    fecha_date = fecha_realizacion.date() if hasattr(fecha_realizacion, 'date') else fecha_realizacion
+    
+    if hoy.weekday() == 0:
+        # Si hoy es Lunes: El límite es el lunes de la SEMANA PASADA (hace 7 días)
+        limite = hoy - timedelta(days=7)
+    else:
+        # Si es Martes a Domingo: El límite es el lunes de ESTA SEMANA
+        limite = hoy - timedelta(days=hoy.weekday())
+    
+    if fecha_date < limite:
+        raise ValidationError(f"Fecha bloqueada. El límite máximo para registrar gestiones atrasadas hoy es desde el {limite.strftime('%d/%m/%Y')}.")
