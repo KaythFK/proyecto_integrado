@@ -11,6 +11,8 @@ from datetime import date
 from actividadApp.models import Actividad
 from .forms import ObservacionRegistroForm
 from monitoreoApp.views import elegir_periodo, resumen_indicadores
+from actividadApp.filters import ActividadFilter
+from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
 from administracionApp.models import Profesional, Auditoria
@@ -276,24 +278,14 @@ def dashboard_coordinador(request):
 @login_required
 @role_required('Coordinador')
 def listar_todas_actividades(request):
-    query = request.GET.get('q')
-    estado_filtro = request.GET.get('estado')
-    
-    actividades = Actividad.objects.all().prefetch_related('evidencia_set').order_by('-fecha_registro')
-
-    if query:
-        actividades = actividades.filter(
-            Q(codigo_unico__icontains=query) |
-            Q(solicitud_problema__icontains=query)
-        ).distinct()
-        
-    if estado_filtro:
-        actividades = actividades.filter(estado_progreso=estado_filtro)
+    todas = Actividad.objects.all().prefetch_related('evidencia_set').order_by('-fecha_registro')
+    filtro = ActividadFilter(request.GET, queryset=todas)
+    recordar_filtros(request, 'tuboApp:listar_todas')
 
     context = {
-        'actividades': actividades,
-        'query': query,
-        'estado_filtro': estado_filtro,
+        'actividades': filtro.qs if filtro.is_valid() else todas.none(),
+        'filtro': filtro,
+        'query': request.GET.get('q'),
     }
 
     return render(request, 'coordinador/listar_todas.html', context)
@@ -328,4 +320,5 @@ def detalle_actividad(request, pk):
         'actividad': actividad,
         'observaciones': observaciones,
         'form': form,
+        'url_volver': url_listado_actividades(request),
     })

@@ -10,6 +10,8 @@ from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, Retroalim
 from administracionApp.models import Profesional, Auditoria, Vecino, Periodo # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from monitoreoApp.views import elegir_periodo, resumen_indicadores
+from .filters import ActividadFilter
+from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades, delegacion_del_delegado
 from tuboApp.models import Compromiso
 from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias, rol_usuario
 from django.db import transaction
@@ -122,20 +124,15 @@ def dashboard_profesional(request):
 @login_required
 @role_required('Profesional')
 def listar_actividades(request):
-    query = request.GET.get('q')
-    
     profesional_actual = request.user.profesional
-    actividades = Actividad.objects.filter(id_profesional=profesional_actual).prefetch_related('gestiones__tipo_gestion').order_by('-fecha_registro')
+    propias = Actividad.objects.filter(id_profesional=profesional_actual).prefetch_related('gestiones__tipo_gestion').order_by('-fecha_registro')
+    filtro = ActividadFilter(request.GET, queryset=propias, ocultar=('delegacion', 'funcionario'))
+    recordar_filtros(request, 'actividadApp:listar_actividades')
 
-    if query:
-        actividades = actividades.filter(
-            Q(codigo_unico__icontains=query) |
-            Q(solicitud_problema__icontains=query)
-        ).distinct()
-        
     context = {
-        'actividades': actividades,
-        'query': query,
+        'actividades': filtro.qs if filtro.is_valid() else propias.none(),
+        'filtro': filtro,
+        'query': request.GET.get('q'),
     }
     return render(request, 'profesional/listar_actividades.html', context)
 
@@ -201,7 +198,7 @@ def editar_actividad(request, id_actividad):
             actividad_guardada = form.save()
             registrar_auditoria(request, "EDICION", "Actividad", actividad_guardada, datos_antiguos)
             messages.success(request, 'Actividad actualizada correctamente.')
-            return redirect('actividadApp:listar_actividades')
+            return redirect(url_con_filtros(request, 'actividadApp:listar_actividades'))
     else:
         form = ActividadForm(instance=actividad)
     return render(request, 'profesional/registrar_actividad.html', {
@@ -248,7 +245,7 @@ def registrar_evidencia(request, actividad_id):
                 messages.success(request, f'Evidencia vinculada correctamente al código {actividad.codigo_unico}.')
                 
                 if request.user.groups.filter(name='Delegado').exists():
-                    return redirect('actividadApp:actividades_delegacion')
+                    return redirect(url_con_filtros(request, 'actividadApp:actividades_delegacion'))
                 return redirect('actividadApp:dashboard_profesional')
                 
             except Exception as e:
@@ -322,41 +319,17 @@ def actualizar_estado_tubo(request, id_compromiso):
 @login_required
 @role_required('Delegado')
 def actividades_delegacion(request):
-    query = request.GET.get('q')
     delegacion_actual = request.user.profesional.id_delegacion
-    
-    actividades = Actividad.objects.filter(
-        id_profesional__id_delegacion=delegacion_actual
-    ).order_by('-fecha_registro')
+    del_equipo = Actividad.objects.filter(id_profesional__id_delegacion=delegacion_actual).order_by('-fecha_registro')
+    equipo = Profesional.objects.filter(id_delegacion=delegacion_actual, estado=True)
+    filtro = ActividadFilter(request.GET, queryset=del_equipo, profesionales=equipo, ocultar=('delegacion',))
+    recordar_filtros(request, 'actividadApp:actividades_delegacion')
 
-    if query:
-        actividades = actividades.filter(
-            Q(codigo_unico__icontains=query) |
-            Q(solicitud_problema__icontains=query)
-        ).distinct()
-
-    funcionario_filtro = request.GET.get('funcionario') or ''
-    if funcionario_filtro.isdigit():
-        actividades = actividades.filter(id_profesional_id=int(funcionario_filtro))
-
-    estado_filtro = request.GET.get('estado') or ''
-    if estado_filtro in dict(Actividad.OPCIONES_ESTADO_PROGRESO):
-        actividades = actividades.filter(estado_progreso=estado_filtro)
-
-    periodo_filtro = request.GET.get('periodo') or ''
-    if periodo_filtro.isdigit():
-        actividades = actividades.filter(id_meta__id_periodo_id=int(periodo_filtro))
-        
     context = {
-        'actividades': actividades,
-        'query': query,
+        'actividades': filtro.qs if filtro.is_valid() else del_equipo.none(),
+        'filtro': filtro,
+        'query': request.GET.get('q'),
         'delegacion_nombre': delegacion_actual.nombre,
-        'profesionales_equipo': Profesional.objects.filter(id_delegacion=delegacion_actual, estado=True).order_by('nombres'),
-        'funcionario_filtro': funcionario_filtro,
-        'opciones_estado': Actividad.OPCIONES_ESTADO_PROGRESO,
-        'estado_filtro': estado_filtro,
-        'periodos': Periodo.objects.order_by('-fecha_inicio'),
-        'periodo_filtro': periodo_filtro,
     }
     return render(request, 'delegado/lista_actividades.html', context)
 
@@ -392,7 +365,7 @@ def registrar_actividad_delegado(request):
                     else:
                         messages.success(request, f'¡Actividad registrada con éxito! Código: {nueva_actividad.codigo_unico}')
                     
-                    return redirect('actividadApp:actividades_delegacion')
+                    return redirect(url_con_filtros(request, 'actividadApp:actividades_delegacion'))
             except Exception as e:
                 messages.error(request, f'Error al registrar la actividad: {str(e)}')
         else:
@@ -435,7 +408,7 @@ def editar_actividad_delegado(request, id_actividad):
                             registrar_auditoria(request, "CREACION", "Compromiso", compromiso)
                             
                     messages.success(request, f'La actividad {actividad_guardada.codigo_unico} fue actualizada correctamente.')
-                    return redirect('actividadApp:actividades_delegacion')
+                    return redirect(url_con_filtros(request, 'actividadApp:actividades_delegacion'))
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
         else:
@@ -470,7 +443,7 @@ def cambiar_estado_actividad_delegado(request, id_actividad):
         except Exception as e:
             messages.error(request, f'Error al cambiar el estado: {str(e)}')
             
-    return redirect('actividadApp:actividades_delegacion')
+    return redirect(url_con_filtros(request, 'actividadApp:actividades_delegacion'))
 
 @login_required
 def actualizar_progreso_actividad(request, id_actividad):
@@ -606,6 +579,9 @@ def lista_retroalimentaciones(request):
     retroalimentaciones = Retroalimentacion.objects.all().select_related(
         'receptor', 'retroalimentado', 'vecino', 'delegacion', 'meta'
     ).order_by('-id_retroalimentacion')
+    if request.user.groups.filter(name='Profesional').exists():
+        propio = request.user.profesional
+        retroalimentaciones = retroalimentaciones.filter(Q(receptor=propio) | Q(retroalimentado=propio))
     
     if query:
         retroalimentaciones = retroalimentaciones.filter(
@@ -805,10 +781,13 @@ def cambiar_estado_evidencia(request, id_evidencia):
 def lista_validaciones(request):
     query = request.GET.get('q')
     validaciones = Validacion.objects.all().select_related('id_evidencia', 'id_validador').order_by('-id_validacion')
+    delegacion = delegacion_del_delegado(request.user)
+    if delegacion is not None:
+        validaciones = validaciones.filter(id_evidencia__id_actividad__id_profesional__id_delegacion=delegacion)
     
     if query:
         validaciones = validaciones.filter(
-            Q(resultado__icontains=query) |
+            Q(observacion__icontains=query) |
             Q(decision__icontains=query) |
             Q(id_validador__nombres__icontains=query) |
             Q(id_evidencia__archivo_foto__icontains=query)
@@ -824,6 +803,8 @@ def lista_validaciones(request):
 def crear_validacion(request):
     evidencia_id = request.GET.get('evidencia') or request.POST.get('id_evidencia')
     evidencia_obj = get_object_or_404(Evidencia, pk=evidencia_id) if evidencia_id else None
+    if evidencia_obj is not None:
+        validar_acceso_actividad(request.user, evidencia_obj.id_actividad)
     
     # Obtenemos el perfil profesional del usuario actual logueado para asignarlo como validador automático
     profesional_actual = getattr(request.user, 'profesional', None)
@@ -1151,6 +1132,7 @@ def gestiones_coordinador(request, id_actividad):
         'actividad': actividad,
         'gestiones': gestiones,
         'query': query,
+        'url_volver': url_con_filtros(request, 'tuboApp:listar_todas'),
         **rol_usuario(request)
     }
     return render(request, 'coordinador/gestiones_coordinador.html', contexto)
@@ -1181,4 +1163,4 @@ def cambiar_estado_actividad_coordinador(request, id_actividad):
         accion = "habilitada" if nuevo_estado else "inhabilitada"
         messages.success(request, f'La actividad {actividad.codigo_unico} fue {accion}.')
         
-    return redirect('tuboApp:listar_todas')
+    return redirect(url_con_filtros(request, 'tuboApp:listar_todas'))

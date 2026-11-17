@@ -1,0 +1,16 @@
+<form method="GET" class="card shadow-sm border-0 p-3 mb-4 redondeado-10">
+    <div class="row g-2 align-items-end">
+        {% for campo in filtro.form %}
+        <div class="col-12 col-sm-6 col-lg-3">
+            <label class="form-label small fw-bold mb-1" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+            {{ campo }}
+        </div>
+        {% endfor %}
+        <div class="col-12 col-sm-6 col-lg-3 d-flex gap-2">
+            <button type="submit" class="btn text-white fw-bold fondo-guinda w-100">Buscar</button>
+            {% if request.GET %}
+                <a href="{{ request.path }}" class="btn btn-outline-secondary fw-bold w-100">Limpiar</a>
+            {% endif %}
+        </div>
+    </div>
+</form>
