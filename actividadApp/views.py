@@ -9,6 +9,7 @@ from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacio
 from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm, ActividadProfesionalForm
 from administracionApp.models import Profesional, Auditoria, Vecino, Periodo # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
+from monitoreoApp.views import elegir_periodo, resumen_indicadores
 from tuboApp.models import Compromiso
 from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias, rol_usuario
 from django.db import transaction
@@ -93,6 +94,12 @@ def dashboard_profesional(request):
         else:
             actividad.estado_evidencia = 'SIN_EVIDENCIA'
 
+    periodo_actual = elegir_periodo(request)[1]
+    mi_avance = None
+    if profesional_actual and periodo_actual:
+        filas_propias = resumen_indicadores(None, periodo_actual, profesional=profesional_actual)[0]
+        mi_avance = filas_propias[0] if filas_propias else None
+
     limite_vencimiento = date.today() + timedelta(days=3)
     total_proximos = compromisos_tubo.filter(
         fecha_comprometida__lte=limite_vencimiento
@@ -106,7 +113,9 @@ def dashboard_profesional(request):
         'porcentaje_avance': porcentaje_avance,
         'compromisos_tubo': compromisos_tubo,
         'total_proximos_vencer': total_proximos,
-        'profesional_actual': profesional_actual
+        'profesional_actual': profesional_actual,
+        'periodo_actual': periodo_actual,
+        'mi_avance': mi_avance,
     }
     return render(request, 'profesional/dashboard_profesional.html', context)
 

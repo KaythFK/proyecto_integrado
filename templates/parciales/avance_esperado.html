@@ -1,0 +1,66 @@
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-3">
+    <div>
+        <h5 class="fw-bold m-0 texto-guinda">Avance real vs. esperado</h5>
+        {% if periodo %}
+        <small class="text-muted">
+            {{ periodo.nombre }}: {{ periodo.dias_habiles_transcurridos }} de {{ periodo.dias_habiles_totales }} días hábiles transcurridos.
+            Avance esperado al día de hoy: <strong>{{ esperado }}%</strong>
+        </small>
+        {% endif %}
+    </div>
+    {% if periodos %}
+    <form method="GET" class="d-flex gap-2 align-items-center">
+        <label for="periodo_avance" class="fw-bold small text-nowrap">Período</label>
+        <select name="periodo" id="periodo_avance" class="form-select borde-guinda max-ancho-250" onchange="this.form.submit()">
+            {% for p in periodos %}
+                <option value="{{ p.pk }}" {% if periodo and p.pk == periodo.pk %}selected{% endif %}>{{ p.nombre }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    {% endif %}
+</div>
+
+{% if desviaciones_criticas %}
+<div class="alert alert-danger shadow-sm" role="alert">
+    <strong><i class="bi bi-exclamation-triangle-fill"></i> Desviación crítica:</strong>
+    {% for fila in desviaciones_criticas %}{{ fila.funcionario.nombres }} {{ fila.funcionario.apellido_paterno }} ({{ fila.cumplimiento }}% de {{ fila.esperado }}% esperado){% if not forloop.last %}, {% endif %}{% endfor %}
+    bajo el umbral de desviación del período.
+</div>
+{% endif %}
+
+<div class="card shadow-sm border-0 mb-5 redondeado-15 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th class="px-4">Profesional</th>
+                    {% if mostrar_delegacion %}<th>Delegación</th>{% endif %}
+                    <th class="text-center">Avance real</th>
+                    <th class="text-center">Esperado</th>
+                    <th class="text-center">Diferencia</th>
+                    <th class="text-center">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in filas %}
+                <tr>
+                    <td class="px-4 fw-bold">{{ fila.funcionario.nombres }} {{ fila.funcionario.apellido_paterno }}</td>
+                    {% if mostrar_delegacion %}<td>{{ fila.funcionario.id_delegacion.nombre }}</td>{% endif %}
+                    <td class="text-center">{{ fila.cumplimiento }}%</td>
+                    <td class="text-center">{{ fila.esperado }}%</td>
+                    <td class="text-center fw-bold {% if fila.diferencia < 0 %}text-danger{% else %}text-success{% endif %}">{% if fila.diferencia > 0 %}+{% endif %}{{ fila.diferencia }} pts</td>
+                    <td class="text-center">
+                        {% if fila.desviacion == 'VERDE' %}<span class="badge bg-success">Verde</span>
+                        {% elif fila.desviacion == 'AMARILLO' %}<span class="badge bg-warning text-dark">Amarillo</span>
+                        {% else %}<span class="badge bg-danger">Rojo</span>{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No hay metas asignadas en este período.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

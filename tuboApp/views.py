@@ -10,6 +10,7 @@ from django.utils import timezone
 from datetime import date
 from actividadApp.models import Actividad
 from .forms import ObservacionRegistroForm
+from monitoreoApp.views import elegir_periodo, resumen_indicadores
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
 from administracionApp.models import Profesional, Auditoria
@@ -252,13 +253,22 @@ def dashboard_coordinador(request):
     total_actividades = Actividad.objects.count()
     finalizadas = Actividad.objects.filter(estado_progreso='FINALIZADA').count()
     en_proceso = Actividad.objects.filter(estado_progreso='EN_PROCESO').count()
-    pendientes = Actividad.objects.filter(estado_progreso='PENDIENTE').count() 
+    pendientes = Actividad.objects.filter(estado_progreso='PENDIENTE').count()
+
+    periodos, periodo = elegir_periodo(request)
+    filas = resumen_indicadores(None, periodo)[0]
+    filas.sort(key=lambda f: f['diferencia'])
 
     context = {
         'total': total_actividades,
         'finalizadas': finalizadas,
         'en_proceso': en_proceso,
         'pendientes': pendientes,
+        'periodos': periodos,
+        'periodo': periodo,
+        'filas': filas,
+        'esperado': periodo.porcentaje_esperado() if periodo else None,
+        'desviaciones_criticas': [f for f in filas if f['desviacion'] == 'ROJO'],
     }
     return render(request, 'coordinador/dashboard_coordinador.html', context)
 
