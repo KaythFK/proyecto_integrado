@@ -121,6 +121,20 @@ class Periodo(models.Model):
     def esta_vigente(self):
         return self.esta_abierto and self.fecha_inicio <= date.today()
 
+    @property
+    def dias_habiles_totales(self):
+        return self.calcular_dias_computables(self.fecha_inicio, self.fecha_termino)
+
+    def dias_habiles_transcurridos(self, hoy=None):
+        hoy = hoy or date.today()
+        if hoy < self.fecha_inicio:
+            return 0
+        return self.calcular_dias_computables(self.fecha_inicio, min(hoy, self.fecha_termino))
+
+    def porcentaje_esperado(self, hoy=None):
+        total = self.dias_habiles_totales
+        return round(self.dias_habiles_transcurridos(hoy) / total * 100, 1) if total else 0
+
     @staticmethod
     def calcular_dias_computables(fecha_inicio, fecha_termino):
         if not fecha_inicio or not fecha_termino or fecha_termino < fecha_inicio:

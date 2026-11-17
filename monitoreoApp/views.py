@@ -67,13 +67,7 @@ def obtener_url_retorno(user):
 def dashboard_delegado(request):
     delegacion_actual = request.user.profesional.id_delegacion
     hoy = date.today()
-
-    periodos = Periodo.objects.order_by('-fecha_inicio')
-    periodo = None
-    if (request.GET.get('periodo') or '').isdigit():
-        periodo = periodos.filter(pk=request.GET['periodo']).first()
-    if periodo is None:
-        periodo = periodos.filter(estado=True, fecha_inicio__lte=hoy, fecha_termino__gte=hoy).first() or periodos.first()
+    periodos, periodo = elegir_periodo(request)
 
     actividades_equipo = Actividad.objects.filter(id_profesional__id_delegacion=delegacion_actual, estado=True)
     compromisos_equipo = Compromiso.objects.filter(id_funcionario__id_delegacion=delegacion_actual, estado=True)
@@ -88,9 +82,11 @@ def dashboard_delegado(request):
         'periodos': periodos,
         'periodo': periodo,
         'filas': filas,
+        'esperado': periodo.porcentaje_esperado() if periodo else None,
         'cumplimiento_delegacion': cumplimiento_delegacion,
         'semaforo_delegacion': semaforo_delegacion,
         'metas_en_rojo': metas_en_rojo,
+        'desviaciones_criticas': [f for f in filas if f['desviacion'] == 'ROJO'],
         'total_actividades': actividades_equipo.count(),
         'en_proceso': actividades_equipo.filter(estado_progreso='EN_PROCESO').count(),
         'finalizadas': actividades_equipo.filter(estado_progreso='FINALIZADA').count(),
@@ -113,12 +109,41 @@ def semaforo_segun_umbral(cumplimiento, periodo):
     return 'ROJO'
 
 
-def resumen_indicadores(delegacion, periodo):
-    """Cumplimiento por funcionario (ponderado por meta, tope 120%) y de la delegación, en pocas consultas."""
+def elegir_periodo(request):
+    hoy = date.today()
+    periodos = Periodo.objects.order_by('-fecha_inicio')
+    periodo = None
+    if (request.GET.get('periodo') or '').isdigit():
+        periodo = periodos.filter(pk=request.GET['periodo']).first()
+    if periodo is None:
+        periodo = periodos.filter(estado=True, fecha_inicio__lte=hoy, fecha_termino__gte=hoy).first() or periodos.first()
+    return periodos, periodo
+
+
+def estado_desviacion(real, esperado, periodo):
+    """Regla de la matriz del cliente: verde si alcanza lo esperado al día, amarillo si llega a umbral_regular × esperado, rojo bajo eso."""
+    regular = float(periodo.umbral_regular)
+    if regular > 1:
+        regular = regular / 100
+    if real >= esperado:
+        return 'VERDE'
+    if real >= esperado * regular:
+        return 'AMARILLO'
+    return 'ROJO'
+
+
+def resumen_indicadores(delegacion, periodo, profesional=None):
+    """Cumplimiento por funcionario (ponderado por meta, tope 120%) y de la delegación, en pocas consultas.
+    Sin delegación incluye todas; con profesional, solo sus metas."""
     if periodo is None:
         return [], None, None, 0
-    metas = list(Meta.objects.filter(id_periodo=periodo, id_funcionario__id_delegacion=delegacion, estado=True)
-                 .select_related('id_funcionario', 'id_item'))
+    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_funcionario__id_delegacion', 'id_item')
+    if delegacion is not None:
+        metas = metas.filter(id_funcionario__id_delegacion=delegacion)
+    if profesional is not None:
+        metas = metas.filter(id_funcionario=profesional)
+    metas = list(metas)
+    esperado = periodo.porcentaje_esperado()
     avances = {}
     for ind in Indicador.objects.filter(meta_id_meta__in=metas, estado=True):
         avances[ind.meta_id_meta_id] = avances.get(ind.meta_id_meta_id, 0) + float(ind.avance)
@@ -139,6 +164,9 @@ def resumen_indicadores(delegacion, periodo):
     for fila in por_funcionario.values():
         fila['cumplimiento'] = round(fila['suma'] / fila['peso'], 1) if fila['peso'] else 0
         fila['semaforo'] = semaforo_segun_umbral(fila['cumplimiento'], periodo)
+        fila['esperado'] = esperado
+        fila['diferencia'] = round(fila['cumplimiento'] - esperado, 1)
+        fila['desviacion'] = estado_desviacion(fila['cumplimiento'], esperado, periodo)
         filas.append(fila)
     filas.sort(key=lambda f: f['cumplimiento'])
 

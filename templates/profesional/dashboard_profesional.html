@@ -83,6 +83,33 @@
         </div>
     </div>
 
+    {% if mi_avance %}
+    <div class="card shadow-sm border-0 mb-4 redondeado-10">
+        <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h6 class="fw-bold m-0 texto-oscuro">Avance real vs. esperado · {{ periodo_actual.nombre }}</h6>
+                <small class="text-muted">{{ periodo_actual.dias_habiles_transcurridos }} de {{ periodo_actual.dias_habiles_totales }} días hábiles transcurridos</small>
+            </div>
+            <div class="d-flex gap-4 text-center">
+                <div><small class="text-muted d-block">Real</small><strong>{{ mi_avance.cumplimiento }}%</strong></div>
+                <div><small class="text-muted d-block">Esperado</small><strong>{{ mi_avance.esperado }}%</strong></div>
+                <div><small class="text-muted d-block">Diferencia</small><strong class="{% if mi_avance.diferencia < 0 %}text-danger{% else %}text-success{% endif %}">{% if mi_avance.diferencia > 0 %}+{% endif %}{{ mi_avance.diferencia }} pts</strong></div>
+                <div>
+                    <small class="text-muted d-block">Estado</small>
+                    {% if mi_avance.desviacion == 'VERDE' %}<span class="badge bg-success">Verde</span>
+                    {% elif mi_avance.desviacion == 'AMARILLO' %}<span class="badge bg-warning text-dark">Amarillo</span>
+                    {% else %}<span class="badge bg-danger">Rojo</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% if mi_avance.desviacion == 'ROJO' %}
+        <div class="alert alert-danger m-3 mt-0" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i> Tu avance está bajo el umbral de desviación del período. Revisa tus metas con tu delegado.
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- NIVEL 2: AGENDA COLECTIVA / TUBO (RF-016) -->
     <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
         <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
