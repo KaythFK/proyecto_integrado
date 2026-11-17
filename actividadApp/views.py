@@ -10,7 +10,7 @@ from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, Retroalim
 from administracionApp.models import Profesional, Auditoria, Vecino, Periodo # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from tuboApp.models import Compromiso
-from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias
+from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias, rol_usuario
 from django.db import transaction
 from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -1111,3 +1111,65 @@ def obtener_atenciones_validas_para_informe():
     para los informes estadísticos de la municipalidad.
     """
     return Actividad.objects.filter(estado=True).distinct()
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def gestiones_coordinador(request, id_actividad):
+    """ Vista exclusiva para que el Coordinador audite las gestiones de una actividad """
+    actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+    
+    # Validamos acceso corporativo con tu util existente
+    validar_acceso_actividad(request.user, actividad)
+    
+    # Registramos en la auditoría del sistema que el coordinador consultó las gestiones de esta actividad
+    try:
+        registrar_auditoria(request, "CONSULTA_AUDITORIA", "Actividad", actividad)
+    except Exception:
+        pass  # Evita que falle si la estructura de auditoría requiere un evento específico
+    
+    gestiones = GestionActividad.objects.filter(actividad=actividad).select_related('tipo_gestion', 'profesional').order_by('-fecha_registro')
+    
+    # Filtro de búsqueda opcional por si la actividad tiene muchas gestiones
+    query = request.GET.get('q')
+    if query:
+        gestiones = gestiones.filter(
+            Q(tipo_gestion__nombre__icontains=query) |
+            Q(descripcion__icontains=query)
+        ).distinct()
+    
+    contexto = {
+        'actividad': actividad,
+        'gestiones': gestiones,
+        'query': query,
+        **rol_usuario(request)
+    }
+    return render(request, 'coordinador/gestiones_coordinador.html', contexto)
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def cambiar_estado_actividad_coordinador(request, id_actividad):
+    """ Vista exclusiva para que el Coordinador cambie el estado mediante POST """
+    if request.method == 'POST':
+        actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+        
+        with transaction.atomic():
+            from django.forms.models import model_to_dict
+            datos_antiguos = model_to_dict(actividad)
+            
+            nuevo_estado = not actividad.estado
+            actividad.estado = nuevo_estado
+            actividad.save()
+            
+            # Auditoría (Importando la función desde administracionApp si es necesario)
+            try:
+                from administracionApp.views import registrar_auditoria
+                registrar_auditoria(request, "CAMBIO_ESTADO", "Actividad", actividad, datos_antiguos)
+            except Exception:
+                pass
+                
+        accion = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'La actividad {actividad.codigo_unico} fue {accion}.')
+        
+    return redirect('tuboApp:listar_todas')
