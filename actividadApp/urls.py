@@ -56,4 +56,8 @@ urlpatterns = [
     #Historial de vecino
     path('vecino/<int:id_vecino>/historial/', views.detalle_vecino, name='detalle_vecino'),
 
+    #Gestiones para el coordinador
+    path('coordinador/actividad/<int:id_actividad>/gestiones/', views.gestiones_coordinador, name='gestiones_coordinador'),
+    path('coordinador/actividad/<int:id_actividad>/cambiar-estado/', views.cambiar_estado_actividad_coordinador, name='cambiar_estado_actividad_coordinador'),
+
 ]

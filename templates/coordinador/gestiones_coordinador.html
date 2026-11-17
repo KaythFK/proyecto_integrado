@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Auditoría de Gestiones - SGR{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Auditoría de Gestiones</h3>
+{% endblock %}
+
+{% block contenido %}
+{% include 'parciales/mensajes.html' %}
+<div class="container mt-5 mb-5">
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h4 class="fw-bold m-0 texto-guinda">Gestiones de la Actividad: <span class="text-warning">{{ actividad.codigo_unico }}</span></h4>
+            <small class="text-muted">Problema reportado: {{ actividad.solicitud_problema|truncatechars:60 }}</small>
+        </div>
+        <!-- Botón de retorno exclusivo para el Coordinador -->
+        <a href="{% url 'tuboApp:listar_todas' %}" class="btn btn-outline-secondary fw-bold shadow-sm redondeado-8">
+            <i class="bi bi-arrow-left"></i> Volver al Directorio Global
+        </a>
+    </div>
+
+    <!-- Buscador -->
+    <div class="row mb-4">
+        <div class="col-12 col-md-8 col-lg-6">
+            <form method="GET" action="">
+                <div class="input-group shadow-sm">
+                    <input type="text" name="q" class="form-control borde-guinda"
+                        placeholder="Buscar por tipo o descripción..."
+                        value="{{ query|default_if_none:'' }}">
+                    <button class="btn text-white fw-bold fondo-guinda" type="submit">Buscar</button>
+                    {% if query %}
+                        <a href="?" class="btn btn-outline-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla exclusiva de Auditoría (Sin opciones de edición) -->
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Funcionario / Profesional</th>
+                    <th>Tipo de Gestión</th>
+                    <th>Descripción</th>
+                    <th class="text-center">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ges in gestiones %}
+                <tr class="{% if not ges.estado %}table-secondary text-muted opacity-75{% endif %}">
+                    <td>
+                        <small class="fw-bold text-dark">{{ ges.fecha_registro|date:"d/m/Y H:i" }}</small>
+                        {% if ges.fecha_ejecucion %}<small class="text-muted d-block">Ejecución: {{ ges.fecha_ejecucion|date:"d/m/Y" }}</small>{% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ ges.profesional.nombres }} {{ ges.profesional.apellido_paterno }}</strong>
+                    </td>
+                    <td><span class="badge bg-secondary">{{ ges.tipo_gestion.nombre }}</span></td>
+                    <td><small class="text-muted">{{ ges.descripcion }}</small></td>
+                    <td class="text-center">
+                        {% if ges.estado %}
+                            <span class="badge bg-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactiva</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        {% if query %}No se encontraron gestiones que coincidan con "{{ query }}".{% else %}Esta actividad aún no registra gestiones de terreno.{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
