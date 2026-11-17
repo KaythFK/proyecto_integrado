@@ -15,27 +15,7 @@
     </div>
 
     <!-- Buscador y Filtro Responsivos -->
-    <div class="card shadow-sm border-0 p-3 mb-4 redondeado-15 fondo-gris-claro">
-        <form method="GET" action="{% url 'tuboApp:listar_todas' %}" class="row g-3 align-items-center">
-            <div class="col-12 col-md-5">
-                <input type="text" name="q" class="form-control borde-guinda" placeholder="Buscar por código o problema..." value="{{ query|default_if_none:'' }}">
-            </div>
-            <div class="col-12 col-md-4">
-                <select name="estado" class="form-select borde-guinda">
-                    <option value="">Todos los Estados</option>
-                    <option value="FINALIZADA" {% if estado_filtro == 'FINALIZADA' %}selected{% endif %}>Finalizada</option>
-                    <option value="EN_PROCESO" {% if estado_filtro == 'EN_PROCESO' %}selected{% endif %}>En Proceso</option>
-                    <option value="PENDIENTE" {% if estado_filtro == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
-                </select>
-            </div>
-            <div class="col-12 col-md-3 d-flex gap-2">
-                <button class="btn text-white w-100 fw-bold shadow-sm fondo-guinda" type="submit">Filtrar</button>
-                {% if query or estado_filtro %}
-                    <a href="{% url 'tuboApp:listar_todas' %}" class="btn btn-outline-secondary w-100 fw-bold shadow-sm">Limpiar</a>
-                {% endif %}
-            </div>
-        </form>
-    </div>
+    {% include 'parciales/filtros.html' %}
 
     <!-- Tabla -->
     <div class="table-responsive shadow-sm mb-5 redondeado-15">

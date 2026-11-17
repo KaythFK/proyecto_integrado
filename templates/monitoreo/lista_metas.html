@@ -27,21 +27,7 @@
         {% endfor %}
     {% endif %}
 
-    <div class="row mb-4">
-        <div class="col-12 col-md-8 col-lg-6">
-            <form method="GET" action="{% url 'monitoreoApp:listar_metas' %}">
-                <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control borde-guinda" 
-                        placeholder="Buscar por unidad o valor objetivo..." 
-                        value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold fondo-guinda borde-guinda" type="submit">Buscar</button>
-                    {% if query %}
-                        <a href="{% url 'monitoreoApp:listar_metas' %}" class="btn btn-outline-secondary">Limpiar</a>
-                    {% endif %}
-                </div>
-            </form>
-        </div>
-    </div>
+    {% include 'parciales/filtros.html' %}
 
     <div class="table-responsive shadow-sm rounded mb-5">
         <table class="table table-hover align-middle mb-0">

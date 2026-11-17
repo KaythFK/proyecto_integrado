@@ -317,3 +317,34 @@ def validar_cierre_semanal(fecha_realizacion):
     
     if fecha_date < limite:
         raise ValidationError(f"Fecha bloqueada. El límite máximo para registrar gestiones atrasadas hoy es desde el {limite.strftime('%d/%m/%Y')}.")
+
+LISTADO_ACTIVIDADES_POR_ROL = {
+    'Administrador': 'administracionApp:admin-actividades',
+    'Coordinador': 'tuboApp:listar_todas',
+    'Delegado': 'actividadApp:actividades_delegacion',
+    'Profesional': 'actividadApp:listar_actividades',
+}
+
+
+def recordar_filtros(request, nombre_url):
+    request.session[f'filtros:{nombre_url}'] = request.GET.urlencode()
+
+
+def url_con_filtros(request, nombre_url):
+    from django.urls import reverse
+    filtros = request.session.get(f'filtros:{nombre_url}', '')
+    return reverse(nombre_url) + (f'?{filtros}' if filtros else '')
+
+
+def url_listado_actividades(request):
+    for rol, nombre_url in LISTADO_ACTIVIDADES_POR_ROL.items():
+        if request.user.groups.filter(name=rol).exists():
+            return url_con_filtros(request, nombre_url)
+    return '/'
+
+
+def delegacion_del_delegado(user):
+    """Delegación del usuario si su rol es Delegado; None para los roles con alcance global."""
+    if user.groups.filter(name='Delegado').exists() and hasattr(user, 'profesional'):
+        return user.profesional.id_delegacion
+    return None

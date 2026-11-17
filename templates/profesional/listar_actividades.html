@@ -30,23 +30,7 @@
         {% endfor %}
     {% endif %}
 
-    <div class="card shadow-sm border-0 p-3 mb-4 redondeado-15 fondo-gris-claro">
-        <form method="GET" action="{% url 'actividadApp:listar_actividades' %}" class="row g-2 align-items-center">
-            <div class="col-12 col-md-9">
-                <input type="text" name="q" class="form-control borde-guinda" 
-                       placeholder="Buscar por código, problema o acción..." 
-                       value="{{ query|default_if_none:'' }}">
-            </div>
-            <div class="col-12 col-md-3 d-flex gap-2">
-                <button class="btn text-white fw-bold w-100 shadow-sm fondo-guinda" type="submit">
-                    Buscar
-                </button>
-                {% if query %}
-                    <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary w-100 fw-bold shadow-sm">Limpiar</a>
-                {% endif %}
-            </div>
-        </form>
-    </div>
+    {% include 'parciales/filtros.html' %}
 
     <div class="card shadow-sm border-0 redondeado-15 overflow-hidden">
         <div class="card-body p-0">

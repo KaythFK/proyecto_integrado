@@ -11,7 +11,9 @@ from tuboApp.models import Compromiso
 from tuboApp.filters import CompromisoFilter
 from datetime import date
 from django.core.exceptions import ValidationError
-from config.utils import validar_periodo_abierto
+from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado
+from django.core.exceptions import PermissionDenied
+from .filters import MetaFilter
 
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
@@ -233,22 +235,38 @@ def tubo_delegacion(request):
 
 
 # --- NUEVAS VISTAS DE GESTIÓN DE METAS ---
+def equipo_de(delegacion):
+    return Profesional.objects.filter(id_delegacion=delegacion, estado=True)
+
+
+def validar_meta_de_su_delegacion(user, meta):
+    delegacion = delegacion_del_delegado(user)
+    if delegacion is not None and meta.id_funcionario.id_delegacion_id != delegacion.pk:
+        raise PermissionDenied('No tienes permiso para modificar esta meta: pertenece a otra delegación.')
+
+
+def limitar_funcionarios_meta(user, form):
+    delegacion = delegacion_del_delegado(user)
+    if delegacion is not None:
+        form.fields['id_funcionario'].queryset = equipo_de(delegacion)
+
+
 @login_required
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def listar_metas(request):
-    query = request.GET.get('q')
-    metas = Meta.objects.select_related('id_item', 'id_periodo', 'id_funcionario').all().order_by('-id_meta')
-
-    if query:
-        metas = metas.filter(
-            Q(unidad__icontains=query) |
-            Q(valor_objetivo__icontains=query) |
-            Q(id_item__nombre__icontains=query)
-        ).distinct()
+    metas = Meta.objects.select_related('id_item', 'id_periodo', 'id_funcionario').order_by('-id_meta')
+    delegacion = delegacion_del_delegado(request.user)
+    if delegacion is not None:
+        metas = metas.filter(id_funcionario__id_delegacion=delegacion)
+        filtro = MetaFilter(request.GET, queryset=metas, profesionales=equipo_de(delegacion), ocultar=('delegacion',))
+    else:
+        filtro = MetaFilter(request.GET, queryset=metas)
+    recordar_filtros(request, 'monitoreoApp:listar_metas')
 
     context = {
-        'metas': metas,
-        'query': query,
+        'metas': filtro.qs if filtro.is_valid() else metas.none(),
+        'filtro': filtro,
+        'query': request.GET.get('q'),
         'url_retorno': obtener_url_retorno(request.user),
     }
     return render(request, 'monitoreo/lista_metas.html', context)
@@ -259,6 +277,7 @@ def listar_metas(request):
 def crear_meta(request):
     if request.method == 'POST':
         form = MetaForm(request.POST)
+        limitar_funcionarios_meta(request.user, form)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -270,17 +289,19 @@ def crear_meta(request):
                     registrar_auditoria(request, "CREACION", "Meta", meta)
                     
                 messages.success(request, 'La meta se ha registrado correctamente.')
-                return redirect('monitoreoApp:listar_metas')
+                return redirect(url_con_filtros(request, 'monitoreoApp:listar_metas'))
             except Exception as e:
                 messages.error(request, f'Error al guardar: {str(e)}')
         else:
             messages.error(request, 'Corrige los errores del formulario.')
     else:
         form = MetaForm()
+        limitar_funcionarios_meta(request.user, form)
         
     context = {
         'form': form, 
         'titulo': 'Registrar Nueva Meta',
+        'url_listado': url_con_filtros(request, 'monitoreoApp:listar_metas'),
         'url_retorno': obtener_url_retorno(request.user),
     }
     return render(request, 'monitoreo/form_meta.html', context)
@@ -289,10 +310,12 @@ def crear_meta(request):
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def editar_meta(request, id_meta):
     meta = get_object_or_404(Meta, id_meta=id_meta)
+    validar_meta_de_su_delegacion(request.user, meta)
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(meta) # --- AUDITORÍA ---
         form = MetaForm(request.POST, instance=meta)
+        limitar_funcionarios_meta(request.user, form)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -302,15 +325,17 @@ def editar_meta(request, id_meta):
                     registrar_auditoria(request, "EDICION", "Meta", meta_guardada, datos_antiguos)
                     
                 messages.success(request, 'La meta se ha actualizado correctamente.')
-                return redirect('monitoreoApp:listar_metas')
+                return redirect(url_con_filtros(request, 'monitoreoApp:listar_metas'))
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
     else:
         form = MetaForm(instance=meta)
+        limitar_funcionarios_meta(request.user, form)
         
     context = {
         'form': form, 
         'titulo': f'Editar Meta #{meta.id_meta}',
+        'url_listado': url_con_filtros(request, 'monitoreoApp:listar_metas'),
         'url_retorno': obtener_url_retorno(request.user),
     }
     return render(request, 'monitoreo/form_meta.html', context)
@@ -320,6 +345,7 @@ def editar_meta(request, id_meta):
 def cambiar_estado_meta(request, id_meta):
     if request.method == 'POST':
         meta = get_object_or_404(Meta, id_meta=id_meta)
+        validar_meta_de_su_delegacion(request.user, meta)
         try:
             with transaction.atomic():
                 datos_antiguos = model_to_dict(meta) # --- AUDITORÍA ---
@@ -335,7 +361,7 @@ def cambiar_estado_meta(request, id_meta):
         except Exception as e:
             messages.error(request, f'Error al cambiar el estado: {str(e)}')
             
-    return redirect('monitoreoApp:listar_metas')
+    return redirect(url_con_filtros(request, 'monitoreoApp:listar_metas'))
 
 
 
@@ -344,6 +370,8 @@ def cambiar_estado_meta(request, id_meta):
 def lista_indicadores(request):
     query = request.GET.get('q')
     indicadores = Indicador.objects.all().select_related('meta_id_meta__id_periodo').order_by('-id_indicador')
+    if request.user.groups.filter(name='Profesional').exists():
+        indicadores = indicadores.filter(meta_id_meta__id_funcionario=request.user.profesional)
     
     if query:
         indicadores = indicadores.filter(
