@@ -29,16 +29,23 @@ class Meta(models.Model):
     id_meta = models.AutoField(primary_key=True)
     valor_objetivo = models.DecimalField(max_digits=10, decimal_places=2)
     unidad = models.CharField(max_length=50)
-    ponderador = models.DecimalField(max_digits=5, decimal_places=2)
-    id_item = models.ForeignKey('administracionApp.CatalagoItem', models.DO_NOTHING, db_column='id_item')
-    id_periodo = models.ForeignKey('administracionApp.Periodo', models.DO_NOTHING, db_column='id_periodo')
-    # NUEVO: Reemplazamos id_funcionario por id_cargo
-    id_cargo = models.ForeignKey('administracionApp.Cargo', models.DO_NOTHING, db_column='id_cargo')
+    
+    # La ponderación específica para este período (CA1)
+    ponderador = models.DecimalField(max_digits=5, decimal_places=2) 
+    
+    # 1. Arquitectura: Conectamos directo a la matriz que ya armamos
+    id_cargo_item = models.ForeignKey('administracionApp.CargoItem', on_delete=models.DO_NOTHING, db_column='id_cargo_item')
+    id_periodo = models.ForeignKey('administracionApp.Periodo', on_delete=models.DO_NOTHING, db_column='id_periodo')
+    
+    # 2. Vigencia propia y versionado (CA1, CA3 y KAN-208)
+    fecha_inicio = models.DateField()
+    fecha_termino = models.DateField(null=True, blank=True)
+    version = models.IntegerField(default=1)
+    
     estado = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'meta'
-
 
 class Alerta(models.Model):
     id_alerta = models.AutoField(primary_key=True)

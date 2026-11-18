@@ -527,3 +527,28 @@ def validar_vigencia_fecha_actual():
     ).exists()
     
     return periodo_vigente
+
+
+def validar_datos_meta(valor_objetivo, ponderador, fecha_inicio, fecha_termino, periodo):
+    """
+    Valida los datos de creación/modificación de una Meta (KAN-203).
+    Asegura valores positivos, rangos coherentes y apego a las fechas del Periodo.
+    """
+    # 1. Validar valores numéricos positivos
+    if valor_objetivo is None or valor_objetivo <= 0:
+        raise ValidationError("El valor objetivo de la meta debe ser mayor a 0.")
+    
+    if ponderador is None or ponderador <= 0 or ponderador > 100:
+        raise ValidationError("El ponderador de la meta debe ser un porcentaje válido entre 0 y 100.")
+
+    # 2. Validar coherencia de fechas de la meta
+    if fecha_termino and fecha_inicio and fecha_termino < fecha_inicio:
+        raise ValidationError("La fecha de término de la meta no puede ser anterior a la fecha de inicio.")
+
+    # 3. Validar que la meta esté contenida dentro de las fechas del Periodo asociado
+    if periodo:
+        if fecha_inicio < periodo.fecha_inicio:
+            raise ValidationError(f"La fecha de inicio de la meta no puede ser anterior al inicio del período ({periodo.fecha_inicio}).")
+        
+        if fecha_termino and periodo.fecha_termino and fecha_termino > periodo.fecha_termino:
+            raise ValidationError(f"La fecha de término de la meta no puede superar el cierre del período ({periodo.fecha_termino}).")

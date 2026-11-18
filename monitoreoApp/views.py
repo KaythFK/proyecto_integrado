@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad, Ausencia
 from .models import Meta, Indicador
-from .forms import MetaForm, IndicadorForm
+from .forms import MetaForm, IndicadorForm, MetaAsignacionForm
 from tuboApp.models import Compromiso
 from tuboApp.filters import CompromisoFilter
 from datetime import date
@@ -15,6 +15,7 @@ from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filt
 from django.core.exceptions import PermissionDenied
 from .filters import MetaFilter
 from config.utils import procesar_resumen_dashboard
+from administracionApp.models import Cargo, CargoItem
 
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
@@ -463,3 +464,40 @@ def cambiar_estado_indicador(request, id_indicador):
         messages.success(request, f'El indicador #{indicador.id_indicador} fue {accion_str} correctamente.')
         
     return redirect('monitoreoApp:lista_indicadores')
+
+
+def asignar_metas_cargo(request, cargo_pk):
+    cargo = get_object_or_404(Cargo, pk=cargo_pk)
+    periodo_actual = Periodo.objects.filter(estado=True).order_by('-fecha_inicio').first()
+    
+    if not periodo_actual:
+        messages.error(request, "No hay un período de medición abierto.")
+        return redirect('administracionApp:lista_cargos')
+
+    if request.method == 'POST':
+        form = MetaAsignacionForm(request.POST)
+        if form.is_valid():
+            nueva_meta = form.save(commit=False)
+            nueva_meta.version = 1 # KAN-208: Versión inicial
+            nueva_meta.save()
+            
+            messages.success(request, "Meta asignada correctamente.")
+            return redirect('administracionApp:asignar_metas_cargo', cargo_pk=cargo.pk)
+        else:
+            messages.error(request, "Error al guardar la meta. Revisa los datos ingresados.")
+    else:
+        form = MetaAsignacionForm(initial={
+            'id_periodo': periodo_actual,
+            'fecha_inicio': periodo_actual.fecha_inicio
+        })
+
+    # Restringimos el select solo a los ítems que pertenecen a la matriz de este cargo
+    form.fields['id_cargo_item'].queryset = CargoItem.objects.filter(id_cargo=cargo.pk)
+
+    context = {
+        'titulo': f'Asignar Metas: {cargo.nombre}',
+        'cargo': cargo,
+        'form': form,
+        'periodo': periodo_actual,
+    }
+    return render(request, 'administracionApp/asignar_metas.html', context)
