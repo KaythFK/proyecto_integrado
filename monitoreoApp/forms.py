@@ -1,6 +1,6 @@
 from django import forms
 from .models import Meta, Indicador
-from config.utils import limitar_a_opciones_activas
+from config.utils import limitar_a_opciones_activas, validar_datos_meta
 
 class MetaForm(forms.ModelForm):
     class Meta:
@@ -117,3 +117,51 @@ class IndicadorForm(forms.ModelForm):
         if ponderacion is not None and (ponderacion < 0 or ponderacion > 100):
             raise forms.ValidationError("La ponderación debe estar entre 0 y 100.")
         return ponderacion
+
+
+class MetaAsignacionForm(forms.ModelForm):
+    class Meta:
+        model = Meta
+        exclude = ['estado', 'version'] # La versión se asigna por código (KAN-208)
+        widgets = {
+            'valor_objetivo': forms.NumberInput(attrs={
+                'class': 'form-control borde-gris', 
+                'step': '0.01', 
+                'min': '0.01',
+                'placeholder': 'Ej: 100.00',
+                'required': True
+            }),
+            'unidad': forms.TextInput(attrs={
+                'class': 'form-control borde-gris', 
+                'placeholder': 'Ej: Porcentaje, Cantidad, Horas...',
+                'required': True
+            }),
+            'ponderador': forms.NumberInput(attrs={
+                'class': 'form-control borde-gris', 
+                'step': '0.01', 
+                'min': '0.01', 
+                'max': '100', 
+                'placeholder': 'Ej: 25.00',
+                'required': True
+            }),
+            'id_cargo_item': forms.Select(attrs={'class': 'form-select borde-gris', 'required': True}),
+            'id_periodo': forms.Select(attrs={'class': 'form-select borde-gris', 'required': True}),
+            'fecha_inicio': forms.DateInput(attrs={'class': 'form-control borde-gris', 'type': 'date', 'required': True}),
+            'fecha_termino': forms.DateInput(attrs={'class': 'form-control borde-gris', 'type': 'date'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        valor = cleaned_data.get('valor_objetivo')
+        ponderador = cleaned_data.get('ponderador')
+        f_inicio = cleaned_data.get('fecha_inicio')
+        f_termino = cleaned_data.get('fecha_termino')
+        periodo = cleaned_data.get('id_periodo')
+
+        try:
+            # Llamamos a tu función de utils.py existente (KAN-203)
+            validar_datos_meta(valor, ponderador, f_inicio, f_termino, periodo)
+        except ValidationError as e:
+            raise forms.ValidationError(e.message)
+
+        return cleaned_data
