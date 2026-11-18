@@ -90,6 +90,15 @@ def mi_perfil(request):
             messages.success(request, 'Tu foto de perfil ha sido actualizada.')
             return redirect('usuariosApp:mi_perfil')
 
+        if 'eliminar_foto' in request.POST:
+            perfil_foto = FotoPerfil.objects.filter(usuario=request.user).first()
+            if perfil_foto is not None:
+                if perfil_foto.foto and perfil_foto.foto.name != FotoPerfil._meta.get_field('foto').default:
+                    perfil_foto.foto.delete(save=False)
+                perfil_foto.delete()
+                messages.success(request, 'Tu foto de perfil fue eliminada.')
+            return redirect('usuariosApp:mi_perfil')
+
         # ACCIÓN B: EL USUARIO ESTÁ CAMBIANDO SU CONTRASEÑA
         nueva_clave = request.POST.get('nueva_clave')
         confirmar_clave = request.POST.get('confirmar_clave')

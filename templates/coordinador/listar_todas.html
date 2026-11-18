@@ -71,13 +71,13 @@
                             <button class="btn btn-sm text-white fw-bold fondo-guinda dropdown-toggle shadow-sm redondeado-6 px-3" 
                                     type="button" 
                                     id="dropdownAcciones{{ actividad.pk }}" 
-                                    data-bs-toggle="dropdown" 
+                                    data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' 
                                     aria-expanded="false">
                                 <i class="bi bi-gear-fill"></i> Acciones
                             </button>
 
                             <!-- Menú Desplegable -->
-                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 py-2 redondeado-10" aria-labelledby="dropdownAcciones{{ actividad.pk }}" style="min-width: 180px;">
+                            <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow-lg border-0 py-2 redondeado-10" aria-labelledby="dropdownAcciones{{ actividad.pk }}" style="min-width: 180px;">
                                 
                                 <li>
                                     <button type="button" class="dropdown-item py-2 fw-semibold text-dark"

@@ -86,23 +86,30 @@
                         {% endfor %}
                     </div>
                     <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Ítem del Catálogo Asignado *</label>
-                        {{ form.id_item }}
-                        {% for error in form.id_item.errors %}
+                        <label class="form-label fw-bold text-dark">Cargo e Ítem *</label>
+                        {{ form.id_cargo_item }}
+                        {% for error in form.id_cargo_item.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
                 </div>
 
-                <!-- 3. ASIGNACIÓN DE RESPONSABILIDAD -->
+                <!-- 3. VIGENCIA -->
                 <h5 class="fw-bold mb-3 titulo-seccion">
-                    3. Asignación de Responsabilidad
+                    3. Vigencia
                 </h5>
-                <div class="row p-3 rounded mb-4" style="border: 1px solid #dee2e6; background-color: #f8f9fa;">
+                <div class="row p-3 rounded mb-4 borde-gris">
                     <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Asignar a Funcionario (*)</label>
-                        {{ form.id_funcionario }}
-                        {% for error in form.id_funcionario.errors %}
+                        <label class="form-label fw-bold text-dark">Inicio de vigencia *</label>
+                        {{ form.fecha_inicio }}
+                        {% for error in form.fecha_inicio.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-12 col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Término de vigencia</label>
+                        {{ form.fecha_termino }}
+                        {% for error in form.fecha_termino.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
