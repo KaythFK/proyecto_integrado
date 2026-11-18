@@ -1,11 +1,23 @@
 from django import forms
+from django.core.exceptions import ValidationError
+from django.db.models import Q
+from administracionApp.models import CargoItem
 from .models import Meta, Indicador
-from config.utils import limitar_a_opciones_activas, validar_datos_meta
+from config.utils import validar_datos_meta
+
+
+def etiqueta_cargo_item(cargo_item):
+    return f"{cargo_item.id_cargo.nombre} — {cargo_item.id_item.nombre}"
 
 class MetaForm(forms.ModelForm):
     class Meta:
         model = Meta
-        exclude = ['estado']
+        exclude = ['estado', 'version']
+        labels = {
+            'id_cargo_item': 'Cargo e ítem',
+            'fecha_inicio': 'Inicio de vigencia',
+            'fecha_termino': 'Término de vigencia',
+        }
         widgets = {
             'valor_objetivo': forms.NumberInput(attrs={
                 'class': 'form-control', 
@@ -28,14 +40,22 @@ class MetaForm(forms.ModelForm):
                 'placeholder': 'Ej: 25',
                 'required': True
             }),
-            'id_item': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'id_cargo_item': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'id_periodo': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'id_funcionario': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'fecha_inicio': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date', 'required': True}),
+            'fecha_termino': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, cargos=None, **kwargs):
         super().__init__(*args, **kwargs)
-        limitar_a_opciones_activas(self.fields['id_item'], self.instance.id_item_id)
+        opciones = Q(estado=True, id_cargo__estado=True, id_item__estado=True)
+        if cargos is not None:
+            opciones &= Q(id_cargo__in=cargos)
+        if self.instance.id_cargo_item_id:
+            opciones |= Q(pk=self.instance.id_cargo_item_id)
+        campo = self.fields['id_cargo_item']
+        campo.queryset = CargoItem.objects.filter(opciones).select_related('id_cargo', 'id_item').order_by('id_cargo__nombre', 'id_item__nombre')
+        campo.label_from_instance = etiqueta_cargo_item
 
     def clean_id_periodo(self):
         periodo = self.cleaned_data.get('id_periodo')
@@ -69,12 +89,18 @@ class MetaForm(forms.ModelForm):
             raise forms.ValidationError("La ponderación debe ser un valor entre 1 y 100.")
         return ponderador
 
-    def clean_id_funcionario(self):
-        # Las metas se asignan solo a un funcionario (indicación del profesor; id_cargo se eliminó del modelo)
-        funcionario = self.cleaned_data.get('id_funcionario')
-        if not funcionario:
-            raise forms.ValidationError("Es obligatorio asignar la meta a un funcionario.")
-        return funcionario
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.errors:
+            return cleaned_data
+        try:
+            validar_datos_meta(
+                cleaned_data.get('valor_objetivo'), cleaned_data.get('ponderador'),
+                cleaned_data.get('fecha_inicio'), cleaned_data.get('fecha_termino'), cleaned_data.get('id_periodo'),
+            )
+        except ValidationError as e:
+            raise forms.ValidationError(e.message)
+        return cleaned_data
 
 
 class IndicadorForm(forms.ModelForm):

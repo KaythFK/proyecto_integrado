@@ -37,7 +37,7 @@
                     <th scope="col">Período / Ítem</th>
                     <th scope="col">Objetivo</th>
                     <th scope="col">Ponderador</th>
-                    <th scope="col">Asignación</th>
+                    <th scope="col">Cargo / Vigencia</th>
                     <th scope="col" class="text-center">Estado</th>
                     <th scope="col" class="text-center">Acciones</th>
                 </tr>
@@ -49,7 +49,7 @@
                     
                     <td>
                         <strong class="text-primary">{{ meta.id_periodo }}</strong><br>
-                        <small class="text-muted">{{ meta.id_item.nombre|default:meta.id_item }}</small>
+                        <small class="text-muted">{{ meta.id_cargo_item.id_item.nombre }}</small>
                     </td>
 
                     <td>
@@ -64,11 +64,8 @@
                     </td>
 
                     <td class="texto-090">
-                        {% if meta.id_funcionario %}
-                            <i class="bi bi-person-fill text-secondary"></i> {{ meta.id_funcionario.nombres }} {{ meta.id_funcionario.apellido_paterno }}
-                        {% else %}
-                            <span class="text-muted fst-italic">Sin asignar</span>
-                        {% endif %}
+                        <i class="bi bi-person-badge text-secondary"></i> {{ meta.id_cargo_item.id_cargo.nombre }}<br>
+                        <small class="text-muted">{{ meta.fecha_inicio|date:"d/m/Y" }} – {{ meta.fecha_termino|date:"d/m/Y"|default:"sin término" }}</small>
                     </td>
 
                     <td class="text-center">

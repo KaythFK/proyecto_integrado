@@ -22,6 +22,10 @@ from django.core.exceptions import ValidationError as CoreValidationError
 from django.utils import timezone
 from datetime import timedelta
 
+
+def etiqueta_meta(meta):
+    return f"{meta.id_cargo_item.id_item.nombre} — {meta.valor_objetivo} {meta.unidad} ({meta.id_periodo.nombre})"
+
 class ActividadProfesionalForm(forms.ModelForm):
     class Meta:
         model = Actividad
@@ -64,6 +68,8 @@ class ActividadProfesionalForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         
         self.profesional_real = None 
+        if 'id_meta' in self.fields:
+            self.fields['id_meta'].label_from_instance = etiqueta_meta
 
         if self.usuario_actual:
             for prof in self.fields['id_profesional'].queryset:
@@ -81,7 +87,9 @@ class ActividadProfesionalForm(forms.ModelForm):
                 
                 # Filtramos las metas del profesional
                 if 'id_meta' in self.fields:
-                    self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(id_funcionario=self.profesional_real)
+                    self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(
+                        id_cargo_item__id_cargo=self.profesional_real.id_cargo_id, estado=True
+                    ).select_related('id_cargo_item__id_item', 'id_periodo')
 
         # ---------------------------------------------------------
         # RESTRICCIÓN VISUAL DEL CALENDARIO (Usa tu misma lógica)
@@ -108,8 +116,8 @@ class ActividadProfesionalForm(forms.ModelForm):
 
         # 1. Validar Meta y Periodo Abierto (Usando tu utils.py)
         if meta_seleccionada:
-            if self.profesional_real and meta_seleccionada.id_funcionario != self.profesional_real:
-                self.add_error('id_meta', "Debe seleccionar una meta que le haya sido asignada a usted.")
+            if self.profesional_real and meta_seleccionada.id_cargo_item.id_cargo_id != self.profesional_real.id_cargo_id:
+                self.add_error('id_meta', "Debe seleccionar una meta asignada a su cargo.")
             try:
                 validar_periodo_abierto(meta_seleccionada)
             except CoreValidationError as e:
@@ -187,6 +195,7 @@ class ActividadForm(forms.ModelForm):
         if self.instance.pk and self.instance.id_meta_id:
             filtro |= Q(pk=self.instance.id_meta_id)
         self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(filtro)
+        self.fields['id_meta'].label_from_instance = etiqueta_meta
 
     def clean_id_meta(self):
         meta = self.cleaned_data.get('id_meta')
