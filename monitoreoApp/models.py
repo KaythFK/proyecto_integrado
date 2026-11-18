@@ -17,15 +17,13 @@ class Indicador(models.Model):
     semaforo = models.CharField(max_length=8, choices=OPCIONES_SEMAFORO, default='AMARILLO')
     fecha_calculo = models.DateTimeField(auto_now_add=True)
     estado = models.BooleanField(default=True)
-    meta_id_meta = models.ForeignKey('Meta', models.DO_NOTHING, db_column='Meta_id_meta')  
-
-    def __str__(self):
-        return f"Indicador {self.id_indicador} - {self.semaforo}"
+    meta_id_meta = models.ForeignKey('Meta', models.DO_NOTHING, db_column='Meta_id_meta')
     
+    # NUEVO: Aquí enganchamos el progreso individual
+    id_funcionario = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_funcionario')
+
     class Meta:
         db_table = 'indicador'
-        verbose_name = 'Indicador'
-        verbose_name_plural = 'Indicadores'
 
 class Meta(models.Model):
     id_meta = models.AutoField(primary_key=True)
@@ -34,11 +32,9 @@ class Meta(models.Model):
     ponderador = models.DecimalField(max_digits=5, decimal_places=2)
     id_item = models.ForeignKey('administracionApp.CatalagoItem', models.DO_NOTHING, db_column='id_item')
     id_periodo = models.ForeignKey('administracionApp.Periodo', models.DO_NOTHING, db_column='id_periodo')
-    id_funcionario = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_funcionario')
+    # NUEVO: Reemplazamos id_funcionario por id_cargo
+    id_cargo = models.ForeignKey('administracionApp.Cargo', models.DO_NOTHING, db_column='id_cargo')
     estado = models.BooleanField(default=True)
-
-    def __str__(self):
-        return f"Meta {self.id_meta} ({self.valor_objetivo} {self.unidad})"
 
     class Meta:
         db_table = 'meta'

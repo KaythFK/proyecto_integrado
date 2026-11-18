@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError
 from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado
 from django.core.exceptions import PermissionDenied
 from .filters import MetaFilter
+from config.utils import procesar_resumen_dashboard
 
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
@@ -135,47 +136,32 @@ def estado_desviacion(real, esperado, periodo):
 
 
 def resumen_indicadores(delegacion, periodo, profesional=None):
-    """Cumplimiento por funcionario (ponderado por meta, tope 120%) y de la delegación, en pocas consultas.
-    Sin delegación incluye todas; con profesional, solo sus metas."""
+    """
+    Vista delgada: Solo realiza las consultas (QuerySets) correctas a la BD 
+    y delega TODA la validación y matemática a config/utils.py.
+    """
     if periodo is None:
         return [], None, None, 0
-    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_funcionario__id_delegacion', 'id_item')
+        
+    # Consultas usando la arquitectura corregida (sin pedirle el funcionario a la Meta)
+    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_cargo', 'id_item')
+    indicadores = Indicador.objects.filter(meta_id_meta__in=metas, estado=True).select_related('id_funcionario__id_delegacion')
+    
+    modo = 'delegacion' # Por defecto, agrupa por delegaciones (Dashboard Coordinador)
+    
+    # Filtros según quién está mirando
     if delegacion is not None:
-        metas = metas.filter(id_funcionario__id_delegacion=delegacion)
+        indicadores = indicadores.filter(id_funcionario__id_delegacion=delegacion)
+        modo = 'funcionario' # Si mira un Delegado, agrupamos por sus funcionarios
+        
     if profesional is not None:
-        metas = metas.filter(id_funcionario=profesional)
-    metas = list(metas)
+        indicadores = indicadores.filter(id_funcionario=profesional)
+        modo = 'funcionario'
+        
     esperado = periodo.porcentaje_esperado()
-    avances = {}
-    for ind in Indicador.objects.filter(meta_id_meta__in=metas, estado=True):
-        avances[ind.meta_id_meta_id] = avances.get(ind.meta_id_meta_id, 0) + float(ind.avance)
-
-    por_funcionario = {}
-    metas_en_rojo = 0
-    for meta in metas:
-        objetivo = float(meta.valor_objetivo)
-        cumplimiento = min(avances.get(meta.pk, 0) / objetivo * 100, 120) if objetivo else 0
-        if semaforo_segun_umbral(cumplimiento, periodo) == 'ROJO':
-            metas_en_rojo += 1
-        fila = por_funcionario.setdefault(meta.id_funcionario_id, {'funcionario': meta.id_funcionario, 'metas': 0, 'suma': 0, 'peso': 0})
-        fila['metas'] += 1
-        fila['suma'] += cumplimiento * float(meta.ponderador)
-        fila['peso'] += float(meta.ponderador)
-
-    filas = []
-    for fila in por_funcionario.values():
-        fila['cumplimiento'] = round(fila['suma'] / fila['peso'], 1) if fila['peso'] else 0
-        fila['semaforo'] = semaforo_segun_umbral(fila['cumplimiento'], periodo)
-        fila['esperado'] = esperado
-        fila['diferencia'] = round(fila['cumplimiento'] - esperado, 1)
-        fila['desviacion'] = estado_desviacion(fila['cumplimiento'], esperado, periodo)
-        filas.append(fila)
-    filas.sort(key=lambda f: f['cumplimiento'])
-
-    if not filas:
-        return [], None, None, 0
-    cumplimiento_delegacion = round(sum(f['cumplimiento'] for f in filas) / len(filas), 1)
-    return filas, cumplimiento_delegacion, semaforo_segun_umbral(cumplimiento_delegacion, periodo), metas_en_rojo
+    
+    # Se envía la data cruda a utils.py para que devuelva la tabla calculada
+    return procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrupacion=modo)
 
 @login_required
 @role_required('Delegado')

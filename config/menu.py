@@ -15,6 +15,8 @@ MENU_POR_ROL = {
         ('Configuración', 'gear', [
             ('Delegaciones', 'building', 'administracionApp:delegaciones'),
             ('Períodos', 'calendar-range', 'administracionApp:lista_periodos'),
+            ('Cargos', 'briefcase', 'administracionApp:lista_cargos'),
+            ('Catálogos', 'book', 'administracionApp:panel_catalogos'),
         ]),
         ('Seguimiento', 'graph-up', [
             ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),

@@ -3,11 +3,11 @@ from datetime import date, timezone, timedelta
 
 from django.db import models
 
-from administracionApp.models import Delegacion
+from administracionApp.models import Delegacion, Periodo
 from actividadApp.models import Evidencia, Actividad
 from django.db.models import Q
 from django.utils.timezone import localdate
-
+from decimal import Decimal, InvalidOperation
 
 
 def validar_y_formatear_rut(rut_ingresado):
@@ -348,3 +348,182 @@ def delegacion_del_delegado(user):
     if user.groups.filter(name='Delegado').exists() and hasattr(user, 'profesional'):
         return user.profesional.id_delegacion
     return None
+
+
+def validar_suma_ponderaciones(lista_ponderaciones):
+    """
+    Recibe una lista de ponderaciones (strings, enteros o floats) provenientes del request.
+    Valida que sean números válidos y que sumen exactamente 100.
+    """
+    if not lista_ponderaciones:
+        raise ValidationError("Debe asignar al menos un ítem con ponderación al cargo.")
+
+    suma_total = Decimal('0.00')
+    
+    for valor in lista_ponderaciones:
+        try:
+            # Convertimos a string primero para una conversión segura a Decimal
+            ponderacion = Decimal(str(valor))
+            if ponderacion < 0:
+                raise ValidationError("Las ponderaciones no pueden ser negativas.")
+            suma_total += ponderacion
+        except InvalidOperation:
+            raise ValidationError(f"El valor '{valor}' no es un número válido.")
+
+    # Comparamos contra 100 exacto
+    if suma_total != Decimal('100.00'):
+        raise ValidationError(f"La suma de las ponderaciones debe ser exactamente 100%. Suma actual: {suma_total}%.")
+
+
+def calcular_porcentaje_cumplimiento(avance, meta_periodo):
+    """
+    [RN-004] Calcula el porcentaje de cumplimiento:
+    % de cumplimiento = (avance actual / meta del período) * 100.
+    """
+    avance_dec = Decimal(str(avance or 0))
+    meta_dec = Decimal(str(meta_periodo or 0))
+    
+    if meta_dec <= 0:
+        raise ValidationError("La meta del período debe ser mayor que cero para calcular el cumplimiento (RN-002/RN-004)[cite: 11, 12].")
+    
+    cumplimiento = (avance_dec / meta_dec) * Decimal('100.00')
+    return cumplimiento.quantize(Decimal('0.01'))
+
+
+def calcular_cumplimiento_ponderado(porcentaje_cumplimiento, ponderador_item, tope_maximo=Decimal('150.00')):
+    """
+    [RN-005 / Sección 13.1] Calcula el cumplimiento ponderado:
+    resultado ponderado = ponderador x (% de cumplimiento / 100).
+    Respeta de forma opcional el tope máximo configurado (ej. 150%).
+    """
+    cump_dec = Decimal(str(porcentaje_cumplimiento or 0))
+    ponderador_dec = Decimal(str(ponderador_item or 0))
+    
+    # Aplicamos la fórmula: Ponderador * (% Cumplimiento / 100)
+    resultado = ponderador_dec * (cump_dec / Decimal('100.00'))
+    
+    # Aplicar tope académico configurado si corresponde (por defecto 150%)[cite: 27]
+    if tope_maximo and resultado > Decimal(str(tope_maximo)):
+        resultado = Decimal(str(tope_maximo))
+        
+    return resultado.quantize(Decimal('0.01'))
+
+
+def semaforo_segun_umbral(cumplimiento, periodo):
+    """Reglas de negocio institucionales para el color del semáforo."""
+    regular = float(periodo.umbral_regular)
+    excelencia = float(periodo.umbral_exelencia)
+    if excelencia <= 1:
+        regular, excelencia = regular * 100, excelencia * 100
+    if cumplimiento >= excelencia:
+        return 'VERDE'
+    if cumplimiento >= regular:
+        return 'AMARILLO'
+    return 'ROJO'
+
+
+def estado_desviacion(real, esperado, periodo):
+    """Regla de la matriz del cliente para calcular desviaciones al día."""
+    regular = float(periodo.umbral_regular)
+    if regular > 1:
+        regular = regular / 100
+    if real >= esperado:
+        return 'VERDE'
+    if real >= esperado * regular:
+        return 'AMARILLO'
+    return 'ROJO'
+
+
+def procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrupacion='delegacion'):
+    """
+    Motor matemático: Calcula el cumplimiento ponderado y agrupa dinámicamente
+    por Delegación (para Coordinador) o por Funcionario (para Delegado).
+    """
+    metas_dict = {m.pk: m for m in metas}
+    por_agrupacion = {}
+    metas_en_rojo = 0
+
+    for ind in indicadores:
+        meta = metas_dict.get(ind.meta_id_meta_id)
+        if not meta:
+            continue
+            
+        # Determinamos la clave y el nombre según la vista que lo solicita
+        if modo_agrupacion == 'delegacion':
+            clave = ind.id_funcionario.id_delegacion.pk
+            nombre = ind.id_funcionario.id_delegacion.nombre
+        else:
+            clave = ind.id_funcionario.pk
+            nombre = f"{ind.id_funcionario.nombres} {ind.id_funcionario.apellido_paterno}"
+
+        fila = por_agrupacion.setdefault(clave, {
+            'nombre': nombre,
+            'metas': 0,
+            'suma': 0,
+            'peso': 0
+        })
+        
+        objetivo = float(meta.valor_objetivo)
+        # Tope matemático del 120% exigido
+        cumplimiento = min(float(ind.avance) / objetivo * 100, 120) if objetivo else 0
+        
+        if semaforo_segun_umbral(cumplimiento, periodo) == 'ROJO':
+            metas_en_rojo += 1
+            
+        fila['metas'] += 1
+        fila['suma'] += cumplimiento * float(meta.ponderador)
+        fila['peso'] += float(meta.ponderador)
+
+    filas = []
+    for fila in por_agrupacion.values():
+        fila['cumplimiento'] = round(fila['suma'] / fila['peso'], 1) if fila['peso'] else 0
+        fila['semaforo'] = semaforo_segun_umbral(fila['cumplimiento'], periodo)
+        fila['esperado'] = esperado
+        fila['diferencia'] = round(fila['cumplimiento'] - esperado, 1)
+        fila['desviacion'] = estado_desviacion(fila['cumplimiento'], esperado, periodo)
+        filas.append(fila)
+        
+    filas.sort(key=lambda f: f['cumplimiento'])
+
+    if not filas:
+        return [], None, None, 0
+        
+    cumplimiento_global = round(sum(f['cumplimiento'] for f in filas) / len(filas), 1)
+    return filas, cumplimiento_global, semaforo_segun_umbral(cumplimiento_global, periodo), metas_en_rojo
+
+
+
+def verificar_periodo_activo():
+    """
+    KAN-200: Valida si el período actual está abierto para permitir modificaciones.
+    Retorna (True, "") si está ok, o (False, "mensaje de error") si está cerrado.
+    """
+    hoy = timezone.now().date()
+    # Buscamos el período activo que abarque la fecha actual o el último creado
+    periodo = Periodo.objects.filter(estado=True, fecha_inicio__lte=hoy, fecha_termino__gte=hoy).first()
+    if not periodo:
+        periodo = Periodo.objects.filter(estado=True).order_by('-fecha_inicio').first()
+        
+    if not periodo:
+        return False, "No existe ningún período de medición activo registrado en el sistema."
+        
+    # Usamos la propiedad 'esta_abierto' definida en tu modelo Periodo
+    if not periodo.esta_abierto:
+        return False, f"El período '{periodo.nombre}' se encuentra cerrado. No se permiten modificaciones."
+        
+    return True, ""
+
+
+def validar_vigencia_fecha_actual():
+    """
+    KAN-199: Comprueba si la fecha actual se encuentra dentro del rango 
+    de vigencia operativa del período activo.
+    """
+    hoy = timezone.now().date()
+    periodo_vigente = Periodo.objects.filter(
+        estado=True, 
+        fecha_inicio__lte=hoy, 
+        fecha_termino__gte=hoy
+    ).exists()
+    
+    return periodo_vigente
