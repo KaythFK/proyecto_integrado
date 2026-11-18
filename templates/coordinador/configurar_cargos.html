@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Configurar Matriz - {{ cargo.nombre }}{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Cargos</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow border-0" style="border-radius: 15px; max-width: 800px; margin: 0 auto;">
+        
+        <div class="card-header text-white px-4 py-3 fondo-guinda redondeado-sup-15">
+            <h4 class="mb-0 fw-bold">Configurar Matriz y Vigencia: {{ cargo.nombre }}</h4>
+        </div>
+        
+        <div class="card-body p-4 p-md-5">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Instrucciones recuperadas -->
+            <div class="alert alert-info shadow-sm mb-4 borde-gris">
+                <i class="bi bi-info-circle-fill me-2"></i> <strong>Instrucción:</strong> Recuerda crear los items a asignar en el Panel de Catálogos <strong>La suma total debe ser exactamente 100%.</strong>
+            </div>
+
+            <form method="POST" id="form-matriz">
+                {% csrf_token %}
+                
+                <h5 class="fw-bold mb-3 titulo-seccion">
+                    Período de Vigencia
+                </h5>
+                <div class="row p-3 rounded mb-4 borde-gris">
+                    <div class="col-12 col-md-6 mb-3">
+                        <label for="fecha_inicio" class="form-label fw-bold text-dark">Fecha de Inicio *</label>
+                        <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" 
+                               value="{{ cargo.fecha_inicio|date:'Y-m-d' }}" required>
+                        <div class="form-text">Los cambios rigen a partir de esta fecha.</div>
+                    </div>
+                    
+                    <div class="col-12 col-md-6 mb-3">
+                        <label for="fecha_termino" class="form-label fw-bold text-dark">Fecha de Término (Opcional)</label>
+                        <input type="date" class="form-control" id="fecha_termino" name="fecha_termino" 
+                               value="{{ cargo.fecha_termino|date:'Y-m-d' }}">
+                        <div class="form-text">Dejar en blanco si es indefinida.</div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-end mb-3">
+                    <h5 class="fw-bold mb-0 titulo-seccion">
+                        Ítems de Medición
+                    </h5>
+                    <!-- Botón a Catálogos recuperado -->
+                    <a href="{% url 'administracionApp:panel_catalogos' %}" class="btn btn-sm text-white fondo-guinda fw-bold px-3 py-2">
+                        <i class="bi bi-card-list me-1"></i> Ir a Catálogos
+                    </a>
+                </div>
+                
+                <div class="row p-3 rounded mb-4 borde-gris">
+                    <div class="col-12">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="text-dark">Ítem de Catálogo</th>
+                                        <th class="text-dark text-center" style="width: 30%;">Ponderación (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items_con_ponderacion %}
+                                    <tr>
+                                        <td>
+                                            <span class="fw-bold text-dark">{{ item.nombre }}</span>
+                                            {% if item.descripcion %}
+                                                <br><small class="text-muted">{{ item.descripcion }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <input type="number" step="0.01" min="0" max="100" 
+                                                   name="ponderacion_{{ item.id }}" 
+                                                   value="{{ item.ponderacion }}" 
+                                                   class="form-control text-center mx-auto input-ponderacion" 
+                                                   placeholder="0.00" required>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted py-3">No hay ítems activos en el catálogo.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="fondo-gris-claro">
+                                        <td class="text-end fw-bold text-dark pe-4">Suma Total:</td>
+                                        <td class="text-center">
+                                            <span id="total-porcentaje" class="fw-bold fs-5">0.00</span><span class="fs-5 fw-bold">%</span>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
+                    <a href="{% url 'administracionApp:lista_cargos' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto">
+                        Cancelar
+                    </a>
+                    <button type="submit" id="btn-guardar" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto fondo-rojo">
+                        Guardar Configuración
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputs = document.querySelectorAll('.input-ponderacion');
+        const totalSpan = document.getElementById('total-porcentaje');
+        const btnGuardar = document.getElementById('btn-guardar');
+
+        function calcularTotal() {
+            let total = 0;
+            inputs.forEach(input => {
+                let val = parseFloat(input.value) || 0;
+                total += val;
+            });
+            
+            totalSpan.textContent = total.toFixed(2);
+
+            // Validación visual interactiva con los colores del proyecto
+            if (total === 100) {
+                totalSpan.style.color = '#198754'; 
+                btnGuardar.disabled = false;
+            } else {
+                totalSpan.style.color = '#C41230'; 
+                btnGuardar.disabled = true;
+            }
+        }
+
+        inputs.forEach(input => {
+            input.addEventListener('input', calcularTotal);
+        });
+
+        calcularTotal(); 
+    });
+</script>
+{% endblock %}

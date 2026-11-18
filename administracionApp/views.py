@@ -1,12 +1,13 @@
 from django.shortcuts import render
 from django.db.models import Q
-from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria
+from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria, CargoItem
 # --- IMPORTAMOS CatalogoTipoGestion ---
 from actividadApp.models import Actividad, CatalogoTipoGestion
 from administracionApp.forms import ProfesionalForm, UsuarioSeguridadForm, DelegacionForm, CargoForm, VecinoForm, PeriodoForm
 from actividadApp.forms import ActividadForm
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
+from config.utils import verificar_periodo_activo
 from usuariosApp.decorators import role_required
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -16,9 +17,16 @@ import string
 from django.urls import reverse
 from tuboApp.models import Compromiso
 from datetime import date, datetime, timedelta
-
+from django.core.exceptions import ValidationError
+# Importamos las validaciones desde tu utils.py
+from config.utils import (
+    verificar_periodo_activo, 
+    validar_vigencia_fecha_actual, 
+    validar_suma_ponderaciones, 
+)
 import json
 from django.forms.models import model_to_dict
+from decimal import Decimal, InvalidOperation
 
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
 def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
@@ -468,11 +476,12 @@ def cambiar_estado_delegacion(request, id_delegacion):
             
     return redirect('administracionApp:delegaciones')
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def lista_cargos(request):
     query = request.GET.get('q')
-    cargos = Cargo.objects.all()
+    # Añadimos prefetch_related para traer los ítems de la matriz de forma eficiente sin saturar la base de datos
+    cargos = Cargo.objects.prefetch_related('cargoitem_set__id_item').all()
     
     if query:
         cargos = cargos.filter(nombre__icontains=query).distinct()
@@ -482,7 +491,7 @@ def lista_cargos(request):
         'query': query
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def crear_cargo(request):
     if request.method == 'POST':
@@ -510,7 +519,7 @@ def crear_cargo(request):
         'titulo': 'Registrar Nuevo Cargo'
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required    
 def editar_cargo(request, id_cargo):
     cargo = get_object_or_404(Cargo, id_cargo=id_cargo)
@@ -537,7 +546,7 @@ def editar_cargo(request, id_cargo):
         'titulo': 'Editar Cargo'
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def cambiar_estado_cargo(request, id_cargo):
     if request.method == 'POST':
@@ -558,7 +567,7 @@ def cambiar_estado_cargo(request, id_cargo):
     return redirect('administracionApp:lista_cargos')
 
 # --- MODIFICADO: AÑADIDO CATALOGOTIPOGESTION ---
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def panel_catalogos(request):
     tab_activa = request.GET.get('tab', 'servicio')
@@ -573,9 +582,10 @@ def panel_catalogos(request):
     }
     return render(request, 'administrador/catalogos/panel_catalogos.html', context)
 
-@role_required('Administrador')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def gestionar_catalogo(request):
+    
     if request.method == 'POST':
         accion = request.POST.get('accion')
         tipo = request.POST.get('tipo')
@@ -926,3 +936,72 @@ def lista_auditoria(request):
         'registros': registros,
         'query': query
     })
+
+
+
+@login_required
+def configurar_matriz_cargo(request, pk):
+    cargo = get_object_or_404(Cargo, pk=pk)
+
+    if request.method == 'POST':
+        # 1. Capturar fechas de vigencia del cargo
+        fecha_inicio = request.POST.get('fecha_inicio')
+        fecha_termino = request.POST.get('fecha_termino') or None
+
+        datos_items = []
+        lista_ponderaciones_str = []
+        
+        for key, value in request.POST.items():
+            if key.startswith('ponderacion_'):
+                item_id = key.split('_')[1]
+                lista_ponderaciones_str.append(value)
+                datos_items.append((item_id, value))
+
+        try:
+            # 2. Validación centralizada de ponderaciones usando utils.py
+            validar_suma_ponderaciones(lista_ponderaciones_str)
+
+            # 3. Guardar fechas de vigencia del cargo
+            cargo.fecha_inicio = fecha_inicio
+            cargo.fecha_termino = fecha_termino
+            cargo.save()
+
+            # 4. Actualizar la matriz de ítems
+            CargoItem.objects.filter(id_cargo=cargo).delete()
+            for item_id, p in datos_items:
+                item_catalogo = CatalagoItem.objects.get(pk=item_id)
+                CargoItem.objects.create(
+                    id_cargo=cargo,
+                    id_item=item_catalogo,
+                    ponderacion=p,
+                    estado=True
+                )
+
+            # 5. Auditoría centralizada
+            registrar_auditoria(request, cargo)
+
+            messages.success(request, f"Matriz y vigencia del cargo '{cargo.nombre}' configuradas exitosamente.")
+            return redirect('administracionApp:lista_cargos')
+
+        except ValidationError as e:
+            error_msg = e.message if hasattr(e, 'message') else list(e.messages)[0]
+            messages.error(request, error_msg)
+
+    # Preparar datos usando .pk para evitar cualquier error de atributo en CatalagoItem
+    items_activos = CatalagoItem.objects.filter(estado=True)
+    asignaciones_actuales = {ci.id_item_id: ci.ponderacion for ci in cargo.cargoitem_set.filter(estado=True)}
+
+    items_con_ponderacion = []
+    for item in items_activos:
+        items_con_ponderacion.append({
+            'id': item.pk,
+            'nombre': item.nombre,
+            'descripcion': getattr(item, 'descripcion', ''),
+            'ponderacion': asignaciones_actuales.get(item.pk, '')
+        })
+
+    context = {
+        'cargo': cargo,
+        'items_con_ponderacion': items_con_ponderacion,
+    }
+    return render(request, 'coordinador/configurar_cargos.html', context)

@@ -48,8 +48,9 @@ class Delegacion(models.Model):
 
 class Cargo(models.Model):
     id_cargo = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=45, blank=True, null=True)
-    vigencia = models.IntegerField(blank=True, null=True)
+    nombre = models.CharField(max_length=70)
+    fecha_inicio = models.DateField(verbose_name="Fecha de inicio de vigencia")
+    fecha_termino = models.DateField(verbose_name="Fecha de término de vigencia")
     estado = models.BooleanField(default=True)
 
     def __str__(self):
@@ -260,3 +261,15 @@ def auditar_logout(sender, request, user, **kwargs):
             )
     except Exception as e:
         print(f"Error al auditar el cierre de sesión: {e}")
+
+
+class CargoItem(models.Model):
+    id_cargo_item = models.AutoField(primary_key=True)
+    id_cargo = models.ForeignKey('Cargo', models.DO_NOTHING, db_column='id_cargo')
+    id_item = models.ForeignKey('CatalagoItem', models.DO_NOTHING, db_column='id_item')
+    ponderacion = models.DecimalField(max_digits=5, decimal_places=2)
+    estado = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'cargo_item'
+        unique_together = (('id_cargo', 'id_item'),)

@@ -26,6 +26,7 @@ urlpatterns = [
     path('cargos/crear/', views.crear_cargo, name='crear_cargo'),
     path('cargos/editar/<int:id_cargo>/', views.editar_cargo, name='editar_cargo'),
     path('cargos/estado/<int:id_cargo>/', views.cambiar_estado_cargo, name='cambiar_estado_cargo'),
+    path('cargos/<int:pk>/matriz/', views.configurar_matriz_cargo, name='configurar_matriz_cargo'),
     #Catalogos
     path('catalogos/', views.panel_catalogos, name='panel_catalogos'),
     path('catalogos/gestionar/', views.gestionar_catalogo, name='gestionar_catalogo'),
@@ -43,4 +44,5 @@ urlpatterns = [
     path('vecinos/estado/<int:id_vecino>/', views.cambiar_estado_vecino, name='cambiar_estado_vecino'),
     #auditoría
     path('auditoria/', views.lista_auditoria, name='lista_auditoria'),
+
 ]
