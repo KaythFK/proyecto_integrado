@@ -114,49 +114,64 @@
                                 </form>
                             </td>
                             
-                    <!-- COLUMNA DE ACCIONES / AUDITORÍA -->
-                    <td class="text-center" style="width: 180px;">
-                        <div class="d-flex flex-column align-items-center gap-2">
-                            <!-- Botón Principal del Modal de Auditoría -->
-                            <button type="button" class="btn btn-sm text-white px-3 fw-bold fondo-rojo redondeado-6 w-100"
-                                    data-codigo="{{ actividad.codigo_unico }}"
-                                    data-fecha="{{ actividad.fecha|date:'d/m/Y H:i' }}"
-                                    data-estado="{{ actividad.get_estado_progreso_display }}"
-                                    data-problema="{{ actividad.solicitud_problema }}"
-                                    data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
-                                    data-url="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}"
-                                    data-id="{{ actividad.pk }}"
-                                    title="Revisar detalles completos"
-                                    onclick="mostrarDetalle(this)">
-                                Ver Detalle
-                            </button>
-                            
-                            <!-- Botón directo a Mensajes / Bitácora -->
-                            <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm w-100" title="Ver historial de mensajes">
-                                <i class="bi bi-chat-text-fill"></i> Mensajes
-                            </a>
-                        </div>
+                            <!-- COLUMNA DE ACCIONES CON DROPDOWN -->
+                            <td class="text-center text-nowrap" style="width: 160px;">
+                                <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
 
-                        <!-- Template de evidencias necesario para el funcionamiento del modal -->
-                        <template id="evidencias-{{ actividad.pk }}">
-                            {% for ev in actividad.evidencia_set.all %}
-                            <div class="d-flex align-items-center gap-3 p-2 mb-2 border rounded bg-light">
-                                {% if ev.archivo_foto %}
-                                <a href="{{ ev.archivo_foto.url }}" target="_blank" title="Abrir foto">
-                                    <img src="{{ ev.archivo_foto.url }}" alt="Evidencia" class="rounded border" style="width: 64px; height: 64px; object-fit: cover;">
-                                </a>
-                                {% endif %}
-                                <div class="flex-grow-1">
-                                    <div class="fw-bold">{{ ev.fecha|date:"d/m/Y H:i" }}</div>
-                                    {% if ev.archivo_foto %}<a href="{{ ev.archivo_foto.url }}" target="_blank" class="small">Ver foto</a>{% else %}<span class="small text-muted">Sin foto</span>{% endif %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            Acciones
+                                        </button>
+                                        <ul class="dropdown-menu shadow border-0">
+                                            <li>
+                                                <button type="button" class="dropdown-item fw-bold text-dark"
+                                                        data-codigo="{{ actividad.codigo_unico }}"
+                                                        data-fecha="{{ actividad.fecha_registro|date:'d/m/Y H:i' }}"
+                                                        data-estado="{{ actividad.get_estado_progreso_display }}"
+                                                        data-problema="{{ actividad.solicitud_problema }}"
+                                                        data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
+                                                        data-url="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}"
+                                                        data-id="{{ actividad.pk }}"
+                                                        onclick="mostrarDetalle(this)">
+                                                    Ver Detalle
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item fw-bold text-dark" href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}">
+                                                    Registrar Evidencia
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item fw-bold text-dark" href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}">
+                                                    Mensajes
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+
                                 </div>
-                                <span class="badge {% if ev.estado_revision == 'APROBADO' %}bg-success{% elif ev.estado_revision == 'RECHAZADO' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ ev.get_estado_revision_display }}</span>
-                            </div>
-                            {% empty %}
-                            <p class="text-muted m-0">La actividad no tiene evidencias registradas.</p>
-                            {% endfor %}
-                        </template>
-                    </td>
+
+                                <!-- Template de evidencias necesario para el funcionamiento del modal -->
+                                <template id="evidencias-{{ actividad.pk }}">
+                                    {% for ev in actividad.evidencia_set.all %}
+                                    <div class="d-flex align-items-center gap-3 p-2 mb-2 border rounded bg-light">
+                                        {% if ev.archivo_foto %}
+                                        <a href="{{ ev.archivo_foto.url }}" target="_blank" title="Abrir foto">
+                                            <img src="{{ ev.archivo_foto.url }}" alt="Evidencia" class="rounded border" style="width: 64px; height: 64px; object-fit: cover;">
+                                        </a>
+                                        {% endif %}
+                                        <div class="flex-grow-1">
+                                            <div class="fw-bold">{{ ev.fecha|date:"d/m/Y H:i" }}</div>
+                                            {% if ev.archivo_foto %}<a href="{{ ev.archivo_foto.url }}" target="_blank" class="small">Ver foto</a>{% else %}<span class="small text-muted">Sin foto</span>{% endif %}
+                                        </div>
+                                        <span class="badge {% if ev.estado_revision == 'APROBADO' %}bg-success{% elif ev.estado_revision == 'RECHAZADO' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ ev.get_estado_revision_display }}</span>
+                                    </div>
+                                    {% empty %}
+                                    <p class="text-muted m-0">La actividad no tiene evidencias registradas.</p>
+                                    {% endfor %}
+                                </template>
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>

@@ -145,7 +145,7 @@ def resumen_indicadores(delegacion, periodo, profesional=None):
         return [], None, None, 0
         
     # Consultas usando la arquitectura corregida (sin pedirle el funcionario a la Meta)
-    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_cargo', 'id_item')
+    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_cargo_item')
     indicadores = Indicador.objects.filter(meta_id_meta__in=metas, estado=True).select_related('id_funcionario__id_delegacion')
     
     modo = 'delegacion' # Por defecto, agrupa por delegaciones (Dashboard Coordinador)
@@ -222,11 +222,14 @@ def tubo_delegacion(request):
 
 
 # --- NUEVAS VISTAS DE GESTIÓN DE METAS ---
-def cargos_del_equipo(user):
-    delegacion = delegacion_del_delegado(user)
-    if delegacion is None:
-        return None
-    return Cargo.objects.filter(profesional__id_delegacion=delegacion, profesional__estado=True).distinct()
+def equipo_de(delegacion):
+    return Profesional.objects.filter(id_delegacion=delegacion, estado=True)
+
+
+#def validar_meta_de_su_delegacion(user, meta):
+    #delegacion = delegacion_del_delegado(user)
+    #if delegacion is not None and meta.id_funcionario.id_delegacion_id != delegacion.pk:
+        #raise PermissionDenied('No tienes permiso para modificar esta meta: pertenece a otra delegación.')
 
 
 def validar_meta_de_su_equipo(user, meta):

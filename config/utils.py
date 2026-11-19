@@ -3,7 +3,7 @@ from datetime import date, timezone, timedelta
 
 from django.db import models
 
-from administracionApp.models import Delegacion, Periodo
+from administracionApp.models import Delegacion, Periodo, Profesional
 from actividadApp.models import Evidencia, Actividad
 from django.db.models import Q
 from django.utils.timezone import localdate
@@ -552,3 +552,17 @@ def validar_datos_meta(valor_objetivo, ponderador, fecha_inicio, fecha_termino, 
         
         if fecha_termino and periodo.fecha_termino and fecha_termino > periodo.fecha_termino:
             raise ValidationError(f"La fecha de término de la meta no puede superar el cierre del período ({periodo.fecha_termino}).")
+
+
+def filtrar_funcionarios_por_delegacion(user, form, nombre_campo='id_funcionario'):
+    """
+    Filtra dinámicamente el queryset de un campo de funcionario en el formulario 
+    para que solo muestre a los profesionales activos de la delegación del usuario.
+    Si el usuario es administrador/coordinador global (sin delegación), ve a todos.
+    """
+    delegacion = delegacion_del_delegado(user)
+    if delegacion is not None and nombre_campo in form.fields:
+        form.fields[nombre_campo].queryset = Profesional.objects.filter(
+            id_delegacion=delegacion,
+            estado=True
+        ).order_by('nombres')

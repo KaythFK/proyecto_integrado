@@ -47,6 +47,10 @@ class Meta(models.Model):
     class Meta:
         db_table = 'meta'
 
+    # --- AGREGA ESTO AQUÍ ---
+    def __str__(self):
+        return f"Meta #{self.id_meta}: {self.valor_objetivo} {self.unidad}"
+
 class Alerta(models.Model):
     id_alerta = models.AutoField(primary_key=True)
     motivo = models.CharField(max_length=255)

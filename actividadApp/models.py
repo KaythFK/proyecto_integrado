@@ -31,7 +31,7 @@ class Actividad(models.Model):
     en_tubo = models.BooleanField(default=False)
     id_profesional = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_funcionario')
     id_meta = models.ForeignKey('monitoreoApp.Meta', models.DO_NOTHING, db_column='id_meta')
-    id_organizacion = models.ForeignKey('comunidadApp.OrganizacionComunitaria', models.DO_NOTHING, db_column='id_organizacion')
+    id_organizacion = models.ForeignKey('comunidadApp.OrganizacionComunitaria', models.DO_NOTHING, db_column='id_organizacion', blank=True, null=True)
 
     @property
     def esta_vencida(self):

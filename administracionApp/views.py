@@ -1001,6 +1001,9 @@ def configurar_matriz_cargo(request, pk):
             # 2. Validación centralizada de ponderaciones usando utils.py
             validar_suma_ponderaciones(lista_ponderaciones_str)
 
+            # --- CAPTURAR DATOS ANTERIORES PARA AUDITORÍA ---
+            datos_antiguos = model_to_dict(cargo)
+
             # 3. Guardar fechas de vigencia del cargo
             cargo.fecha_inicio = fecha_inicio
             cargo.fecha_termino = fecha_termino
@@ -1017,8 +1020,8 @@ def configurar_matriz_cargo(request, pk):
                     estado=True
                 )
 
-            # 5. Auditoría centralizada
-            registrar_auditoria(request, cargo)
+            # 5. Auditoría centralizada con los parámetros correctos
+            registrar_auditoria(request, "EDICION", "Cargo", cargo, datos_antiguos)
 
             messages.success(request, f"Matriz y vigencia del cargo '{cargo.nombre}' configuradas exitosamente.")
             return redirect('administracionApp:lista_cargos')
