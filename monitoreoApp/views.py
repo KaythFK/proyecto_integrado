@@ -5,17 +5,19 @@ from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad, Ausencia
-from .models import Meta, Indicador
-from .forms import MetaForm, IndicadorForm, MetaAsignacionForm
+from .models import HistorialMeta, Meta, Indicador
+from .forms import MetaForm, IndicadorForm
 from tuboApp.models import Compromiso
 from tuboApp.filters import CompromisoFilter
 from datetime import date
 from django.core.exceptions import ValidationError
-from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado
+from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador
 from django.core.exceptions import PermissionDenied
 from .filters import MetaFilter
 from config.utils import procesar_resumen_dashboard
-from administracionApp.models import Cargo, CargoItem
+from django.core.exceptions import ValidationError as CoreValidationError
+from administracionApp.models import CargoItem, CatalagoItem, Periodo, Delegacion, Profesional, Auditoria
+
 
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
@@ -145,7 +147,7 @@ def resumen_indicadores(delegacion, periodo, profesional=None):
         return [], None, None, 0
         
     # Consultas usando la arquitectura corregida (sin pedirle el funcionario a la Meta)
-    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_cargo_item')
+    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_cargo_item__id_cargo', 'id_cargo_item__id_item')
     indicadores = Indicador.objects.filter(meta_id_meta__in=metas, estado=True).select_related('id_funcionario__id_delegacion')
     
     modo = 'delegacion' # Por defecto, agrupa por delegaciones (Dashboard Coordinador)
@@ -241,11 +243,12 @@ def validar_meta_de_su_equipo(user, meta):
 @login_required
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def listar_metas(request):
-    metas = Meta.objects.select_related('id_cargo_item__id_cargo', 'id_cargo_item__id_item', 'id_periodo').order_by('-id_meta')
-    cargos = cargos_del_equipo(request.user)
-    if cargos is not None:
-        metas = metas.filter(id_cargo_item__id_cargo__in=cargos)
-    filtro = MetaFilter(request.GET, queryset=metas, cargos=cargos)
+    metas = Meta.objects.select_related('id_cargo_item', 'id_periodo', 'autor').order_by('-id_meta')
+    delegacion = delegacion_del_delegado(request.user)
+    if delegacion is not None:
+        filtro = MetaFilter(request.GET, queryset=metas, ocultar=('delegacion',))
+    else:
+        filtro = MetaFilter(request.GET, queryset=metas)
     recordar_filtros(request, 'monitoreoApp:listar_metas')
 
     context = {
@@ -255,7 +258,6 @@ def listar_metas(request):
         'url_retorno': obtener_url_retorno(request.user),
     }
     return render(request, 'monitoreo/lista_metas.html', context)
-
 
 @login_required
 @role_required('Administrador', 'Coordinador', 'Delegado')
@@ -267,11 +269,19 @@ def crear_meta(request):
                 with transaction.atomic():
                     meta = form.save(commit=False)
                     meta.estado = True
+
+                    # --- AQUÍ VA KAN-209 (asignar autor antes de guardar en BD) ---
+                    profesional = getattr(request.user, 'profesional', None)
+                    if not profesional and request.user.is_authenticated:
+                        profesional = Profesional.objects.filter(usuario=request.user).first()
+                    meta.autor = profesional
+                    # fecha_creacion se llena sola por auto_now_add=True en el modelo
+
                     meta.save()
-                    
+
                     # --- AUDITORÍA ---
                     registrar_auditoria(request, "CREACION", "Meta", meta)
-                    
+
                 messages.success(request, 'La meta se ha registrado correctamente.')
                 return redirect(url_con_filtros(request, 'monitoreoApp:listar_metas'))
             except Exception as e:
@@ -279,10 +289,11 @@ def crear_meta(request):
         else:
             messages.error(request, 'Corrige los errores del formulario.')
     else:
-        form = MetaForm(cargos=cargos_del_equipo(request.user))
-        
+        form = MetaForm()
+        limitar_funcionarios_meta(request.user, form)
+
     context = {
-        'form': form, 
+        'form': form,
         'titulo': 'Registrar Nueva Meta',
         'url_listado': url_con_filtros(request, 'monitoreoApp:listar_metas'),
         'url_retorno': obtener_url_retorno(request.user),
@@ -291,35 +302,57 @@ def crear_meta(request):
 
 @login_required
 @role_required('Administrador', 'Coordinador', 'Delegado')
-def editar_meta(request, id_meta):
-    meta = get_object_or_404(Meta, id_meta=id_meta)
-    validar_meta_de_su_equipo(request.user, meta)
-    
+def editar_meta(request, meta_id):
+    meta = get_object_or_404(Meta, id_meta=meta_id) 
+    validar_meta_de_su_delegacion(request.user, meta) 
+    try:
+        validar_periodo_abierto(meta) 
+    except CoreValidationError as e:
+        msg = str(e.message if hasattr(e, 'message') else e.messages[0]) 
+        messages.error(request, msg) 
+        return redirect(url_con_filtros(request, 'monitoreoApp:listar_metas')) 
+
     if request.method == 'POST':
-        datos_antiguos = model_to_dict(meta) # --- AUDITORÍA ---
-        form = MetaForm(request.POST, instance=meta, cargos=cargos_del_equipo(request.user))
+        datos_antiguos = model_to_dict(meta) 
+        form = MetaForm(request.POST, instance=meta) 
+        limitar_funcionarios_meta(request.user, form) 
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    meta_guardada = form.save()
-                    
-                    # --- AUDITORÍA ---
-                    registrar_auditoria(request, "EDICION", "Meta", meta_guardada, datos_antiguos)
-                    
-                messages.success(request, 'La meta se ha actualizado correctamente.')
-                return redirect(url_con_filtros(request, 'monitoreoApp:listar_metas'))
+                    meta_guardada = form.save(commit=False) 
+                    version_anterior = datos_antiguos.get('version') or 1 
+                    meta_guardada.version = int(version_anterior) + 1 
+                    meta_guardada.save() 
+
+                    profesional = getattr(request.user, 'profesional', None)
+                    if not profesional and request.user.is_authenticated:
+                        profesional = Profesional.objects.filter(usuario=request.user).first() 
+                    HistorialMeta.objects.create(
+                        meta=meta_guardada,
+                        version=meta_guardada.version, 
+                        autor=profesional, 
+                        id_periodo=meta_guardada.id_periodo, 
+                    )
+
+                    registrar_auditoria(request, "EDICION", "Meta", meta_guardada, datos_antiguos) 
+
+                messages.success(request, 'La meta se ha actualizado correctamente.') 
+                return redirect(url_con_filtros(request, 'monitoreoApp:listar_metas')) 
             except Exception as e:
-                messages.error(request, f'Error al actualizar: {str(e)}')
+                messages.error(request, f'Error al actualizar: {str(e)}') 
+        else:
+            messages.error(request, 'Corrige los errores del formulario.') 
     else:
-        form = MetaForm(instance=meta, cargos=cargos_del_equipo(request.user))
-        
+        form = MetaForm(instance=meta) 
+        limitar_funcionarios_meta(request.user, form) 
+
     context = {
         'form': form, 
-        'titulo': f'Editar Meta #{meta.id_meta}',
+        'titulo': f'Editar Meta #{meta.id_meta}', 
         'url_listado': url_con_filtros(request, 'monitoreoApp:listar_metas'),
-        'url_retorno': obtener_url_retorno(request.user),
+        'url_retorno': obtener_url_retorno(request.user), 
     }
-    return render(request, 'monitoreo/form_meta.html', context)
+    return render(request, 'monitoreo/form_meta.html', context) 
 
 @login_required
 @role_required('Administrador', 'Coordinador', 'Delegado')
@@ -372,18 +405,23 @@ def crear_indicador(request):
         form = IndicadorForm(request.POST)
         if form.is_valid():
             try:
-                # 1. Creamos la instancia sin guardar en BD aún para poder validarla
                 indicador = form.save(commit=False)
-                
-                # 2. Validamos que el período de la meta no esté vencido (KAN-100)
                 validar_periodo_abierto(indicador.meta_id_meta)
-                
-                # 3. Si pasa la validación, guardamos con la transacción
+
+                meta = indicador.meta_id_meta
+                indicador.cumplimiento = calcular_porcentaje_cumplimiento(
+                    indicador.avance,
+                    meta.valor_objetivo
+                )
+                if getattr(meta, 'id_periodo', None):
+                    indicador.semaforo = semaforo_segun_umbral(
+                        indicador.cumplimiento,
+                        meta.id_periodo
+                    )
+
                 with transaction.atomic():
                     indicador.estado = True
-                    indicador.save() # O form.save() ya que la instancia tiene los datos
-                    
-                    # --- AUDITORÍA ---
+                    indicador.save()
                     registrar_auditoria(request, "CREACION", "Indicador", indicador)
                     
                 messages.success(request, 'El indicador fue registrado con éxito.')
@@ -412,17 +450,22 @@ def editar_indicador(request, id_indicador):
         form = IndicadorForm(request.POST, instance=indicador)
         if form.is_valid():
             try:
-                # 1. Obtenemos el objeto actualizado temporalmente sin guardar
                 indicador_modificado = form.save(commit=False)
-                
-                # 2. Validamos que el período asociado no haya finalizado (KAN-100)
                 validar_periodo_abierto(indicador_modificado.meta_id_meta)
-                
-                # 3. Si pasa la validación, guardamos definitivamente el formulario
+
+                meta = indicador_modificado.meta_id_meta
+                indicador_modificado.cumplimiento = calcular_porcentaje_cumplimiento(
+                    indicador_modificado.avance,
+                    meta.valor_objetivo
+                )
+                if getattr(meta, 'id_periodo', None):
+                    indicador_modificado.semaforo = semaforo_segun_umbral(
+                        indicador_modificado.cumplimiento,
+                        meta.id_periodo
+                    )
+
                 with transaction.atomic():
-                    indicador_guardado = form.save()
-                    
-                    # --- AUDITORÍA ---
+                    indicador_guardado = indicador_modificado.save() or indicador_modificado
                     registrar_auditoria(request, "EDICION", "Indicador", indicador_guardado, datos_antiguos)
                     
                 messages.success(request, 'El indicador fue actualizado correctamente.')
@@ -460,38 +503,258 @@ def cambiar_estado_indicador(request, id_indicador):
     return redirect('monitoreoApp:lista_indicadores')
 
 
-def asignar_metas_cargo(request, cargo_pk):
-    cargo = get_object_or_404(Cargo, pk=cargo_pk)
-    periodo_actual = Periodo.objects.filter(estado=True).order_by('-fecha_inicio').first()
-    
-    if not periodo_actual:
-        messages.error(request, "No hay un período de medición abierto.")
-        return redirect('administracionApp:lista_cargos')
+@login_required
+@role_required('Administrador', 'Coordinador')
+def tablero_metas_coordinador(request):
+    periodos, periodo_activo = elegir_periodo(request)
 
-    if request.method == 'POST':
-        form = MetaAsignacionForm(request.POST)
-        if form.is_valid():
-            nueva_meta = form.save(commit=False)
-            nueva_meta.version = 1 # KAN-208: Versión inicial
-            nueva_meta.save()
-            
-            messages.success(request, "Meta asignada correctamente.")
-            return redirect('administracionApp:asignar_metas_cargo', cargo_pk=cargo.pk)
-        else:
-            messages.error(request, "Error al guardar la meta. Revisa los datos ingresados.")
-    else:
-        form = MetaAsignacionForm(initial={
-            'id_periodo': periodo_actual,
-            'fecha_inicio': periodo_actual.fecha_inicio
-        })
+    # Si no viene parámetro 'periodo' en GET y existe uno vigente, preseleccionamos el vigente
+    data_filtro = request.GET.copy()
+    if 'periodo' not in data_filtro and periodo_activo:
+        data_filtro['periodo'] = str(periodo_activo.pk)
 
-    # Restringimos el select solo a los ítems que pertenecen a la matriz de este cargo
-    form.fields['id_cargo_item'].queryset = CargoItem.objects.filter(id_cargo=cargo.pk)
+    metas_base = Meta.objects.select_related(
+        'id_cargo_item__id_cargo',
+        'id_cargo_item__id_item',
+        'id_periodo',
+        'autor',
+    ).order_by('id_cargo_item__id_cargo__nombre', 'id_cargo_item__id_item__nombre', '-id_meta')
+
+    filtro = MetaFilter(data_filtro, queryset=metas_base)
+    metas_qs = filtro.qs if filtro.is_valid() else metas_base.none()
+
+    estado_param = request.GET.get('estado', '').strip()
+    if estado_param == 'activo':
+        metas_qs = metas_qs.filter(estado=True)
+    elif estado_param == 'inactivo':
+        metas_qs = metas_qs.filter(estado=False)
+
+    # Período efectivo seleccionado para diagnósticos de cobertura y ponderación
+    periodo_sel_id = data_filtro.get('periodo', '').strip()
+    periodo_diagnostico = (
+        Periodo.objects.filter(pk=int(periodo_sel_id)).first()
+        if periodo_sel_id.isdigit()
+        else periodo_activo
+    )
+
+    cargos_items_activos = CargoItem.objects.filter(
+        estado=True,
+        id_cargo__estado=True,
+        id_item__estado=True,
+    ).select_related('id_cargo', 'id_item').order_by('id_cargo__nombre', 'id_item__nombre')
+
+    faltantes_cargo_item = []
+    resumen_ponderacion_cargos = []
+
+    if periodo_diagnostico:
+        metas_periodo_activas = Meta.objects.filter(
+            id_periodo=periodo_diagnostico,
+            estado=True,
+        ).select_related('id_cargo_item__id_cargo', 'id_cargo_item__id_item')
+
+        ids_asignados = set(metas_periodo_activas.values_list('id_cargo_item_id', flat=True))
+        faltantes_cargo_item = [ci for ci in cargos_items_activos if ci.pk not in ids_asignados]
+
+        # Agrupar suma de ponderadores por Cargo en el período
+        por_cargo = {}
+        for m in metas_periodo_activas:
+            cargo_obj = m.id_cargo_item.id_cargo
+            entry = por_cargo.setdefault(cargo_obj.pk, {
+                'cargo': cargo_obj.nombre,
+                'suma_ponderador': 0,
+                'cantidad_metas': 0,
+            })
+            entry['suma_ponderador'] += float(m.ponderador)
+            entry['cantidad_metas'] += 1
+
+        for entry in por_cargo.values():
+            entry['suma_ponderador'] = round(entry['suma_ponderador'], 2)
+            entry['completo'] = (entry['suma_ponderador'] == 100.0)
+            resumen_ponderacion_cargos.append(entry)
+        resumen_ponderacion_cargos.sort(key=lambda x: x['cargo'])
+
+    # Guardamos filtros para que editar / cambiar estado vuelvan al tablero con los mismos filtros
+    recordar_filtros(request, 'monitoreoApp:tablero_metas_coordinador')
 
     context = {
-        'titulo': f'Asignar Metas: {cargo.nombre}',
-        'cargo': cargo,
-        'form': form,
-        'periodo': periodo_actual,
+        'metas': metas_qs,
+        'filtro': filtro,
+        'periodo_diagnostico': periodo_diagnostico,
+        'estado_seleccionado': estado_param,
+        'total_metas': metas_qs.count(),
+        'metas_activas': metas_qs.filter(estado=True).count(),
+        'metas_inactivas': metas_qs.filter(estado=False).count(),
+        'faltantes_cargo_item': faltantes_cargo_item,
+        'resumen_ponderacion_cargos': resumen_ponderacion_cargos,
+        'url_retorno': obtener_url_retorno(request.user),
     }
-    return render(request, 'administracionApp/asignar_metas.html', context)
+    return render(request, 'coordinador/tablero_metas.html', context)
+
+
+@login_required
+@role_required('Administrador', 'Coordinador', 'Delegado')
+def historial_meta(request, meta_id):
+    meta = get_object_or_404(
+        Meta.objects.select_related(
+            'id_cargo_item__id_cargo',
+            'id_cargo_item__id_item',
+            'id_periodo',
+            'autor',
+        ),
+        id_meta=meta_id,
+    )
+
+    registros_historial = (
+        HistorialMeta.objects.filter(meta=meta)
+        .select_related('autor', 'id_periodo')
+        .order_by('version', 'fecha_modificacion')
+    )
+
+    versiones = [
+        {
+            'version': 1,
+            'fecha': meta.fecha_creacion,
+            'autor': meta.autor,
+            'periodo': meta.id_periodo,
+            'es_creacion': True,
+        }
+    ]
+
+    for reg in registros_historial:
+        versiones.append({
+            'version': reg.version,
+            'fecha': reg.fecha_modificacion,
+            'autor': reg.autor,
+            'periodo': reg.id_periodo,
+            'es_creacion': False,
+        })
+
+    # Ordenamos de la versión más reciente a la más antigua
+    versiones.sort(key=lambda item: item['version'], reverse=True)
+
+    if request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists():
+        url_volver = url_con_filtros(request, 'monitoreoApp:tablero_metas_coordinador')
+    else:
+        url_volver = url_con_filtros(request, 'monitoreoApp:listar_metas')
+
+    context = {
+        'meta': meta,
+        'versiones': versiones,
+        'url_volver': url_volver,
+    }
+    return render(request, 'coordinador/historial_metas.html', context)
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def cambiar_estado_meta_tablero(request, id_meta):
+    if request.method == 'POST':
+        meta = get_object_or_404(Meta, id_meta=id_meta)
+        try:
+            with transaction.atomic():
+                datos_antiguos = model_to_dict(meta)
+                nuevo_estado = not meta.estado
+                meta.estado = nuevo_estado
+                meta.save()
+
+                registrar_auditoria(request, "CAMBIO_ESTADO", "Meta", meta, datos_antiguos)
+
+                accion = "habilitada" if nuevo_estado else "inhabilitada"
+                messages.success(request, f'La meta #{meta.id_meta} fue {accion} correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al cambiar el estado: {str(e)}')
+
+    return redirect(url_con_filtros(request, 'monitoreoApp:tablero_metas_coordinador'))
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def tablero_indicadores_coordinador(request):
+    periodos, periodo_activo = elegir_periodo(request)
+    delegaciones = Delegacion.objects.order_by('nombre')
+
+    indicadores_qs = Indicador.objects.select_related(
+        'meta_id_meta__id_periodo',
+        'meta_id_meta__id_cargo_item__id_cargo',
+        'meta_id_meta__id_cargo_item__id_item',
+        'id_funcionario__id_delegacion',
+    ).order_by('id_funcionario__id_delegacion__nombre', '-id_indicador')
+
+    periodo_param = request.GET.get('periodo', '').strip()
+    if not periodo_param and periodo_activo:
+        periodo_param = str(periodo_activo.pk)
+    if periodo_param.isdigit():
+        indicadores_qs = indicadores_qs.filter(meta_id_meta__id_periodo_id=int(periodo_param))
+
+    delegacion_param = request.GET.get('delegacion', '').strip()
+    if delegacion_param.isdigit():
+        indicadores_qs = indicadores_qs.filter(id_funcionario__id_delegacion_id=int(delegacion_param))
+
+    semaforo_param = request.GET.get('semaforo', '').strip()
+    if semaforo_param in {'VERDE', 'AMARILLO', 'ROJO'}:
+        indicadores_qs = indicadores_qs.filter(semaforo=semaforo_param)
+
+    estado_param = request.GET.get('estado', '').strip()
+    if estado_param == 'activo':
+        indicadores_qs = indicadores_qs.filter(estado=True)
+    elif estado_param == 'inactivo':
+        indicadores_qs = indicadores_qs.filter(estado=False)
+
+    query = request.GET.get('q', '').strip()
+    if query:
+        indicadores_qs = indicadores_qs.filter(
+            Q(meta_id_meta__unidad__icontains=query)
+            | Q(meta_id_meta__id_cargo_item__id_cargo__nombre__icontains=query)
+            | Q(meta_id_meta__id_cargo_item__id_item__nombre__icontains=query)
+            | Q(id_funcionario__nombres__icontains=query)
+            | Q(id_funcionario__apellidos__icontains=query)
+            | Q(id_funcionario__id_delegacion__nombre__icontains=query)
+        ).distinct()
+
+    indicadores_lista = list(indicadores_qs)
+    for ind in indicadores_lista:
+        try:
+            sincronizar_calculos_indicador(ind, guardar=True)
+        except ValidationError:
+            pass
+
+    recordar_filtros(request, 'monitoreoApp:tablero_indicadores_coordinador')
+
+    context = {
+        'indicadores': indicadores_lista,
+        'periodos': periodos,
+        'delegaciones': delegaciones,
+        'periodo_seleccionado': periodo_param,
+        'delegacion_seleccionada': delegacion_param,
+        'semaforo_seleccionado': semaforo_param,
+        'estado_seleccionado': estado_param,
+        'query': query,
+        'total_indicadores': len(indicadores_lista),
+        'total_verde': sum(1 for i in indicadores_lista if i.semaforo == 'VERDE'),
+        'total_amarillo': sum(1 for i in indicadores_lista if i.semaforo == 'AMARILLO'),
+        'total_rojo': sum(1 for i in indicadores_lista if i.semaforo == 'ROJO'),
+        'url_retorno': obtener_url_retorno(request.user),
+    }
+    return render(request, 'coordinador/tablero_indicadores.html', context)
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def cambiar_estado_indicador_tablero(request, id_indicador):
+    if request.method == 'POST':
+        indicador = get_object_or_404(Indicador, id_indicador=id_indicador)
+        try:
+            with transaction.atomic():
+                datos_antiguos = model_to_dict(indicador)
+                nuevo_estado = not indicador.estado
+                indicador.estado = nuevo_estado
+                indicador.save()
+
+                registrar_auditoria(request, "CAMBIO_ESTADO", "Indicador", indicador, datos_antiguos)
+
+                accion = "habilitado" if nuevo_estado else "inhabilitado"
+                messages.success(request, f'El indicador #{indicador.id_indicador} fue {accion} correctamente.')
+        except Exception as e:
+            messages.error(request, f'Error al cambiar el estado: {str(e)}')
+
+    return redirect(url_con_filtros(request, 'monitoreoApp:tablero_indicadores_coordinador'))

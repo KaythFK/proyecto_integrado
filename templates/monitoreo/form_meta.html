@@ -71,11 +71,29 @@
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
+                    {% if form.fecha_inicio %}
+                    <div class="col-12 col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Fecha de Inicio *</label>
+                        {{ form.fecha_inicio }}
+                        {% for error in form.fecha_inicio.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% if form.fecha_termino %}
+                    <div class="col-12 col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Fecha de Término</label>
+                        {{ form.fecha_termino }}
+                        {% for error in form.fecha_termino.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
 
-                <!-- 2. CLASIFICACIÓN -->
+                <!-- 2. CLASIFICACIÓN Y ASIGNACIÓN (CARGO - ÍTEM) -->
                 <h5 class="fw-bold mb-3 titulo-seccion">
-                    2. Clasificación
+                    2. Clasificación y Asignación
                 </h5>
                 <div class="row p-3 rounded mb-4 borde-gris">
                     <div class="col-12 col-md-6 mb-3">
@@ -86,30 +104,9 @@
                         {% endfor %}
                     </div>
                     <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Cargo e Ítem *</label>
+                        <label class="form-label fw-bold text-dark">Cargo e Ítem Asignado *</label>
                         {{ form.id_cargo_item }}
                         {% for error in form.id_cargo_item.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <!-- 3. VIGENCIA -->
-                <h5 class="fw-bold mb-3 titulo-seccion">
-                    3. Vigencia
-                </h5>
-                <div class="row p-3 rounded mb-4 borde-gris">
-                    <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Inicio de vigencia *</label>
-                        {{ form.fecha_inicio }}
-                        {% for error in form.fecha_inicio.errors %}
-                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    <div class="col-12 col-md-6 mb-3">
-                        <label class="form-label fw-bold text-dark">Término de vigencia</label>
-                        {{ form.fecha_termino }}
-                        {% for error in form.fecha_termino.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>

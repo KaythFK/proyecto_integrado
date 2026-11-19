@@ -54,7 +54,8 @@ class Cargo(models.Model):
     estado = models.BooleanField(default=True)
 
     def __str__(self):
-        return str(self.nombre)
+        nombre = getattr(self, 'nombre', None) or getattr(self, 'nombre_cargo', None) or getattr(self, 'descripcion', None)
+        return str(nombre) if nombre else f"Cargo #{self.pk}"
 
     class Meta:
         db_table = 'cargo'
@@ -89,9 +90,11 @@ class CatalagoItem(models.Model):
     nombre = models.CharField(unique=True, max_length=45)
     estado = models.BooleanField(default=True)
 
-    def __str__(self):
-        return str(self.nombre)
+    def __str__(self):    
+        nombre = getattr(self, 'nombre', None) 
+        return str(nombre) if nombre else f"Ítem #{self.pk}"
 
+    
     class Meta:
         db_table = 'catalago_item'
         verbose_name_plural = 'Catalogo Items'
@@ -273,3 +276,8 @@ class CargoItem(models.Model):
     class Meta:
         db_table = 'cargo_item'
         unique_together = (('id_cargo', 'id_item'),)
+
+    def __str__(self):
+        cargo_str = str(self.id_cargo) if getattr(self, 'id_cargo', None) else "Sin cargo"
+        item_str = str(self.id_item) if getattr(self, 'id_item', None) else "Sin ítem"
+        return f"{cargo_str} — {item_str}"

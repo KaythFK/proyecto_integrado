@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tablero de Indicadores — Coordinación{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Tablero de Indicadores Clave</h3>
+{% endblock %}
+
+{% block contenido %}
+{% include 'parciales/mensajes.html' %}
+<div class="container mt-4 mb-5">
+
+    <!-- Encabezado y accesos -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <div>
+            <h4 class="fw-bold m-0 texto-guinda">Consulta y Semáforo de Indicadores</h4>
+            <p class="text-muted m-0 mt-1 texto-090">
+                Vista global y filtrable por delegación para monitorear avance, cumplimiento y semáforos.
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'monitoreoApp:tablero_metas_coordinador' %}" class="btn btn-outline-dark redondeado-6">
+                Tablero de Metas
+            </a>
+            <a href="{% url 'monitoreoApp:crear_indicador' %}" class="btn text-white fw-bold shadow-sm fondo-rojo redondeado-6">
+                + Nuevo Indicador
+            </a>
+        </div>
+    </div>
+
+    <!-- KPIs de Indicadores Clave (Semáforos) -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-body">
+                    <div class="text-muted texto-085 fw-semibold">Indicadores en Vista</div>
+                    <div class="fs-3 fw-bold texto-guinda mt-1">{{ total_indicadores }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-body">
+                    <div class="text-muted texto-085 fw-semibold">Semáforo Verde</div>
+                    <div class="fs-3 fw-bold text-success mt-1">{{ total_verde }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-body">
+                    <div class="text-muted texto-085 fw-semibold">Semáforo Amarillo</div>
+                    <div class="fs-3 fw-bold text-warning mt-1">{{ total_amarillo }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-body">
+                    <div class="text-muted texto-085 fw-semibold">Semáforo Rojo</div>
+                    <div class="fs-3 fw-bold text-danger mt-1">{{ total_rojo }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card caja-gris redondeado-10 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'monitoreoApp:tablero_indicadores_coordinador' %}" class="row g-3 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label for="filtroPeriodo" class="form-label fw-semibold texto-085 mb-1">Período</label>
+                    <select name="periodo" id="filtroPeriodo" class="form-select borde-guinda">
+                        <option value="">Todos los períodos</option>
+                        {% for p in periodos %}
+                            <option value="{{ p.pk }}" {% if periodo_seleccionado == p.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ p.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label for="filtroDelegacion" class="form-label fw-semibold texto-085 mb-1">Delegación</label>
+                    <select name="delegacion" id="filtroDelegacion" class="form-select borde-guinda">
+                        <option value="">Todas las delegaciones</option>
+                        {% for d in delegaciones %}
+                            <option value="{{ d.pk }}" {% if delegacion_seleccionada == d.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ d.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <label for="filtroSemaforo" class="form-label fw-semibold texto-085 mb-1">Semáforo</label>
+                    <select name="semaforo" id="filtroSemaforo" class="form-select borde-guinda">
+                        <option value="" {% if not semaforo_seleccionado %}selected{% endif %}>Todos</option>
+                        <option value="VERDE" {% if semaforo_seleccionado == 'VERDE' %}selected{% endif %}>Verde</option>
+                        <option value="AMARILLO" {% if semaforo_seleccionado == 'AMARILLO' %}selected{% endif %}>Amarillo</option>
+                        <option value="ROJO" {% if semaforo_seleccionado == 'ROJO' %}selected{% endif %}>Rojo</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <label for="filtroEstadoInd" class="form-label fw-semibold texto-085 mb-1">Estado</label>
+                    <select name="estado" id="filtroEstadoInd" class="form-select borde-guinda">
+                        <option value="" {% if not estado_seleccionado %}selected{% endif %}>Todos</option>
+                        <option value="activo" {% if estado_seleccionado == 'activo' %}selected{% endif %}>Activos</option>
+                        <option value="inactivo" {% if estado_seleccionado == 'inactivo' %}selected{% endif %}>Inactivos</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <label for="filtroQueryInd" class="form-label fw-semibold texto-085 mb-1">Buscar</label>
+                    <input type="text" name="q" id="filtroQueryInd" class="form-control borde-guinda"
+                        placeholder="Unidad, cargo o persona..."
+                        value="{{ query|default_if_none:'' }}">
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2">
+                    <a href="{% url 'monitoreoApp:tablero_indicadores_coordinador' %}" class="btn btn-outline-secondary redondeado-6">
+                        Limpiar
+                    </a>
+                    <button type="submit" class="btn text-white fw-bold px-4 fondo-guinda redondeado-6">
+                        Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Indicadores -->
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0 bg-white">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Delegación</th>
+                    <th scope="col">Meta Asociada</th>
+                    <th scope="col">Funcionario</th>
+                    <th scope="col" class="text-center">Avance</th>
+                    <th scope="col" class="text-center">Cumplimiento</th>
+                    <th scope="col" class="text-center">Semáforo</th>
+                    <th scope="col" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ind in indicadores %}
+                <tr class="{% if not ind.estado %}table-secondary text-muted opacity-75{% endif %}">
+                    <td class="fw-bold">#{{ ind.id_indicador }}</td>
+                    <td>{{ ind.id_funcionario.id_delegacion.nombre|default:"Sin delegación" }}</td>
+                    <td>
+                        <div>{{ ind.meta_id_meta }}</div>
+                        <small class="text-muted texto-075">{{ ind.meta_id_meta.id_periodo.nombre }}</small>
+                    </td>
+                    <td>{{ ind.id_funcionario }}</td>
+                    <td class="text-center">{{ ind.avance }}</td>
+                    <td class="text-center fw-semibold">{{ ind.cumplimiento }}%</td>
+                    <td class="text-center">
+                        <span class="badge redondeado-6
+                            {% if ind.semaforo == 'VERDE' %}bg-success
+                            {% elif ind.semaforo == 'AMARILLO' %}bg-warning text-dark
+                            {% else %}bg-danger{% endif %}">
+                            {{ ind.get_semaforo_display }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                            {% if ind.meta_id_meta.id_periodo.esta_abierto %}
+                                <a href="{% url 'monitoreoApp:editar_indicador' ind.id_indicador %}"
+                                   class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6">
+                                    Editar
+                                </a>
+                            {% else %}
+                                <button type="button"
+                                    class="btn btn-sm btn-secondary px-2 shadow-sm redondeado-6"
+                                    disabled
+                                    title="Período cerrado">
+                                    Editar
+                                </button>
+                            {% endif %}
+
+                            <div class="d-flex flex-column align-items-center ms-1">
+                                <span class="badge mb-1 {% if ind.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                    {% if ind.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr"
+                                        type="checkbox"
+                                        role="switch"
+                                        {% if ind.estado %}checked{% endif %}
+                                        onclick="confirmarCambioIndicadorTablero(event, '{{ ind.id_indicador }}', '{{ ind.estado }}')">
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        No hay indicadores registrados para los criterios seleccionados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Confirmar Estado Indicador -->
+<div class="modal fade" id="modalEstadoIndicadorTablero" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderEstadoInd">
+                <h5 class="modal-title fw-bold" id="modalTituloEstadoInd">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeEstadoInd"></p>
+                <strong class="fs-4 text-dark" id="modalIdInd"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm redondeado-6" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstadoIndTablero" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white shadow-sm redondeado-6" id="btnConfirmarEstadoInd">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambioIndicadorTablero(event, idIndicador, estadoActualStr) {
+    event.preventDefault();
+
+    const estaActivo = estadoActualStr === 'True';
+    const actionUrl = "{% url 'monitoreoApp:cambiar_estado_indicador_tablero' 0 %}".replace('/0/', '/' + idIndicador + '/');
+
+    const header = document.getElementById('modalHeaderEstadoInd');
+    const titulo = document.getElementById('modalTituloEstadoInd');
+    const mensaje = document.getElementById('modalMensajeEstadoInd');
+    const idStr = document.getElementById('modalIdInd');
+    const btn = document.getElementById('btnConfirmarEstadoInd');
+    const form = document.getElementById('formCambiarEstadoIndTablero');
+
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Desactivar Indicador';
+        mensaje.innerText = '¿Estás segura/o de inhabilitar el indicador:';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Reactivar Indicador';
+        mensaje.innerText = '¿Deseas restaurar el indicador:';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+
+    idStr.innerText = 'Indicador #' + idIndicador;
+    form.action = actionUrl;
+
+    new bootstrap.Modal(document.getElementById('modalEstadoIndicadorTablero')).show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,408 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tablero de Metas — Coordinación{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Tablero de Gestión de Metas</h3>
+{% endblock %}
+
+{% block contenido %}
+{% include 'parciales/mensajes.html' %}
+<div class="container mt-4 mb-5">
+
+    <!-- Encabezado y accesos -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <div>
+            <h4 class="fw-bold m-0 texto-guinda">Control de Metas por Período y Cargo</h4>
+            <p class="text-muted m-0 mt-1 texto-090">
+                Definición, vigencia y cobertura de metas (el consolidado de avance se gestiona en Indicadores).
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'monitoreoApp:lista_indicadores' %}" class="btn btn-outline-dark redondeado-6">
+                Ver Indicadores
+            </a>
+            <a href="{% url 'monitoreoApp:crear_meta' %}" class="btn text-white fw-bold shadow-sm fondo-rojo redondeado-6">
+                + Nueva Meta
+            </a>
+        </div>
+    </div>
+
+    <!-- KPIs rápidos del filtro actual -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-body">
+                    <div class="text-muted texto-085 fw-semibold">Metas en Vista</div>
+                    <div class="fs-3 fw-bold texto-guinda mt-1">{{ total_metas }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-body">
+                    <div class="text-muted texto-085 fw-semibold">Activas</div>
+                    <div class="fs-3 fw-bold text-success mt-1">{{ metas_activas }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-body">
+                    <div class="text-muted texto-085 fw-semibold">Inactivas</div>
+                    <div class="fs-3 fw-bold text-danger mt-1">{{ metas_inactivas }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-body">
+                    <div class="text-muted texto-085 fw-semibold">Cargo—Ítem sin Meta</div>
+                    <div class="fs-3 fw-bold {% if faltantes_cargo_item %}text-warning{% else %}text-success{% endif %} mt-1">
+                        {{ faltantes_cargo_item|length }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de asistencia al Coordinador (Cobertura y Ponderación del Período) -->
+    {% if periodo_diagnostico %}
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-header bg-white border-bottom py-2 d-flex justify-content-between align-items-center">
+                    <span class="fw-bold texto-guinda texto-090">Ponderación por Cargo ({{ periodo_diagnostico.nombre }})</span>
+                    <span class="badge bg-light text-dark border texto-075">Meta: 100%</span>
+                </div>
+                <div class="card-body py-2">
+                    {% if resumen_ponderacion_cargos %}
+                        <ul class="list-group list-group-flush">
+                            {% for item in resumen_ponderacion_cargos %}
+                            <li class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="fw-semibold texto-090">{{ item.cargo }}</span>
+                                    <small class="text-muted d-block texto-075">{{ item.cantidad_metas }} meta(s) activa(s)</small>
+                                </div>
+                                {% if item.completo %}
+                                    <span class="badge bg-success">{{ item.suma_ponderador }}% OK</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">{{ item.suma_ponderador }}% (Incompleto)</span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted texto-085 my-2">No hay metas activas registradas en este período.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card border-0 shadow-sm redondeado-10 h-100">
+                <div class="card-header bg-white border-bottom py-2 d-flex justify-content-between align-items-center">
+                    <span class="fw-bold texto-guinda texto-090">Pendientes de Asignar ({{ periodo_diagnostico.nombre }})</span>
+                    {% if faltantes_cargo_item %}
+                        <span class="badge bg-warning text-dark texto-075">{{ faltantes_cargo_item|length }} pendiente(s)</span>
+                    {% else %}
+                        <span class="badge bg-success texto-075">Cobertura completa</span>
+                    {% endif %}
+                </div>
+                <div class="card-body py-2" style="max-height: 210px; overflow-y: auto;">
+                    {% if faltantes_cargo_item %}
+                        <ul class="list-group list-group-flush">
+                            {% for ci in faltantes_cargo_item %}
+                            <li class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center gap-2">
+                                <span class="texto-085">{{ ci }}</span>
+                                {% if periodo_diagnostico.esta_abierto %}
+                                <a href="{% url 'monitoreoApp:crear_meta' %}?periodo={{ periodo_diagnostico.pk }}&cargo_item={{ ci.pk }}"
+                                   class="btn btn-sm text-white fw-bold fondo-guinda redondeado-6 px-2 py-1 texto-075 text-nowrap">
+                                    + Asignar
+                                </a>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-success texto-085 my-2 fw-semibold">Todos los cargos e ítems activos tienen meta asignada en este período.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filtros -->
+    <div class="card caja-gris redondeado-10 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'monitoreoApp:tablero_metas_coordinador' %}" class="row g-3 align-items-end">
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold texto-085 mb-1">{{ filtro.form.periodo.label }}</label>
+                    {{ filtro.form.periodo }}
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label fw-semibold texto-085 mb-1">{{ filtro.form.cargo.label }}</label>
+                    {{ filtro.form.cargo }}
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold texto-085 mb-1">{{ filtro.form.item.label }}</label>
+                    {{ filtro.form.item }}
+                </div>
+                <div class="col-12 col-md-2">
+                    <label for="filtroEstado" class="form-label fw-semibold texto-085 mb-1">Estado</label>
+                    <select name="estado" id="filtroEstado" class="form-select borde-guinda">
+                        <option value="" {% if not estado_seleccionado %}selected{% endif %}>Todos</option>
+                        <option value="activo" {% if estado_seleccionado == 'activo' %}selected{% endif %}>Activas</option>
+                        <option value="inactivo" {% if estado_seleccionado == 'inactivo' %}selected{% endif %}>Inactivas</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label fw-semibold texto-085 mb-1">{{ filtro.form.q.label }}</label>
+                    {{ filtro.form.q }}
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2">
+                    <a href="{% url 'monitoreoApp:tablero_metas_coordinador' %}" class="btn btn-outline-secondary redondeado-6">
+                        Limpiar
+                    </a>
+                    <button type="submit" class="btn text-white fw-bold px-4 fondo-guinda redondeado-6">
+                        Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla de Metas con acciones completas -->
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-hover align-middle mb-0 bg-white">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Período</th>
+                    <th scope="col">Cargo — Ítem</th>
+                    <th scope="col">Objetivo</th>
+                    <th scope="col" class="text-center">Ponderador</th>
+                    <th scope="col" class="text-center">Versión</th>
+                    <th scope="col">Vigencia</th>
+                    <th scope="col" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for meta in metas %}
+                <tr>
+                    <td class="fw-bold">{{ meta.id_meta }}</td>
+                    <td>
+                        {{ meta.id_periodo.nombre }}
+                        {% if not meta.id_periodo.esta_abierto %}
+                            <span class="badge bg-secondary ms-1 texto-075">Cerrado</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ meta.id_cargo_item|default:"Sin asignar" }}</td>
+                    <td><strong>{{ meta.valor_objetivo }}</strong> {{ meta.unidad }}</td>
+                    <td class="text-center">{{ meta.ponderador }}%</td>
+                    <td class="text-center"><span class="badge bg-dark">v{{ meta.version|default:1 }}</span></td>
+                    <td class="texto-085">
+                        {{ meta.fecha_inicio|date:"d/m/Y" }}
+                        {% if meta.fecha_termino %}
+                            — {{ meta.fecha_termino|date:"d/m/Y" }}
+                        {% else %}
+                            — Sin término
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                            <button type="button"
+                                class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6"
+                                data-id="{{ meta.id_meta }}"
+                                data-version="{{ meta.version|default:1 }}"
+                                data-periodo="{{ meta.id_periodo }}"
+                                data-periodo-estado="{% if meta.id_periodo.esta_abierto %}Abierto{% else %}Cerrado{% endif %}"
+                                data-cargo="{{ meta.id_cargo_item.id_cargo|default:'Sin cargo' }}"
+                                data-item="{{ meta.id_cargo_item.id_item|default:'Sin ítem' }}"
+                                data-cargo-item="{{ meta.id_cargo_item|default:'Sin asignar' }}"
+                                data-objetivo="{{ meta.valor_objetivo }} {{ meta.unidad }}"
+                                data-ponderador="{{ meta.ponderador }}%"
+                                data-fecha-inicio="{{ meta.fecha_inicio|date:'d/m/Y'|default:'No definida' }}"
+                                data-fecha-termino="{{ meta.fecha_termino|date:'d/m/Y'|default:'No definida' }}"
+                                data-autor="{{ meta.autor|default:'Sistema / No registrado' }}"
+                                data-fecha-creacion="{{ meta.fecha_creacion|date:'d/m/Y H:i'|default:'No registrada' }}"
+                                data-estado="{% if meta.estado %}Activa{% else %}Inactiva{% endif %}"
+                                onclick="verDetalleMeta(this)">
+                                Detalle
+                            </button>
+
+                            {% if meta.id_periodo.esta_abierto %}
+                                <a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}"
+                                   class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6">
+                                    Editar
+                                </a>
+                            {% else %}
+                                <button type="button"
+                                    class="btn btn-sm btn-secondary px-2 shadow-sm redondeado-6"
+                                    disabled
+                                    title="Período cerrado">
+                                    Editar
+                                </button>
+                            {% endif %}
+
+                           
+                            <a href="{% url 'monitoreoApp:historial_meta' meta.id_meta %}"
+                               class="btn btn-sm btn-outline-secondary px-2 shadow-sm redondeado-6"
+                               title="Ver historial de versiones">
+                                Historial
+                            </a>
+                            
+
+                            <div class="d-flex flex-column align-items-center ms-1">
+                                <span class="badge mb-1 {% if meta.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                    {% if meta.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Activar/Desactivar">
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr"
+                                        type="checkbox"
+                                        role="switch"
+                                        {% if meta.estado %}checked{% endif %}
+                                        onclick="confirmarCambioMeta(event, '{{ meta.id_meta }}', '{{ meta.estado }}')">
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        No hay metas registradas para los criterios seleccionados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Detalle Meta (estructurado por bloques) -->
+<div class="modal fade" id="modalDetalleMeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white fondo-guinda">
+                <h5 class="modal-title fw-bold">
+                    Detalle de Meta #<span id="detMetaId"></span>
+                    <span class="badge bg-light text-dark ms-2 texto-080" id="detMetaVersion"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="caja-gris redondeado-8 p-3 mb-3">
+                    <div class="fw-bold texto-guinda texto-085 text-uppercase mb-2">Período y Estado</div>
+                    <div class="row g-2 texto-090">
+                        <div class="col-md-6"><strong>Período:</strong> <span id="detMetaPeriodo"></span></div>
+                        <div class="col-md-6"><strong>Estado del Período:</strong> <span id="detMetaPeriodoEstado"></span></div>
+                        <div class="col-md-6"><strong>Estado de la Meta:</strong> <span id="detMetaEstado"></span></div>
+                    </div>
+                </div>
+
+                <div class="caja-gris redondeado-8 p-3 mb-3">
+                    <div class="fw-bold texto-guinda texto-085 text-uppercase mb-2">Asignación y Medición</div>
+                    <div class="row g-2 texto-090">
+                        <div class="col-md-6"><strong>Cargo:</strong> <span id="detMetaCargo"></span></div>
+                        <div class="col-md-6"><strong>Ítem:</strong> <span id="detMetaItem"></span></div>
+                        <div class="col-md-6"><strong>Objetivo:</strong> <span id="detMetaObjetivo"></span></div>
+                        <div class="col-md-6"><strong>Ponderador:</strong> <span id="detMetaPonderador"></span></div>
+                    </div>
+                </div>
+
+                <div class="caja-gris redondeado-8 p-3">
+                    <div class="fw-bold texto-guinda texto-085 text-uppercase mb-2">Vigencia y Trazabilidad</div>
+                    <div class="row g-2 texto-090">
+                        <div class="col-md-6"><strong>Fecha Inicio:</strong> <span id="detMetaFechaInicio"></span></div>
+                        <div class="col-md-6"><strong>Fecha Término:</strong> <span id="detMetaFechaTermino"></span></div>
+                        <div class="col-md-6"><strong>Autor:</strong> <span id="detMetaAutor"></span></div>
+                        <div class="col-md-6"><strong>Fecha Creación:</strong> <span id="detMetaFechaCreacion"></span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary redondeado-6" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmar Cambio de Estado -->
+<div class="modal fade" id="modalEstadoMeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderEstadoMeta">
+                <h5 class="modal-title fw-bold" id="modalTituloEstadoMeta">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeEstadoMeta"></p>
+                <strong class="fs-4 text-dark" id="modalIdMeta"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm redondeado-6" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstadoMeta" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white shadow-sm redondeado-6" id="btnConfirmarEstadoMeta">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function verDetalleMeta(btn) {
+    document.getElementById('detMetaId').innerText = btn.dataset.id;
+    document.getElementById('detMetaVersion').innerText = 'v' + btn.dataset.version;
+    document.getElementById('detMetaPeriodo').innerText = btn.dataset.periodo;
+    document.getElementById('detMetaPeriodoEstado').innerText = btn.dataset.periodoEstado;
+    document.getElementById('detMetaCargo').innerText = btn.dataset.cargo;
+    document.getElementById('detMetaItem').innerText = btn.dataset.item;
+    document.getElementById('detMetaObjetivo').innerText = btn.dataset.objetivo;
+    document.getElementById('detMetaPonderador').innerText = btn.dataset.ponderador;
+    document.getElementById('detMetaFechaInicio').innerText = btn.dataset.fechaInicio;
+    document.getElementById('detMetaFechaTermino').innerText = btn.dataset.fechaTermino;
+    document.getElementById('detMetaAutor').innerText = btn.dataset.autor;
+    document.getElementById('detMetaFechaCreacion').innerText = btn.dataset.fechaCreacion;
+    document.getElementById('detMetaEstado').innerText = btn.dataset.estado;
+
+    new bootstrap.Modal(document.getElementById('modalDetalleMeta')).show();
+}
+
+function confirmarCambioMeta(event, idMeta, estadoActualStr) {
+    event.preventDefault();
+
+    const estaActiva = estadoActualStr === 'True';
+    const actionUrl = "{% url 'monitoreoApp:cambiar_estado_meta_tablero' 0 %}".replace('/0/', '/' + idMeta + '/');
+
+    const header = document.getElementById('modalHeaderEstadoMeta');
+    const titulo = document.getElementById('modalTituloEstadoMeta');
+    const mensaje = document.getElementById('modalMensajeEstadoMeta');
+    const idStr = document.getElementById('modalIdMeta');
+    const btn = document.getElementById('btnConfirmarEstadoMeta');
+    const form = document.getElementById('formCambiarEstadoMeta');
+
+    if (estaActiva) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Inhabilitar Meta';
+        mensaje.innerText = '¿Estás segura/o de inhabilitar la meta:';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Inhabilitar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Habilitar Meta';
+        mensaje.innerText = '¿Deseas habilitar nuevamente la meta:';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Habilitar';
+    }
+
+    idStr.innerText = 'Meta #' + idMeta;
+    form.action = actionUrl;
+
+    new bootstrap.Modal(document.getElementById('modalEstadoMeta')).show();
+}
+</script>
+{% endblock %}

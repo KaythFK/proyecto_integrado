@@ -375,18 +375,16 @@ def validar_suma_ponderaciones(lista_ponderaciones):
         raise ValidationError(f"La suma de las ponderaciones debe ser exactamente 100%. Suma actual: {suma_total}%.")
 
 
-def calcular_porcentaje_cumplimiento(avance, meta_periodo):
-    """
-    [RN-004] Calcula el porcentaje de cumplimiento:
-    % de cumplimiento = (avance actual / meta del período) * 100.
-    """
+def calcular_porcentaje_cumplimiento(avance, meta_periodo, tope_maximo=Decimal('120.00')):
     avance_dec = Decimal(str(avance or 0))
     meta_dec = Decimal(str(meta_periodo or 0))
-    
+
     if meta_dec <= 0:
-        raise ValidationError("La meta del período debe ser mayor que cero para calcular el cumplimiento (RN-002/RN-004)[cite: 11, 12].")
-    
+        raise ValidationError("La meta del período debe ser mayor que cero para calcular el cumplimiento.")
+
     cumplimiento = (avance_dec / meta_dec) * Decimal('100.00')
+    if tope_maximo is not None:
+        cumplimiento = min(cumplimiento, Decimal(str(tope_maximo)))
     return cumplimiento.quantize(Decimal('0.01'))
 
 
@@ -529,29 +527,107 @@ def validar_vigencia_fecha_actual():
     return periodo_vigente
 
 
-def validar_datos_meta(valor_objetivo, ponderador, fecha_inicio, fecha_termino, periodo):
+def validar_datos_meta(valor_objetivo, unidad, ponderador):
     """
-    Valida los datos de creación/modificación de una Meta (KAN-203).
-    Asegura valores positivos, rangos coherentes y apego a las fechas del Periodo.
+    [HU-05 / KAN-203] Valida en backend que los valores numéricos y la unidad
+    de una meta sean válidos antes de crearla o editarla.
     """
-    # 1. Validar valores numéricos positivos
-    if valor_objetivo is None or valor_objetivo <= 0:
-        raise ValidationError("El valor objetivo de la meta debe ser mayor a 0.")
-    
-    if ponderador is None or ponderador <= 0 or ponderador > 100:
-        raise ValidationError("El ponderador de la meta debe ser un porcentaje válido entre 0 y 100.")
+    if valor_objetivo is None:
+        raise ValidationError("El valor objetivo es obligatorio.")
+    try:
+        objetivo_dec = Decimal(str(valor_objetivo))
+    except InvalidOperation:
+        raise ValidationError("El valor objetivo debe ser un número válido.")
+    if objetivo_dec <= Decimal('0'):
+        raise ValidationError("El valor objetivo debe ser estrictamente mayor a cero.")
 
-    # 2. Validar coherencia de fechas de la meta
-    if fecha_termino and fecha_inicio and fecha_termino < fecha_inicio:
-        raise ValidationError("La fecha de término de la meta no puede ser anterior a la fecha de inicio.")
+    unidad_limpia = validar_texto_no_vacio(unidad, "La unidad de medida")
+    if len(unidad_limpia) < 2:
+        raise ValidationError("El nombre de la unidad es demasiado corto.")
 
-    # 3. Validar que la meta esté contenida dentro de las fechas del Periodo asociado
+    if ponderador is None:
+        raise ValidationError("El porcentaje de ponderación es obligatorio.")
+    try:
+        ponderador_dec = Decimal(str(ponderador))
+    except InvalidOperation:
+        raise ValidationError("La ponderación debe ser un número válido.")
+    if ponderador_dec <= Decimal('0') or ponderador_dec > Decimal('100'):
+        raise ValidationError("La ponderación debe ser un valor mayor a 0 y menor o igual a 100.")
+
+
+def validar_fechas_meta_en_periodo(fecha_inicio, fecha_termino, periodo):
+    """
+    [HU-05 / KAN-203] Valida coherencia entre fecha_inicio y fecha_termino de la meta
+    y que ambas estén dentro del rango del período seleccionado.
+    """
+    if fecha_inicio and fecha_termino:
+        validar_rango_fechas(fecha_inicio, fecha_termino)
+
     if periodo:
-        if fecha_inicio < periodo.fecha_inicio:
-            raise ValidationError(f"La fecha de inicio de la meta no puede ser anterior al inicio del período ({periodo.fecha_inicio}).")
-        
-        if fecha_termino and periodo.fecha_termino and fecha_termino > periodo.fecha_termino:
-            raise ValidationError(f"La fecha de término de la meta no puede superar el cierre del período ({periodo.fecha_termino}).")
+        if fecha_inicio and getattr(periodo, 'fecha_inicio', None) and fecha_inicio < periodo.fecha_inicio:
+            raise ValidationError(
+                f'La fecha de inicio de la meta no puede ser anterior al inicio del período ({periodo.fecha_inicio.strftime("%d/%m/%Y")}).'
+            )
+        if fecha_inicio and getattr(periodo, 'fecha_termino', None) and fecha_inicio > periodo.fecha_termino:
+            raise ValidationError(
+                f'La fecha de inicio de la meta no puede ser posterior al término del período ({periodo.fecha_termino.strftime("%d/%m/%Y")}).'
+            )
+        if fecha_termino and getattr(periodo, 'fecha_termino', None) and fecha_termino > periodo.fecha_termino:
+            raise ValidationError(
+                f'La fecha de término de la meta no puede exceder el término del período ({periodo.fecha_termino.strftime("%d/%m/%Y")}).'
+            )
+
+
+
+def calcular_avance_actividades_aprobadas(meta, profesional=None):
+    """
+    Contabiliza las actividades activas asociadas a la meta que tengan
+    al menos una evidencia activa con estado_revision='APROBADO'.
+    """
+    if meta is None:
+        return Decimal('0.00')
+
+    qs = Actividad.objects.filter(
+        id_meta=meta,
+        estado=True,
+        evidencia__estado=True,
+        evidencia__estado_revision='APROBADO',
+    )
+
+    if profesional is not None:
+        qs = qs.filter(id_profesional=profesional)
+
+    total = qs.distinct().count()
+    return Decimal(str(total)).quantize(Decimal('0.01'))
+
+
+def sincronizar_calculos_indicador(indicador, guardar=True):
+    """
+    Calcula avance desde actividades aprobadas, actualiza cumplimiento y
+    semáforo según la meta y el período, y guarda si guardar=True.
+    """
+    meta = indicador.meta_id_meta
+    indicador.avance = calcular_avance_actividades_aprobadas(
+        meta,
+        profesional=indicador.id_funcionario,
+    )
+
+    if meta and meta.valor_objetivo is not None and Decimal(str(meta.valor_objetivo)) > Decimal('0'):
+        indicador.cumplimiento = calcular_porcentaje_cumplimiento(
+            indicador.avance,
+            meta.valor_objetivo,
+        )
+        if getattr(meta, 'id_periodo', None):
+            indicador.semaforo = semaforo_segun_umbral(
+                indicador.cumplimiento,
+                meta.id_periodo,
+            )
+
+    if guardar:
+        indicador.save()
+
+    return indicador
+
 
 
 def filtrar_funcionarios_por_delegacion(user, form, nombre_campo='id_funcionario'):

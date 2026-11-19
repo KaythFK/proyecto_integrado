@@ -45,15 +45,18 @@
             <tbody>
                 {% for meta in metas %}
                 <tr>
-                    <td class="fw-bold text-nowrap">{{ meta.id_meta }}</td>
-                    
-                    <td>
-                        <strong class="text-primary">{{ meta.id_periodo }}</strong><br>
-                        <small class="text-muted">{{ meta.id_cargo_item.id_item.nombre }}</small>
+                    <td class="fw-bold text-nowrap">
+                        #{{ meta.id_meta }}
+                        <span class="badge bg-light text-dark border ms-1">v{{ meta.version|default:"1" }}</span>
                     </td>
 
                     <td>
-                        <span class="fw-bold">{{ meta.valor_objetivo }}</span> 
+                        <strong class="text-primary">{{ meta.id_periodo }}</strong><br>
+                        <small class="text-muted">{{ meta.id_cargo_item|default:"Sin asignar" }}</small>
+                    </td>
+
+                    <td>
+                        <span class="fw-bold">{{ meta.valor_objetivo }}</span>
                         <span class="text-secondary">{{ meta.unidad }}</span>
                     </td>
 
@@ -64,8 +67,13 @@
                     </td>
 
                     <td class="texto-090">
-                        <i class="bi bi-person-badge text-secondary"></i> {{ meta.id_cargo_item.id_cargo.nombre }}<br>
-                        <small class="text-muted">{{ meta.fecha_inicio|date:"d/m/Y" }} – {{ meta.fecha_termino|date:"d/m/Y"|default:"sin término" }}</small>
+                        {% if meta.id_cargo_item %}
+                            {{ meta.id_cargo_item }}
+                        {% elif meta.autor %}
+                            <i class="bi bi-person-fill text-secondary"></i> {{ meta.autor }}
+                        {% else %}
+                            <span class="text-muted fst-italic">Sin asignar</span>
+                        {% endif %}
                     </td>
 
                     <td class="text-center">
@@ -77,24 +85,46 @@
                     </td>
 
                     <td class="text-center">
-                        <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                            
+                            <button type="button" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6" title="Ver Detalle"
+                                data-id="{{ meta.id_meta }}"
+                                data-version="{{ meta.version|default:1 }}"
+                                data-periodo="{{ meta.id_periodo }}"
+                                data-cargo-item="{{ meta.id_cargo_item|default:'Sin asignar' }}"
+                                data-objetivo="{{ meta.valor_objetivo }} {{ meta.unidad }}"
+                                data-ponderador="{{ meta.ponderador }}%"
+                                data-fecha-inicio="{{ meta.fecha_inicio|date:'d/m/Y'|default:'No definida' }}"
+                                data-fecha-termino="{{ meta.fecha_termino|date:'d/m/Y'|default:'No definida' }}"
+                                data-autor="{{ meta.autor|default:'Sistema / No registrado' }}"
+                                data-fecha-creacion="{{ meta.fecha_creacion|date:'d/m/Y H:i'|default:'No registrada' }}"
+                                data-estado="{{ meta.estado }}"
+                                onclick="verDetalleMeta(this)">
+                                Detalle
+                            </button>
+
                             {% if meta.id_periodo.esta_abierto %}
-                            <a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}" class="btn btn-sm text-white fondo-guinda redondeado-6" title="Editar">
-                                <i class="bi bi-pencil-square"></i> Editar
+                            <a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
+                                Editar
                             </a>
                             {% else %}
-                            <button type="button" class="btn btn-sm btn-secondary redondeado-6" disabled title="Período cerrado">
-                                <i class="bi bi-lock"></i> Editar
+                            <button type="button" class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6" disabled title="Período cerrado">
+                                Editar
                             </button>
                             {% endif %}
 
-                            <div class="d-flex flex-column align-items-center ms-2">
-                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center" title="Activar/Desactivar">
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if meta.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                    {% if meta.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Activar/Desactivar">
                                     <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                         {% if meta.estado %}checked{% endif %}
                                         onclick="confirmarCambioMeta(event, '{{ meta.id_meta }}', '{{ meta.estado }}')">
                                 </div>
                             </div>
+
                         </div>
                     </td>
                 </tr>
@@ -107,6 +137,82 @@
         </table>
     </div>
 
+</div>
+
+<!-- Modal: Ver Detalle de la Meta -->
+<div class="modal fade" id="modalDetalleMeta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white fondo-guinda">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-info-circle me-1"></i> Detalle de Meta <span id="detIdMeta"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Período</small>
+                            <span class="fw-bold text-primary fs-6" id="detPeriodo"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Versión y Estado</small>
+                            <span class="badge bg-dark me-2" id="detVersion"></span>
+                            <span id="detEstado"></span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="p-3 bg-light rounded border">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Cargo e Ítem Asignado</small>
+                            <span class="fw-semibold text-dark" id="detCargoItem"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Objetivo</small>
+                            <span class="fw-bold fs-5 text-dark" id="detObjetivo"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Ponderación</small>
+                            <span class="fw-bold fs-5 text-dark" id="detPonderador"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Fecha de Inicio</small>
+                            <span class="text-dark fw-semibold" id="detFechaInicio"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Fecha de Término</small>
+                            <span class="text-dark fw-semibold" id="detFechaTermino"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Autor (Creado por)</small>
+                            <span class="text-dark" id="detAutor"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded border h-100">
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Fecha de Creación</small>
+                            <span class="text-dark" id="detFechaCreacion"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Modal de Confirmación de Borrado Lógico (Ubicado fuera de la tabla) -->
@@ -133,6 +239,30 @@
 </div>
 
 <script>
+function verDetalleMeta(btn) {
+    const d = btn.dataset;
+
+    document.getElementById('detIdMeta').innerText = '#' + d.id;
+    document.getElementById('detVersion').innerText = 'Versión ' + d.version;
+    document.getElementById('detPeriodo').innerText = d.periodo;
+    document.getElementById('detCargoItem').innerText = d.cargoItem;
+    document.getElementById('detObjetivo').innerText = d.objetivo;
+    document.getElementById('detPonderador').innerText = d.ponderador;
+    document.getElementById('detFechaInicio').innerText = d.fechaInicio;
+    document.getElementById('detFechaTermino').innerText = d.fechaTermino;
+    document.getElementById('detAutor').innerText = d.autor;
+    document.getElementById('detFechaCreacion').innerText = d.fechaCreacion;
+
+    const estadoEl = document.getElementById('detEstado');
+    if (d.estado === 'True') {
+        estadoEl.innerHTML = '<span class="badge bg-success">Activa</span>';
+    } else {
+        estadoEl.innerHTML = '<span class="badge bg-danger">Inactiva</span>';
+    }
+
+    new bootstrap.Modal(document.getElementById('modalDetalleMeta')).show();
+}
+
 function confirmarCambioMeta(event, id, estadoActualStr) {
     event.preventDefault();
     const estaActiva = estadoActualStr === 'True';

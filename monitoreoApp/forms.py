@@ -3,110 +3,113 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from administracionApp.models import CargoItem
 from .models import Meta, Indicador
-from config.utils import validar_datos_meta
+from config.utils import limitar_a_opciones_activas
+from django.core.exceptions import ValidationError as CoreValidationError
+from django.db.models import Q
+from config.utils import (
+    validar_texto_no_vacio,
+    validar_periodo_abierto,
+    validar_datos_meta,
+    validar_fechas_meta_en_periodo,
+)
 
-
-def etiqueta_cargo_item(cargo_item):
-    return f"{cargo_item.id_cargo.nombre} — {cargo_item.id_item.nombre}"
 
 class MetaForm(forms.ModelForm):
     class Meta:
         model = Meta
-        exclude = ['estado', 'version']
-        labels = {
-            'id_cargo_item': 'Cargo e ítem',
-            'fecha_inicio': 'Inicio de vigencia',
-            'fecha_termino': 'Término de vigencia',
-        }
+        exclude = ['estado', 'version', 'autor']
         widgets = {
             'valor_objetivo': forms.NumberInput(attrs={
-                'class': 'form-control', 
-                'step': '0.01', 
+                'class': 'form-control',
+                'step': '0.01',
                 'min': '0.01',
                 'placeholder': 'Ej: 100.00',
-                'required': True
+                'required': True,
             }),
             'unidad': forms.TextInput(attrs={
-                'class': 'form-control', 
+                'class': 'form-control',
                 'placeholder': 'Ej: Porcentaje, Cantidad, Horas...',
                 'minlength': '2',
-                'required': True
+                'required': True,
             }),
             'ponderador': forms.NumberInput(attrs={
-                'class': 'form-control', 
-                'step': '1', 
-                'min': '1', 
-                'max': '100', 
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0.01',
+                'max': '100',
                 'placeholder': 'Ej: 25',
-                'required': True
+                'required': True,
             }),
             'id_cargo_item': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'id_periodo': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'fecha_inicio': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date', 'required': True}),
-            'fecha_termino': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
+            'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'required': True}),
+            'fecha_termino': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
 
     def __init__(self, *args, cargos=None, **kwargs):
         super().__init__(*args, **kwargs)
-        opciones = Q(estado=True, id_cargo__estado=True, id_item__estado=True)
-        if cargos is not None:
-            opciones &= Q(id_cargo__in=cargos)
-        if self.instance.id_cargo_item_id:
-            opciones |= Q(pk=self.instance.id_cargo_item_id)
-        campo = self.fields['id_cargo_item']
-        campo.queryset = CargoItem.objects.filter(opciones).select_related('id_cargo', 'id_item').order_by('id_cargo__nombre', 'id_item__nombre')
-        campo.label_from_instance = etiqueta_cargo_item
+        if 'id_cargo_item' in self.fields:
+            filtro = Q(estado=True)
+            if self.instance and self.instance.pk and self.instance.id_cargo_item_id:
+                filtro |= Q(pk=self.instance.id_cargo_item_id)
+            self.fields['id_cargo_item'].queryset = (
+                self.fields['id_cargo_item'].queryset
+                .filter(filtro)
+                .select_related('id_cargo')
+                .order_by('pk')
+            )
 
     def clean_id_periodo(self):
         periodo = self.cleaned_data.get('id_periodo')
-        if periodo and not periodo.esta_abierto:
-            raise forms.ValidationError(
-                f'El período "{periodo.nombre}" está cerrado. Debe reabrirse antes de crear o modificar sus metas.'
-            )
+        if periodo:
+            if not getattr(periodo, 'esta_abierto', True):
+                raise forms.ValidationError(
+                    f'El período "{periodo.nombre}" está cerrado. Debe reabrirse antes de crear o modificar sus metas.'
+                )
+            # Reutilizamos también validar_periodo_abierto simulando el vínculo id_periodo
+            try:
+                validar_periodo_abierto(type('TmpMeta', (), {'id_periodo': periodo})())
+            except CoreValidationError as e:
+                raise forms.ValidationError(e.message if hasattr(e, 'message') else e.messages[0])
         return periodo
-
-    def clean_valor_objetivo(self):
-        valor = self.cleaned_data.get('valor_objetivo')
-        if valor is None:
-            raise forms.ValidationError("El valor objetivo es obligatorio.")
-        if valor <= 0:
-            raise forms.ValidationError("El valor objetivo debe ser estrictamente mayor a cero.")
-        return valor
 
     def clean_unidad(self):
         unidad = self.cleaned_data.get('unidad')
-        if not unidad or unidad.strip() == '':
-            raise forms.ValidationError("Debes especificar la unidad de medida.")
-        if len(unidad.strip()) < 2:
+        try:
+            unidad_limpia = validar_texto_no_vacio(unidad, "La unidad de medida")
+        except CoreValidationError as e:
+            raise forms.ValidationError(e.message if hasattr(e, 'message') else e.messages[0])
+        if len(unidad_limpia) < 2:
             raise forms.ValidationError("El nombre de la unidad es demasiado corto.")
-        return unidad
-
-    def clean_ponderador(self):
-        ponderador = self.cleaned_data.get('ponderador')
-        if ponderador is None:
-            raise forms.ValidationError("El porcentaje de ponderación es obligatorio.")
-        if ponderador <= 0 or ponderador > 100:
-            raise forms.ValidationError("La ponderación debe ser un valor entre 1 y 100.")
-        return ponderador
+        return unidad_limpia
 
     def clean(self):
         cleaned_data = super().clean()
-        if self.errors:
-            return cleaned_data
+        valor_objetivo = cleaned_data.get('valor_objetivo')
+        unidad = cleaned_data.get('unidad')
+        ponderador = cleaned_data.get('ponderador')
+        periodo = cleaned_data.get('id_periodo')
+        fecha_inicio = cleaned_data.get('fecha_inicio')
+        fecha_termino = cleaned_data.get('fecha_termino')
+
+        if valor_objetivo is not None and unidad and ponderador is not None:
+            try:
+                validar_datos_meta(valor_objetivo, unidad, ponderador)
+            except CoreValidationError as e:
+                self.add_error(None, e.message if hasattr(e, 'message') else e.messages[0])
+
         try:
-            validar_datos_meta(
-                cleaned_data.get('valor_objetivo'), cleaned_data.get('ponderador'),
-                cleaned_data.get('fecha_inicio'), cleaned_data.get('fecha_termino'), cleaned_data.get('id_periodo'),
-            )
-        except ValidationError as e:
-            raise forms.ValidationError(e.message)
+            validar_fechas_meta_en_periodo(fecha_inicio, fecha_termino, periodo)
+        except CoreValidationError as e:
+            self.add_error('fecha_termino' if fecha_termino else 'fecha_inicio', e.message if hasattr(e, 'message') else e.messages[0])
+
         return cleaned_data
 
 
 class IndicadorForm(forms.ModelForm):
     class Meta:
         model = Indicador
-        exclude = ['estado', 'fecha_calculo']
+        exclude = ['estado', 'fecha_calculo', 'avance']
         
         labels = {
             'avance': 'Avance Actual',
@@ -119,7 +122,7 @@ class IndicadorForm(forms.ModelForm):
         
         widgets = {
             'avance': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'placeholder': 'Ej: 100.00'}),
-            'cumplimiento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100', 'placeholder': 'Ej: 85.50'}),
+            'cumplimiento': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '120', 'placeholder': 'Ej: 85.50'}),
             'ponderacion': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'max': '100', 'placeholder': 'Ej: 20.00'}),
             'ajuste': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Ej: 0.00'}),
             'semaforo': forms.Select(attrs={'class': 'form-select', 'required': True}),
@@ -134,7 +137,7 @@ class IndicadorForm(forms.ModelForm):
 
     def clean_cumplimiento(self):
         cumplimiento = self.cleaned_data.get('cumplimiento')
-        if cumplimiento is not None and (cumplimiento < 0 or cumplimiento > 100):
+        if cumplimiento is not None and (cumplimiento < 0 or cumplimiento > 120):
             raise forms.ValidationError("El porcentaje de cumplimiento debe estar entre 0 y 100.")
         return cumplimiento
 
