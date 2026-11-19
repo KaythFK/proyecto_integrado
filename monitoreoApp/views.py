@@ -145,7 +145,7 @@ def resumen_indicadores(delegacion, periodo, profesional=None):
         return [], None, None, 0
         
     # Consultas usando la arquitectura corregida (sin pedirle el funcionario a la Meta)
-    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_cargo', 'id_item')
+    metas = Meta.objects.filter(id_periodo=periodo, estado=True).select_related('id_cargo_item')
     indicadores = Indicador.objects.filter(meta_id_meta__in=metas, estado=True).select_related('id_funcionario__id_delegacion')
     
     modo = 'delegacion' # Por defecto, agrupa por delegaciones (Dashboard Coordinador)
@@ -226,10 +226,10 @@ def equipo_de(delegacion):
     return Profesional.objects.filter(id_delegacion=delegacion, estado=True)
 
 
-def validar_meta_de_su_delegacion(user, meta):
-    delegacion = delegacion_del_delegado(user)
-    if delegacion is not None and meta.id_funcionario.id_delegacion_id != delegacion.pk:
-        raise PermissionDenied('No tienes permiso para modificar esta meta: pertenece a otra delegación.')
+#def validar_meta_de_su_delegacion(user, meta):
+    #delegacion = delegacion_del_delegado(user)
+    #if delegacion is not None and meta.id_funcionario.id_delegacion_id != delegacion.pk:
+        #raise PermissionDenied('No tienes permiso para modificar esta meta: pertenece a otra delegación.')
 
 
 def limitar_funcionarios_meta(user, form):
@@ -241,7 +241,7 @@ def limitar_funcionarios_meta(user, form):
 @login_required
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def listar_metas(request):
-    metas = Meta.objects.select_related('id_item', 'id_periodo', 'id_funcionario').order_by('-id_meta')
+    metas = Meta.objects.select_related('id_cargo_item', 'id_periodo').order_by('-id_meta')
     delegacion = delegacion_del_delegado(request.user)
     if delegacion is not None:
         metas = metas.filter(id_funcionario__id_delegacion=delegacion)
@@ -297,7 +297,6 @@ def crear_meta(request):
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def editar_meta(request, id_meta):
     meta = get_object_or_404(Meta, id_meta=id_meta)
-    validar_meta_de_su_delegacion(request.user, meta)
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(meta) # --- AUDITORÍA ---
@@ -332,7 +331,6 @@ def editar_meta(request, id_meta):
 def cambiar_estado_meta(request, id_meta):
     if request.method == 'POST':
         meta = get_object_or_404(Meta, id_meta=id_meta)
-        validar_meta_de_su_delegacion(request.user, meta)
         try:
             with transaction.atomic():
                 datos_antiguos = model_to_dict(meta) # --- AUDITORÍA ---

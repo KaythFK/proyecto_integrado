@@ -25,32 +25,30 @@ from datetime import timedelta
 class ActividadProfesionalForm(forms.ModelForm):
     class Meta:
         model = Actividad
-        exclude = ['fecha_registro', 'codigo_unico', 'estado'] 
-        
+        exclude = ['fecha_registro', 'codigo_unico', 'estado', 'id_profesional']
+
         widgets = {
             'fecha_finalizacion': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'fecha_comprometida': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'solicitud_problema': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Detalle la solicitud o problema...'}),
             'accion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Detalle la acción realizada...'}),
             'en_tubo': forms.CheckboxInput(attrs={
-                'class': 'form-check-input', 
+                'class': 'form-check-input',
                 'role': 'switch',
                 'style': 'width: 3em; height: 1.5em; cursor: pointer;'
             }),
             'estado_progreso': forms.Select(attrs={'class': 'form-select'}),
             'solicitante_profesional': forms.Select(attrs={'class': 'form-select'}),
             'solicitante_vecino': forms.Select(attrs={'class': 'form-select'}),
-            'id_profesional': forms.Select(attrs={'class': 'form-select'}),
             'id_meta': forms.Select(attrs={'class': 'form-select'}),
             'id_organizacion': forms.Select(attrs={'class': 'form-select'}),
         }
-        
+
         labels = {
             'fecha_finalizacion': 'Fecha de Realización de la Gestión',
             'fecha_comprometida': 'Fecha Comprometida (Si pasa al Tubo)',
             'solicitante_vecino': 'Vecino Solicitante',
             'solicitante_profesional': 'Profesional Solicitante (Interno)',
-            'id_profesional': 'Funcionario Responsable',
             'id_meta': 'Meta Asociada',
             'id_organizacion': 'Organización Comunitaria',
             'solicitud_problema': 'Problema o Solicitud Inicial',
@@ -62,91 +60,84 @@ class ActividadProfesionalForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.usuario_actual = kwargs.pop('usuario_actual', None)
         super().__init__(*args, **kwargs)
-        
-        self.profesional_real = None 
 
-        if self.usuario_actual:
-            for prof in self.fields['id_profesional'].queryset:
-                if getattr(prof, 'usuario_id', None) == self.usuario_actual.id or getattr(prof, 'user_id', None) == self.usuario_actual.id:
-                    self.profesional_real = prof
-                    break
-            
-            if self.profesional_real:
-                self.fields['id_profesional'].initial = self.profesional_real
-                self.fields['id_profesional'].widget.attrs.update({
-                    'class': 'form-select bg-light text-muted',
-                    'style': 'pointer-events: none;',
-                    'tabindex': '-1'
-                })
-                
-                # Filtramos las metas del profesional
-                if 'id_meta' in self.fields:
-                    self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(id_funcionario=self.profesional_real)
+        self.profesional_real = getattr(self.usuario_actual, 'profesional', None) if self.usuario_actual else None
+        if self.usuario_actual and not self.profesional_real:
+            self.profesional_real = Profesional.objects.filter(usuario=self.usuario_actual).first()
 
-        # ---------------------------------------------------------
-        # RESTRICCIÓN VISUAL DEL CALENDARIO (Usa tu misma lógica)
-        # ---------------------------------------------------------
+        if self.profesional_real:
+            if 'id_meta' in self.fields and getattr(self.profesional_real, 'id_cargo_id', None):
+                filtro_meta = Q(
+                    estado=True,
+                    id_cargo_item__estado=True,
+                    id_cargo_item__id_cargo=self.profesional_real.id_cargo_id
+                )
+                if self.instance and self.instance.pk and self.instance.id_meta_id:
+                    filtro_meta |= Q(pk=self.instance.id_meta_id)
+                self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(filtro_meta).distinct()
+
+            if 'solicitante_profesional' in self.fields and getattr(self.profesional_real, 'id_delegacion_id', None):
+                self.fields['solicitante_profesional'].queryset = Profesional.objects.filter(
+                    id_delegacion=self.profesional_real.id_delegacion_id,
+                    estado=True,
+                    usuario__groups__name='Profesional'
+                ).distinct().order_by('nombres')
+
         hoy = timezone.localdate()
-        if hoy.weekday() == 0:
-            limite = hoy - timedelta(days=7)  # Si es lunes, permite hasta el lunes pasado
-        else:
-            limite = hoy - timedelta(days=hoy.weekday()) # Si es martes-domingo, hasta el lunes de esta semana
-        
-        # Inyectamos el 'min' directamente al input HTML del navegador
+        limite = hoy - timedelta(days=7 if hoy.weekday() == 0 else hoy.weekday())
         self.fields['fecha_finalizacion'].widget.attrs['min'] = limite.strftime('%Y-%m-%d')
+
+    def _ejecutar_validacion(self, campo, fn, *args):
+        try:
+            fn(*args)
+        except CoreValidationError as e:
+            msg = str(e.message if hasattr(e, 'message') else e.messages[0])
+            self.add_error(campo, msg)
 
     def clean(self):
         cleaned_data = super().clean()
         vecino = cleaned_data.get('solicitante_vecino')
         fecha_finalizacion = cleaned_data.get('fecha_finalizacion')
         fecha_comprometida = cleaned_data.get('fecha_comprometida')
-        meta_seleccionada = cleaned_data.get('id_meta')
+        meta = cleaned_data.get('id_meta')
         en_tubo = cleaned_data.get('en_tubo')
 
-        if self.profesional_real:
-            cleaned_data['id_profesional'] = self.profesional_real
+        if meta:
+            if (
+                self.profesional_real
+                and getattr(self.profesional_real, 'id_cargo_id', None)
+                and getattr(meta.id_cargo_item, 'id_cargo_id', None) != self.profesional_real.id_cargo_id
+            ):
+                self.add_error('id_meta', "La meta seleccionada no corresponde a tu cargo.")
+            self._ejecutar_validacion('id_meta', validar_periodo_abierto, meta)
 
-        # 1. Validar Meta y Periodo Abierto (Usando tu utils.py)
-        if meta_seleccionada:
-            if self.profesional_real and meta_seleccionada.id_funcionario != self.profesional_real:
-                self.add_error('id_meta', "Debe seleccionar una meta que le haya sido asignada a usted.")
-            try:
-                validar_periodo_abierto(meta_seleccionada)
-            except CoreValidationError as e:
-                self.add_error('id_meta', str(e.message if hasattr(e, 'message') else e.messages[0]))
-
-        # 2. Validar Vecino (Usando tu utils.py)
         if vecino:
-            try:
-                validar_datos_vecino_actividad(vecino)
-            except CoreValidationError as e:
-                self.add_error('solicitante_vecino', str(e.message if hasattr(e, 'message') else e.messages[0]))
+            self._ejecutar_validacion('solicitante_vecino', validar_datos_vecino_actividad, vecino)
 
-        # 3. Validar Tope Diario HU-32 (Usando tu utils.py)
         if self.usuario_actual:
-            try:
-                validar_tope_diario_actividades(self.profesional_real if self.profesional_real else self.usuario_actual)
-            except CoreValidationError as e:
-                self.add_error(None, str(e.message if hasattr(e, 'message') else e.messages[0]))
+            objetivo_tope = self.profesional_real or self.usuario_actual
+            self._ejecutar_validacion(None, validar_tope_diario_actividades, objetivo_tope)
 
-        # 4. Validar Cierre Semanal KAN-335 (Usando estrictamente tu función de utils.py)
         if fecha_finalizacion:
-            try:
-                validar_cierre_semanal(fecha_finalizacion)
-            except CoreValidationError as e:
-                self.add_error('fecha_finalizacion', str(e.message if hasattr(e, 'message') else e.messages[0]))
+            self._ejecutar_validacion('fecha_finalizacion', validar_cierre_semanal, fecha_finalizacion)
 
-        # 5. Validar coherencia del Tubo (Usando tu función validar_rango_fechas de utils.py)
         if en_tubo and not fecha_comprometida:
             self.add_error('fecha_comprometida', "Si la actividad genera un compromiso en el Tubo, debe indicar una fecha comprometida.")
-        
+
         if fecha_comprometida and fecha_finalizacion:
-            try:
-                validar_rango_fechas(fecha_finalizacion, fecha_comprometida)
-            except CoreValidationError as e:
-                self.add_error('fecha_comprometida', str(e.message if hasattr(e, 'message') else e.messages[0]))
+            self._ejecutar_validacion('fecha_comprometida', validar_rango_fechas, fecha_finalizacion, fecha_comprometida)
 
         return cleaned_data
+
+    def save(self, commit=True):
+        instancia = super().save(commit=False)
+        if self.profesional_real:
+            instancia.id_profesional = self.profesional_real
+        if commit:
+            instancia.save()
+            self.save_m2m()
+        return instancia
+
     
 class ActividadForm(forms.ModelForm):
     class Meta:
@@ -159,7 +150,7 @@ class ActividadForm(forms.ModelForm):
             'solicitante_profesional': forms.Select(attrs={'class': 'form-select'}),
             'solicitante_vecino': forms.Select(attrs={'class': 'form-select'}),
             'estado_progreso': forms.Select(attrs={'class': 'form-select'}),
-            'en_tubo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'en_tubo': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             'id_profesional': forms.Select(attrs={'class': 'form-select'}),
             'id_meta': forms.Select(attrs={'class': 'form-select'}),
             'id_organizacion': forms.Select(attrs={'class': 'form-select'}),
@@ -204,9 +195,16 @@ class ActividadDelegadoForm(ActividadForm):
         super().__init__(*args, **kwargs)
         
         if delegacion:
-            profesionales_equipo = Profesional.objects.filter(id_delegacion=delegacion, estado=True)
-            self.fields['id_profesional'].queryset = profesionales_equipo
-            self.fields['solicitante_profesional'].queryset = profesionales_equipo
+            profesionales_equipo = Profesional.objects.filter(
+                id_delegacion=delegacion,
+                estado=True,
+                usuario__groups__name='Profesional'
+            ).distinct().order_by('nombres')
+            
+            if 'id_profesional' in self.fields:
+                self.fields['id_profesional'].queryset = profesionales_equipo
+            if 'solicitante_profesional' in self.fields:
+                self.fields['solicitante_profesional'].queryset = profesionales_equipo
 
 
 
