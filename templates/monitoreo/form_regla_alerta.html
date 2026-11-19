@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Modificar regla de alerta - SGR{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Reglas de Alerta</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-5 mb-5" style="max-width: 720px;">
+    <div class="card shadow border-0 redondeado-15">
+        <div class="card-header text-white px-4 py-3 fondo-guinda redondeado-sup-15">
+            <h4 class="mb-0 fw-bold">Modificar: {{ nombre_tipo }}</h4>
+        </div>
+        <div class="card-body p-4">
+            {% if actual %}
+            <p class="text-muted small mb-4">
+                Regla actual: umbral {{ actual.umbral|floatformat:"0" }} {{ actual.unidad_umbral }}, vigente desde el {{ actual.vigente_desde|date:"d/m/Y" }}.
+                La regla actual sigue rigiendo hasta la fecha que elijas.
+            </p>
+            {% endif %}
+
+            {% for error in form.non_field_errors %}
+            <div class="alert alert-danger py-2">{{ error }}</div>
+            {% endfor %}
+
+            <form method="POST" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold" for="{{ form.umbral.id_for_label }}">{{ form.umbral.label }} *</label>
+                    {{ form.umbral }}
+                    {% for error in form.umbral.errors %}<div class="text-danger small fw-bold mt-1">{{ error }}</div>{% endfor %}
+                </div>
+
+                <p class="form-label fw-bold mb-2">Destinatarios *</p>
+                <div class="form-check mb-1">
+                    {{ form.notificar_delegado }}
+                    <label class="form-check-label" for="{{ form.notificar_delegado.id_for_label }}">{{ form.notificar_delegado.label }}</label>
+                </div>
+                <div class="form-check mb-3">
+                    {{ form.notificar_coordinador }}
+                    <label class="form-check-label" for="{{ form.notificar_coordinador.id_for_label }}">{{ form.notificar_coordinador.label }}</label>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold" for="{{ form.vigente_desde.id_for_label }}">{{ form.vigente_desde.label }} *</label>
+                    {{ form.vigente_desde }}
+                    {% for error in form.vigente_desde.errors %}<div class="text-danger small fw-bold mt-1">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-end">
+                    <a href="{% url 'monitoreoApp:lista_reglas_alerta' %}" class="btn btn-secondary px-4 fw-bold">Cancelar</a>
+                    <button type="submit" class="btn text-white px-5 fw-bold fondo-rojo">Guardar regla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

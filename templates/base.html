@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     {# Subir el número de ?v= cada vez que cambie estilos.css, para que el navegador no use la copia antigua #}
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=12">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=13">
 </head>
 <body class="d-flex flex-column min-vh-100 bg-light">
     <div class="d-flex flex-column flex-md-row flex-grow-1">
@@ -34,7 +34,7 @@
                         </div>
                     </li>
                     {% else %}
-                    <li class="nav-item"><a class="nav-link text-white fw-bold {% if item.activo %}activo{% endif %}" href="{{ item.url }}"><i class="bi bi-{{ item.icono }} menu-icono" aria-hidden="true"></i>{{ item.texto }}</a></li>
+                    <li class="nav-item"><a class="nav-link text-white fw-bold text-nowrap {% if item.activo %}activo{% endif %}" href="{{ item.url }}"><i class="bi bi-{{ item.icono }} menu-icono" aria-hidden="true"></i>{{ item.texto }}{% if item.contador %}<span class="badge rounded-pill bg-warning text-dark menu-contador" title="Alertas sin revisar">{{ item.contador }}</span>{% endif %}</a></li>
                     {% endif %}
                 {% endfor %}
             </ul>

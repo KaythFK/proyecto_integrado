@@ -7,11 +7,12 @@ MENU_POR_ROL = {
         ('Inicio', 'house-door', 'administracionApp:dashboard_admin'),
         ('Supervisión', 'shield-check', [
             ('Auditoría', 'journal-text', 'administracionApp:lista_auditoria'),
-            ('Alertas', 'bell', None),
+            ('Reglas de alerta', 'bell', 'monitoreoApp:lista_reglas_alerta'),
         ]),
     ],
     'coordinador': [
         ('Visión global', 'globe2', 'tuboApp:dashboard_coordinador'),
+        ('Mis alertas', 'bell', 'monitoreoApp:mis_alertas'),
         ('Configuración', 'gear', [
             ('Delegaciones', 'building', 'administracionApp:delegaciones'),
             ('Períodos', 'calendar-range', 'administracionApp:lista_periodos'),
@@ -26,6 +27,7 @@ MENU_POR_ROL = {
     ],
     'delegado': [
         ('Mi delegación', 'speedometer2', 'monitoreoApp:dashboard_delegado'),
+        ('Mis alertas', 'bell', 'monitoreoApp:mis_alertas'),
         ('Mi equipo', 'people', [
             ('Actividades del equipo', 'clipboard-check', 'actividadApp:actividades_delegacion'),
             ('Tubo de compromisos', 'kanban', 'monitoreoApp:tubo_delegacion'),
@@ -50,6 +52,16 @@ def _enlace(texto, icono, nombre_url, vista_actual):
             'activo': nombre_url == vista_actual}
 
 
+def alertas_pendientes(request):
+    from monitoreoApp.models import Alerta
+    from monitoreoApp.services import generar_alertas_periodicamente
+    generar_alertas_periodicamente()
+    profesional = getattr(request.user, 'profesional', None)
+    if profesional is None:
+        return 0
+    return Alerta.objects.filter(id_destinatario=profesional, estado=True, revision=False).count()
+
+
 def menu_lateral(request):
     rol = rol_usuario(request)['rol_menu']
     if rol not in MENU_POR_ROL:
@@ -62,6 +74,9 @@ def menu_lateral(request):
             hijos = [_enlace(t, i, n, vista_actual) for t, i, n in destino]
             menu.append({'texto': texto, 'icono': icono, 'hijos': hijos, 'abierto': any(h['activo'] for h in hijos)})
         else:
-            menu.append(_enlace(texto, icono, destino, vista_actual))
+            enlace = _enlace(texto, icono, destino, vista_actual)
+            if destino == 'monitoreoApp:mis_alertas':
+                enlace['contador'] = alertas_pendientes(request)
+            menu.append(enlace)
     menu.append(_enlace('Mi perfil', 'person-circle', 'usuariosApp:mi_perfil', vista_actual))
     return {'menu_lateral': menu}

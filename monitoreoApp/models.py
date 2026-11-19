@@ -113,3 +113,43 @@ class Alerta(models.Model):
         verbose_name = 'Alerta'
         verbose_name_plural = 'Alertas'
 
+
+class ReglaAlerta(models.Model):
+    VENCIMIENTO = 'VENCIMIENTO'
+    EVIDENCIA_PENDIENTE = 'EVIDENCIA_PENDIENTE'
+    AVANCE_BAJO = 'AVANCE_BAJO'
+    OPCIONES_TIPO = [
+        (VENCIMIENTO, 'Compromiso por vencer o vencido'),
+        (EVIDENCIA_PENDIENTE, 'Evidencia pendiente de revisión'),
+        (AVANCE_BAJO, 'Avance bajo el umbral'),
+    ]
+    UNIDAD_UMBRAL = {
+        VENCIMIENTO: 'días de anticipación',
+        EVIDENCIA_PENDIENTE: 'días sin revisar',
+        AVANCE_BAJO: '% de cumplimiento mínimo',
+    }
+
+    id_regla = models.AutoField(primary_key=True)
+    tipo = models.CharField(max_length=30, choices=OPCIONES_TIPO)
+    umbral = models.DecimalField(max_digits=6, decimal_places=2)
+    notificar_delegado = models.BooleanField(default=True)
+    notificar_coordinador = models.BooleanField(default=True)
+    vigente_desde = models.DateField()
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    estado = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'regla_alerta'
+        ordering = ['tipo', '-vigente_desde', '-id_regla']
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} (umbral {self.umbral} {self.unidad_umbral})"
+
+    @property
+    def unidad_umbral(self):
+        return self.UNIDAD_UMBRAL.get(self.tipo, '')
+
+    @classmethod
+    def vigente(cls, tipo, fecha):
+        """La regla que rige en una fecha: la más reciente cuya vigencia ya comenzó."""
+        return cls.objects.filter(tipo=tipo, estado=True, vigente_desde__lte=fecha).order_by('-vigente_desde', '-id_regla').first()
