@@ -1,5 +1,10 @@
+from datetime import date, timedelta
 from decimal import Decimal
+
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
+from django.urls import reverse
+from django.utils import timezone
 
 def calcular_indicadores_meta(avance_real, meta):
     """
@@ -37,3 +42,131 @@ def calcular_indicadores_meta(avance_real, meta):
         'resultado_ponderado': round(resultado_ponderado, 2),
         'semaforo': semaforo
     }
+
+
+
+# --- ALERTAS (HU-31) ---
+SEGUNDOS_ENTRE_REVISIONES = 300
+PREFIJO_POR_TIPO = {'VENCIMIENTO': 'Compromiso', 'EVIDENCIA_PENDIENTE': 'Evidencia', 'AVANCE_BAJO': 'Avance'}
+
+
+def tipo_de_alerta(alerta):
+    for tipo, prefijo in PREFIJO_POR_TIPO.items():
+        if alerta.motivo.startswith(prefijo):
+            return tipo
+    return ''
+
+
+def numero(valor):
+    return f'{valor:.2f}'.rstrip('0').rstrip('.')
+
+
+def destinatarios_alerta(regla, delegacion):
+    """Delegados de la delegación afectada y/o coordinadores, según la regla. Devuelve (profesional, rol)."""
+    from administracionApp.models import Profesional
+    resultado = []
+    if regla.notificar_delegado and delegacion is not None:
+        delegados = Profesional.objects.filter(estado=True, id_delegacion=delegacion, usuario__groups__name='Delegado').distinct()
+        resultado += [(p, 'Delegado') for p in delegados]
+    if regla.notificar_coordinador:
+        ya_incluidos = {p.pk for p, _ in resultado}
+        coordinadores = Profesional.objects.filter(estado=True, usuario__groups__name='Coordinador').distinct()
+        resultado += [(p, 'Coordinador') for p in coordinadores if p.pk not in ya_incluidos]
+    return resultado
+
+
+def emitir_alerta(regla, motivo, responsable, enlaces):
+    """Crea una alerta por destinatario, sin repetir la misma alerta para el mismo caso."""
+    from .models import Alerta
+    delegacion = responsable.id_delegacion if responsable else None
+    creadas = 0
+    for destinatario, rol in destinatarios_alerta(regla, delegacion):
+        _, creada = Alerta.objects.get_or_create(
+            id_destinatario=destinatario, enlace_referencia=enlaces[rol], motivo=motivo[:255],
+            defaults={'id_responsable': responsable, 'id_delegacion': delegacion},
+        )
+        creadas += creada
+    return creadas
+
+
+def alertas_de_vencimiento(regla, hoy):
+    from tuboApp.models import Compromiso
+    limite = hoy + timedelta(days=int(regla.umbral))
+    compromisos = (Compromiso.objects
+                   .filter(estado=True, fecha_comprometida__lte=limite)
+                   .exclude(estado_progreso='REALIZADO')
+                   .select_related('id_funcionario__id_delegacion', 'id_actividad'))
+    creadas = 0
+    for compromiso in compromisos:
+        fecha = compromiso.fecha_comprometida.strftime('%d/%m/%Y')
+        codigo = compromiso.id_actividad.codigo_unico
+        vencido = compromiso.fecha_comprometida < hoy
+        motivo = f'Compromiso {codigo} vencido el {fecha}' if vencido else f'Compromiso {codigo} vence el {fecha}'
+        enlace = reverse('tuboApp:detalle_actividad', args=[compromiso.id_actividad_id])
+        creadas += emitir_alerta(regla, motivo, compromiso.id_funcionario, {'Delegado': enlace, 'Coordinador': enlace})
+    return creadas
+
+
+def alertas_de_evidencia_pendiente(regla, hoy):
+    from actividadApp.models import Evidencia
+    dias = int(regla.umbral)
+    evidencias = (Evidencia.objects
+                  .filter(estado=True, estado_revision='PENDIENTE', fecha__lte=timezone.now() - timedelta(days=dias))
+                  .select_related('id_actividad__id_profesional__id_delegacion'))
+    creadas = 0
+    for evidencia in evidencias:
+        actividad = evidencia.id_actividad
+        motivo = f'Evidencia #{evidencia.pk} de la actividad {actividad.codigo_unico} lleva más de {dias} días sin revisar'
+        enlaces = {
+            'Delegado': reverse('actividadApp:crear_validacion') + f'?evidencia={evidencia.pk}',
+            'Coordinador': reverse('tuboApp:detalle_actividad', args=[actividad.pk]),
+        }
+        creadas += emitir_alerta(regla, motivo, actividad.id_profesional, enlaces)
+    return creadas
+
+
+def alertas_de_avance_bajo(regla, hoy):
+    """Solo lee el cumplimiento ya guardado en cada Indicador; no lo calcula."""
+    from administracionApp.models import Periodo
+    from .models import Indicador
+    periodos = [p for p in Periodo.objects.filter(estado=True) if p.esta_vigente]
+    indicadores = (Indicador.objects
+                   .filter(estado=True, meta_id_meta__estado=True, meta_id_meta__id_periodo__in=periodos,
+                           cumplimiento__lt=regla.umbral)
+                   .select_related('id_funcionario__id_delegacion', 'meta_id_meta__id_cargo_item__id_item'))
+    creadas = 0
+    for indicador in indicadores:
+        profesional = indicador.id_funcionario
+        item = indicador.meta_id_meta.id_cargo_item.id_item.nombre
+        motivo = f'Avance de {profesional.nombres} {profesional.apellido_paterno} en {item} bajo el umbral de {numero(regla.umbral)}%'
+        enlaces = {
+            'Delegado': reverse('monitoreoApp:dashboard_delegado'),
+            'Coordinador': reverse('monitoreoApp:tablero_indicadores_coordinador'),
+        }
+        creadas += emitir_alerta(regla, motivo, profesional, enlaces)
+    return creadas
+
+
+GENERADORES_ALERTA = {
+    'VENCIMIENTO': alertas_de_vencimiento,
+    'EVIDENCIA_PENDIENTE': alertas_de_evidencia_pendiente,
+    'AVANCE_BAJO': alertas_de_avance_bajo,
+}
+
+
+def generar_alertas(hoy=None):
+    """Revisa las condiciones de cada regla vigente y crea las alertas nuevas. Devuelve cuántas creó."""
+    from .models import ReglaAlerta
+    hoy = hoy or date.today()
+    creadas = 0
+    for tipo, generador in GENERADORES_ALERTA.items():
+        regla = ReglaAlerta.vigente(tipo, hoy)
+        if regla is not None:
+            creadas += generador(regla, hoy)
+    return creadas
+
+
+def generar_alertas_periodicamente():
+    """Como no hay tareas programadas, se revisa al navegar, a lo más una vez cada SEGUNDOS_ENTRE_REVISIONES."""
+    if cache.add('alertas_revisadas_recientemente', True, SEGUNDOS_ENTRE_REVISIONES):
+        generar_alertas()

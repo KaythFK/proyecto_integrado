@@ -5,8 +5,12 @@ from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad, Ausencia
-from .models import HistorialMeta, Meta, Indicador
-from .forms import MetaForm, IndicadorForm
+from .models import Alerta, HistorialMeta, Meta, Indicador, ReglaAlerta
+from .services import generar_alertas, tipo_de_alerta
+from .forms import MetaForm, IndicadorForm, ReglaAlertaForm
+from django.http import Http404
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 from tuboApp.models import Compromiso
 from tuboApp.filters import CompromisoFilter
 from datetime import date
@@ -757,3 +761,94 @@ def cambiar_estado_indicador_tablero(request, id_indicador):
             messages.error(request, f'Error al cambiar el estado: {str(e)}')
 
     return redirect(url_con_filtros(request, 'monitoreoApp:tablero_indicadores_coordinador'))
+
+
+# --- ALERTAS (HU-31) ---
+FILTROS_ALERTAS = {
+    'pendientes': {'revision': False},
+    'revisadas': {'revision': True},
+    'todas': {},
+}
+
+
+@login_required
+@role_required('Delegado', 'Coordinador')
+def mis_alertas(request):
+    generar_alertas()
+    profesional = getattr(request.user, 'profesional', None)
+    alertas = (Alerta.objects.filter(id_destinatario=profesional, estado=True)
+               .select_related('id_responsable').order_by('revision', '-fecha'))
+    ver = request.GET.get('ver', 'pendientes')
+    if ver not in FILTROS_ALERTAS:
+        ver = 'pendientes'
+    listado = list(alertas.filter(**FILTROS_ALERTAS[ver]))
+    for alerta in listado:
+        alerta.tipo = tipo_de_alerta(alerta)
+        alerta.tipo_nombre = dict(ReglaAlerta.OPCIONES_TIPO).get(alerta.tipo, 'Alerta')
+    return render(request, 'monitoreo/mis_alertas.html', {
+        'alertas': listado,
+        'ver': ver,
+        'total_pendientes': alertas.filter(revision=False).count(),
+        'total_revisadas': alertas.filter(revision=True).count(),
+    })
+
+
+@login_required
+@role_required('Delegado', 'Coordinador')
+@require_POST
+def marcar_alerta_revisada(request, id_alerta):
+    profesional = getattr(request.user, 'profesional', None)
+    alerta = get_object_or_404(Alerta, pk=id_alerta, id_destinatario=profesional, estado=True)
+    if not alerta.revision:
+        alerta.revision = True
+        alerta.save(update_fields=['revision'])
+        messages.success(request, 'La alerta quedó marcada como revisada.')
+    ver = request.POST.get('ver', 'pendientes')
+    return redirect(f"{reverse('monitoreoApp:mis_alertas')}?ver={ver if ver in FILTROS_ALERTAS else 'pendientes'}")
+
+
+@login_required
+@role_required('Administrador')
+def lista_reglas_alerta(request):
+    hoy = date.today()
+    reglas = []
+    for tipo, nombre in ReglaAlerta.OPCIONES_TIPO:
+        historial = ReglaAlerta.objects.filter(tipo=tipo, estado=True)
+        reglas.append({
+            'tipo': tipo,
+            'nombre': nombre,
+            'vigente': ReglaAlerta.vigente(tipo, hoy),
+            'programadas': historial.filter(vigente_desde__gt=hoy).order_by('vigente_desde'),
+            'anteriores': historial.filter(vigente_desde__lte=hoy).order_by('-vigente_desde', '-id_regla')[1:],
+        })
+    return render(request, 'monitoreo/reglas_alerta.html', {'reglas': reglas})
+
+
+@login_required
+@role_required('Administrador')
+def editar_regla_alerta(request, tipo):
+    if tipo not in dict(ReglaAlerta.OPCIONES_TIPO):
+        raise Http404('Tipo de alerta desconocido.')
+    actual = ReglaAlerta.vigente(tipo, date.today())
+
+    if request.method == 'POST':
+        form = ReglaAlertaForm(request.POST, tipo=tipo)
+        if form.is_valid():
+            nueva = form.save(commit=False)
+            nueva.tipo = tipo
+            nueva.save()
+            registrar_auditoria(request, 'EDICION', 'ReglaAlerta', nueva, model_to_dict(actual) if actual else None)
+            messages.success(request, f'La regla se aplicará desde el {nueva.vigente_desde:%d/%m/%Y}.')
+            return redirect('monitoreoApp:lista_reglas_alerta')
+    else:
+        inicial = {'vigente_desde': date.today()}
+        if actual is not None:
+            inicial.update(umbral=actual.umbral, notificar_delegado=actual.notificar_delegado,
+                           notificar_coordinador=actual.notificar_coordinador)
+        form = ReglaAlertaForm(initial=inicial, tipo=tipo)
+
+    return render(request, 'monitoreo/form_regla_alerta.html', {
+        'form': form,
+        'nombre_tipo': dict(ReglaAlerta.OPCIONES_TIPO)[tipo],
+        'actual': actual,
+    })

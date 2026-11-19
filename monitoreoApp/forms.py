@@ -2,7 +2,9 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from administracionApp.models import CargoItem
-from .models import Meta, Indicador
+from datetime import date
+
+from .models import Meta, Indicador, ReglaAlerta
 from config.utils import limitar_a_opciones_activas
 from django.core.exceptions import ValidationError as CoreValidationError
 from django.db.models import Q
@@ -195,4 +197,54 @@ class MetaAsignacionForm(forms.ModelForm):
         except ValidationError as e:
             raise forms.ValidationError(e.message)
 
+        return cleaned_data
+
+
+class ReglaAlertaForm(forms.ModelForm):
+    LIMITES_UMBRAL = {
+        ReglaAlerta.VENCIMIENTO: (0, 60),
+        ReglaAlerta.EVIDENCIA_PENDIENTE: (1, 60),
+        ReglaAlerta.AVANCE_BAJO: (1, 100),
+    }
+
+    class Meta:
+        model = ReglaAlerta
+        fields = ['umbral', 'notificar_delegado', 'notificar_coordinador', 'vigente_desde']
+        labels = {
+            'notificar_delegado': 'Notificar al Delegado de la delegación',
+            'notificar_coordinador': 'Notificar a los Coordinadores',
+            'vigente_desde': 'Aplicar desde',
+        }
+        widgets = {
+            'umbral': forms.NumberInput(attrs={'class': 'form-control', 'step': '1'}),
+            'notificar_delegado': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'notificar_coordinador': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'vigente_desde': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
+        }
+
+    def __init__(self, *args, tipo, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tipo = tipo
+        minimo, maximo = self.LIMITES_UMBRAL[tipo]
+        self.fields['umbral'].label = f'Umbral ({ReglaAlerta.UNIDAD_UMBRAL[tipo]})'
+        self.fields['umbral'].widget.attrs.update({'min': minimo, 'max': maximo})
+        self.fields['vigente_desde'].widget.attrs['min'] = date.today().isoformat()
+
+    def clean_umbral(self):
+        umbral = self.cleaned_data.get('umbral')
+        minimo, maximo = self.LIMITES_UMBRAL[self.tipo]
+        if umbral is None or umbral < minimo or umbral > maximo:
+            raise forms.ValidationError(f'El umbral debe estar entre {minimo} y {maximo}.')
+        return umbral
+
+    def clean_vigente_desde(self):
+        fecha = self.cleaned_data.get('vigente_desde')
+        if fecha and fecha < date.today():
+            raise forms.ValidationError('La regla no puede aplicarse a fechas pasadas.')
+        return fecha
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get('notificar_delegado') and not cleaned_data.get('notificar_coordinador'):
+            raise forms.ValidationError('Debes elegir al menos un destinatario.')
         return cleaned_data

@@ -179,7 +179,7 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
    TARJETAS DEL PANEL DEL ADMINISTRADOR
    ========================================= */
 .panel-seccion {
-    background-color: #F4F4F6;
+    background-color: #ffd3ca;
     border-radius: 14px;
     padding: 16px 18px 20px;
     margin-bottom: 24px;
@@ -230,3 +230,39 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
 .menu-flotante { max-height: 60vh; overflow-y: auto; }
 #requisitosClave li { transition: color 0.15s ease; }
 #requisitosClave li.requisito-cumplido { color: #146c43; font-weight: 600; }
+
+/* =========================================
+   ALERTAS
+   ========================================= */
+.alertas-filtro .nav-link { color: #8B1D19; border: 1px solid #8B1D19; border-radius: 20px; font-weight: 600; }
+.alertas-filtro .nav-link.active { background-color: #8B1D19; color: #fff; }
+.alerta-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    background-color: #fff;
+    border: 1px solid #E1E2E6;
+    border-left: 5px solid #C41230;
+    border-radius: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+.alerta-icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    background-color: #FBEAEA;
+    color: #C41230;
+}
+.alerta-evidencia_pendiente { border-left-color: #D97706; }
+.alerta-evidencia_pendiente .alerta-icono { background-color: #FEF3C7; color: #B45309; }
+.alerta-avance_bajo { border-left-color: #6B21A8; }
+.alerta-avance_bajo .alerta-icono { background-color: #F3E8FF; color: #6B21A8; }
+.alerta-revisada { opacity: 0.65; border-left-color: #9CA3AF; }
+.menu-contador { margin-left: 6px; font-size: 0.7rem; vertical-align: 1px; }
+@media (max-width: 576px) { .alerta-item { flex-wrap: wrap; } }
