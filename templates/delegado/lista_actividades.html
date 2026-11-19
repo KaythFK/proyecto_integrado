@@ -79,58 +79,61 @@
                     </td>
                     
                     <!-- COLUMNA DE ACCIONES COMPACTA Y CLARA -->
-                    <td class="text-center" style="width: 175px;">
-                        <div class="d-flex flex-column align-items-center gap-1">
-                            
-                            <!-- Fila 1: Detalle y Editar (Proporcionales y compactos) -->
-                            <div class="d-flex justify-content-between gap-1 w-100">
-                                <!-- Botón Detalle -->
-                                {% with primera_evidencia=actividad.evidencia_set.first %}
-                                <button type="button" class="btn btn-sm text-white shadow-sm btn-detalle fondo-guinda redondeado-6 px-1 text-nowrap"
-                                        style="flex: 1; font-size: 0.8rem;"
-                                        data-codigo="{{ actividad.codigo_unico }}"
-                                        data-fecha="{{ actividad.fecha_registro|date:'d/m/Y H:i' }}"
-                                        data-estado="{{ actividad.get_estado_progreso_display }}"
-                                        data-problema="{{ actividad.solicitud_problema }}"
-                                        data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
-                                        data-vecino-nombre="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}{% else %}No registrado{% endif %}"
-                                        data-vecino-rut="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.rut|default:'No especificado' }}{% else %}-{% endif %}"
-                                        data-vecino-tel="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.telefono|default:'Sin teléfono' }}{% else %}-{% endif %}"
-                                        data-vecino-url="{% if actividad.solicitante_vecino %}{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}{% else %}#{% endif %}"
-                                        data-tiene-vecino="{% if actividad.solicitante_vecino %}true{% else %}false{% endif %}"
-                                        data-foto-url="{% if primera_evidencia and primera_evidencia.archivo_foto %}{{ primera_evidencia.archivo_foto.url }}{% else %}{% endif %}"
-                                        title="Ver detalle de auditoría">
-                                    Detalle
+                    <!-- COLUMNA DE ACCIONES CON DROPDOWN (FORMATO CARGOS) -->
+                    <td class="text-center text-nowrap">
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+
+                            <!-- Menú desplegable (Dropdown) -->
+                            <div class="dropdown">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Acciones
                                 </button>
-                                {% endwith %}
-
-                                <!-- Botón Editar -->
-                                <a href="{% url 'actividadApp:editar_actividad_delegado' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-rojo redondeado-6 px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Editar Actividad">
-                                    Editar
-                                </a>
+                                <ul class="dropdown-menu shadow border-0">
+                                    {% with primera_evidencia=actividad.evidencia_set.first %}
+                                    <li>
+                                        <button type="button" class="dropdown-item fw-bold text-dark btn-detalle"
+                                                data-codigo="{{ actividad.codigo_unico }}"
+                                                data-fecha="{{ actividad.fecha_registro|date:'d/m/Y H:i' }}"
+                                                data-estado="{{ actividad.get_estado_progreso_display }}"
+                                                data-problema="{{ actividad.solicitud_problema }}"
+                                                data-accion="{{ actividad.accion|default:'Sin acción registrada aún.' }}"
+                                                data-vecino-nombre="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.nombres }} {{ actividad.solicitante_vecino.apellido_paterno }}{% else %}No registrado{% endif %}"
+                                                data-vecino-rut="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.rut|default:'No especificado' }}{% else %}-{% endif %}"
+                                                data-vecino-tel="{% if actividad.solicitante_vecino %}{{ actividad.solicitante_vecino.telefono|default:'Sin teléfono' }}{% else %}-{% endif %}"
+                                                data-vecino-url="{% if actividad.solicitante_vecino %}{% url 'actividadApp:detalle_vecino' actividad.solicitante_vecino.pk %}{% else %}#{% endif %}"
+                                                data-tiene-vecino="{% if actividad.solicitante_vecino %}true{% else %}false{% endif %}"
+                                                data-foto-url="{% if primera_evidencia and primera_evidencia.archivo_foto %}{{ primera_evidencia.archivo_foto.url }}{% else %}{% endif %}">
+                                            Detalle
+                                        </button>
+                                    </li>
+                                    {% endwith %}
+                                    <li>
+                                        <a class="dropdown-item fw-bold text-dark" href="{% url 'actividadApp:editar_actividad_delegado' actividad.id_actividad %}">
+                                            Editar
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item fw-bold text-dark" href="{% url 'actividadApp:lista_evidencias' %}?q={{ actividad.codigo_unico }}">
+                                            Evidencias
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item fw-bold text-dark" href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}">
+                                            Mensajes
+                                        </a>
+                                    </li>
+                                </ul>
                             </div>
 
-                            <!-- Fila 2: Evidencias y Mensajes (Mismo ancho, texto completo, diseño compacto) -->
-                            <div class="d-flex justify-content-between gap-1 w-100">
-                                <!-- Botón Evidencias -->
-                                <a href="{% url 'actividadApp:lista_evidencias' %}?q={{ actividad.codigo_unico }}" class="btn btn-sm text-white shadow-sm px-1 text-nowrap" style="background-color: #e9950b; border-radius: 6px; flex: 1; font-size: 0.8rem;" title="Ver Evidencias">
-                                    Evidencias
-                                </a>
-
-                                <!-- Botón Mensajes / Bitácora -->
-                                <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm px-1 text-nowrap" style="flex: 1; font-size: 0.8rem;" title="Ver historial de mensajes y bitácora">
-                                    Mensajes
-                                </a>
-                            </div>
-
-                            <!-- Fila 3: Tarjeta de Estado y Switch Centrado -->
-                            <div class="d-flex flex-column align-items-center p-1 bg-light rounded border shadow-sm w-100 mt-1">
-                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-065">
+                            <!-- Switch de Estado -->
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
                                     {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
-                                <div class="form-check form-switch p-0 m-0 d-flex justify-content-center w-100" title="Activar/Desactivar">
-                                    <input class="form-check-input m-0 switch-estado-sgr shadow-sm" type="checkbox" role="switch"
-                                           style="margin-left: 0; cursor: pointer; width: 2.1em; height: 1em;"
+
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Activar/Desactivar">
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                            {% if actividad.estado %}checked{% endif %}
                                            onclick="confirmarCambioActividad(event, '{{ actividad.id_actividad }}', '{{ actividad.codigo_unico }}', '{{ actividad.estado }}')">
                                 </div>

@@ -48,11 +48,23 @@
                 <div class="row p-3 rounded mb-4 caja-gris">
                     {% for field in form %}
                         <div class="col-12 {% if field.name == 'solicitud_problema' or field.name == 'accion' %}col-md-12{% else %}col-md-6{% endif %} mb-3">
-                            <label class="form-label fw-bold text-dark">
-                                {{ field.label }} {% if field.field.required %}*{% endif %}
-                            </label>
                             
-                            {{ field }}
+                            {% if field.field.widget.input_type == 'checkbox' %}
+                                <!-- DISEÑO ESPECIAL PARA SWITCH / CHECKBOX -->
+                                <div class="form-check form-switch mt-4 ps-5">
+                                    {{ field }}
+                                    <label class="form-check-label fw-bold text-dark ms-2" for="{{ field.id_for_label }}">
+                                        {{ field.label }} {% if field.field.required %}*{% endif %}
+                                    </label>
+                                </div>
+                            {% else %}
+                                <!-- CAMPO NORMAL -->
+                                <label class="form-label fw-bold text-dark">
+                                    {{ field.label }} {% if field.field.required %}*{% endif %}
+                                </label>
+                                
+                                {{ field }}
+                            {% endif %}
                             
                             {% for error in field.errors %}
                                 <div class="text-danger small fw-bold mt-1">{{ error }}</div>

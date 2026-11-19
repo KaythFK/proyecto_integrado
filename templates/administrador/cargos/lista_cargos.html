@@ -79,10 +79,10 @@
                             
                             <!-- Menú desplegable (Dropdown) -->
                             <div class="dropdown">
-                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
                                     Acciones
                                 </button>
-                                <ul class="dropdown-menu shadow border-0">
+                                <ul class="dropdown-menu menu-flotante shadow border-0">
                                     <li>
                                         <a class="dropdown-item fw-bold text-dark" href="{% url 'administracionApp:editar_cargo' cargo.id_cargo %}">
                                             Editar Cargo

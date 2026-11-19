@@ -228,16 +228,16 @@ def equipo_de(delegacion):
     return Profesional.objects.filter(id_delegacion=delegacion, estado=True)
 
 
-def validar_meta_de_su_delegacion(user, meta):
-    delegacion = delegacion_del_delegado(user)
-    if delegacion is not None and meta.id_funcionario.id_delegacion_id != delegacion.pk:
-        raise PermissionDenied('No tienes permiso para modificar esta meta: pertenece a otra delegación.')
+#def validar_meta_de_su_delegacion(user, meta):
+    #delegacion = delegacion_del_delegado(user)
+    #if delegacion is not None and meta.id_funcionario.id_delegacion_id != delegacion.pk:
+        #raise PermissionDenied('No tienes permiso para modificar esta meta: pertenece a otra delegación.')
 
 
-def limitar_funcionarios_meta(user, form):
-    delegacion = delegacion_del_delegado(user)
-    if delegacion is not None:
-        form.fields['id_funcionario'].queryset = equipo_de(delegacion)
+def validar_meta_de_su_equipo(user, meta):
+    cargos = cargos_del_equipo(user)
+    if cargos is not None and not cargos.filter(pk=meta.id_cargo_item.id_cargo_id).exists():
+        raise PermissionDenied('No tienes permiso para modificar esta meta: no corresponde a un cargo de tu equipo.')
 
 
 @login_required
@@ -263,8 +263,7 @@ def listar_metas(request):
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def crear_meta(request):
     if request.method == 'POST':
-        form = MetaForm(request.POST)
-        limitar_funcionarios_meta(request.user, form)
+        form = MetaForm(request.POST, cargos=cargos_del_equipo(request.user))
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -360,7 +359,7 @@ def editar_meta(request, meta_id):
 def cambiar_estado_meta(request, id_meta):
     if request.method == 'POST':
         meta = get_object_or_404(Meta, id_meta=id_meta)
-        validar_meta_de_su_delegacion(request.user, meta)
+        validar_meta_de_su_equipo(request.user, meta)
         try:
             with transaction.atomic():
                 datos_antiguos = model_to_dict(meta) # --- AUDITORÍA ---
@@ -386,7 +385,7 @@ def lista_indicadores(request):
     query = request.GET.get('q')
     indicadores = Indicador.objects.all().select_related('meta_id_meta__id_periodo').order_by('-id_indicador')
     if request.user.groups.filter(name='Profesional').exists():
-        indicadores = indicadores.filter(meta_id_meta__id_funcionario=request.user.profesional)
+        indicadores = indicadores.filter(id_funcionario=request.user.profesional)
     
     if query:
         indicadores = indicadores.filter(

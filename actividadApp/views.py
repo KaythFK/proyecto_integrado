@@ -336,8 +336,10 @@ def actividades_delegacion(request):
 @login_required
 @role_required('Delegado')
 def registrar_actividad_delegado(request):
+    delegacion_actual = request.user.profesional.id_delegacion
+
     if request.method == 'POST':
-        form = ActividadDelegadoForm(request.POST)
+        form = ActividadDelegadoForm(request.POST, delegacion=delegacion_actual)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -358,7 +360,7 @@ def registrar_actividad_delegado(request):
                             estado=True,
                             id_funcionario=nueva_actividad.id_profesional,
                             id_actividad=nueva_actividad,
-                            organizacion=nueva_actividad.id_organizacion  # el compromiso exige organización
+                            organizacion=nueva_actividad.id_organizacion
                         )
                         registrar_auditoria(request, "CREACION", "Compromiso", nuevo_compromiso)
                         messages.success(request, f'¡Actividad registrada y derivada al Tubo! Código: {nueva_actividad.codigo_unico}.')
@@ -371,13 +373,14 @@ def registrar_actividad_delegado(request):
         else:
             messages.error(request, 'Por favor corrige los errores del formulario.')
     else:
-        form = ActividadForm()
+        form = ActividadDelegadoForm(delegacion=delegacion_actual)
 
     context = {
         'form': form,
         'titulo': 'Registrar Nueva Actividad'
     }
     return render(request, 'delegado/form_actividad.html', context)
+
 
 @login_required
 @role_required('Delegado')
@@ -387,7 +390,7 @@ def editar_actividad_delegado(request, id_actividad):
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(actividad)
-        form = ActividadDelegadoForm(request.POST, instance=actividad)
+        form = ActividadDelegadoForm(request.POST, instance=actividad, delegacion=delegacion_actual)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -414,7 +417,7 @@ def editar_actividad_delegado(request, id_actividad):
         else:
             messages.error(request, 'Por favor corrige los errores del formulario.')
     else:
-        form = ActividadDelegadoForm(instance=actividad)
+        form = ActividadDelegadoForm(instance=actividad, delegacion=delegacion_actual)
 
     context = {
         'form': form,

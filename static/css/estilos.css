@@ -145,19 +145,24 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
 
 .menu-lateral .nav-link.activo { background-color: rgba(255, 255, 255, 0.18); border-radius: 5px; }
 .menu-grupo {
+    display: flex;
+    align-items: center;
     width: 100%;
     background: transparent;
     border: 0;
     color: #fff;
     font-weight: 700;
-    padding: 8px 6px;
+    padding: 8px 16px;
+    text-align: left;
     white-space: nowrap;
     border-radius: 5px;
+    gap: 10px;
 }
+.menu-grupo .menu-icono { margin-right: 0; }
 .menu-grupo:hover { background-color: rgba(255, 255, 255, 0.1); }
 .menu-flecha {
     display: inline-block;
-    margin-left: 6px;
+    margin-left: auto;
     border: solid #fff;
     border-width: 0 2px 2px 0;
     padding: 3px;
@@ -167,5 +172,61 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
 }
 .menu-grupo.collapsed .menu-flecha { transform: rotate(-45deg); vertical-align: 1px; }
 .menu-sub { background-color: rgba(0, 0, 0, 0.15); border-radius: 8px; padding: 6px 0; margin-top: 4px; }
-.menu-sub .nav-link { font-size: 0.9rem; margin-bottom: 2px; padding: 6px 12px; }
+.menu-sub .nav-link { font-size: 0.9rem; margin-bottom: 2px; padding: 6px 16px 6px 28px; }
 .menu-icono { margin-right: 8px; font-size: 1.05em; vertical-align: -1px; }
+
+/* =========================================
+   TARJETAS DEL PANEL DEL ADMINISTRADOR
+   ========================================= */
+.panel-seccion {
+    background-color: #F4F4F6;
+    border-radius: 14px;
+    padding: 16px 18px 20px;
+    margin-bottom: 24px;
+}
+.panel-seccion-titulo {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8B1D19;
+    margin-bottom: 12px;
+}
+.panel-tarjeta {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    overflow: hidden;
+    background-color: #fff;
+    border: 1px solid #E1E2E6;
+    border-radius: 12px;
+    color: #1a202c;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.panel-tarjeta:hover, .panel-tarjeta:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+    color: #1a202c;
+}
+.panel-tarjeta-icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 58px;
+    background-color: #C41230;
+    color: #fff;
+    font-size: 1.4rem;
+    transition: background-color 0.15s ease;
+}
+.panel-tarjeta:hover .panel-tarjeta-icono, .panel-tarjeta:focus-visible .panel-tarjeta-icono { background-color: #8B1D19; }
+.panel-tarjeta-cuerpo { padding: 12px 14px; }
+.panel-tarjeta-texto { display: block; font-weight: 700; font-size: 1rem; color: #1a202c; }
+.panel-tarjeta-detalle { display: block; font-size: 0.85rem; color: #4a5568; }
+
+.boton-accion-fijo { min-width: 104px; }
+.estado-accion-fijo { width: 72px; }
+.menu-flotante { max-height: 60vh; overflow-y: auto; }
+#requisitosClave li { transition: color 0.15s ease; }
+#requisitosClave li.requisito-cumplido { color: #146c43; font-weight: 600; }

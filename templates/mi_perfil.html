@@ -37,6 +37,15 @@
                             <button type="submit" class="btn btn-outline-dark fw-bold">Subir</button>
                         </div>
                     </form>
+                    {% if foto_url %}
+                    <form id="formEliminarFoto" method="POST" class="mt-n3 mb-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="eliminar_foto" value="1">
+                        <button type="button" id="btnEliminarFoto" class="btn btn-sm btn-outline-danger fw-bold">
+                            <i class="bi bi-trash me-1"></i>Eliminar foto
+                        </button>
+                    </form>
+                    {% endif %}
                     <!-- FIN FOTO DE PERFIL -->
 
                     <h4 class="fw-bold m-0 text-dark">
@@ -66,14 +75,18 @@
         <!-- PANEL DE CAMBIO DE CONTRASEÑA -->
         <div class="col-md-7">
             <div class="card shadow border-0 h-100" style="border-radius: 12px;">
-                <div class="card-header bg-white border-bottom py-3">
-                    <h5 class="fw-bold m-0 texto-oscuro"><i class="bi bi-shield-lock me-2"></i>Seguridad y Acceso</h5>
+                <div class="card-header fondo-guinda border-0 py-3" style="border-radius: 12px 12px 0 0;">
+                    <h5 class="fw-bold m-0 text-white"><i class="bi bi-shield-lock me-2"></i>Seguridad y Acceso</h5>
                 </div>
                 <div class="card-body p-4">
                     
                     <div class="alert mb-4" style="background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; border-radius: 8px;">
-                        <i class="bi bi-info-circle-fill me-2"></i> <strong>Requisitos de contraseña:</strong><br>
-                        <small>Mínimo 8 caracteres, al menos 1 mayúscula y 1 símbolo especial (!@#$%^&*).</small>
+                        <i class="bi bi-info-circle-fill me-2"></i> <strong>Requisitos de contraseña:</strong>
+                        <ul class="list-unstyled small mb-0 mt-2" id="requisitosClave">
+                            <li id="reqLargo"><i class="bi bi-circle me-2"></i>Mínimo 8 caracteres</li>
+                            <li id="reqMayuscula"><i class="bi bi-circle me-2"></i>Al menos 1 mayúscula</li>
+                            <li id="reqSimbolo"><i class="bi bi-circle me-2"></i>Al menos 1 símbolo especial (!@#$%^&*)</li>
+                        </ul>
                     </div>
 
                     <form id="formCambioClave" method="POST" action="">
@@ -110,7 +123,41 @@
         const form = document.getElementById('formCambioClave');
         const inputClave = document.getElementById('nueva_clave');
         const inputConf = document.getElementById('confirmar_clave');
-        
+        const btnEliminarFoto = document.getElementById('btnEliminarFoto');
+
+        const requisitos = [
+            ['reqLargo', clave => clave.length >= 8],
+            ['reqMayuscula', clave => /[A-Z]/.test(clave)],
+            ['reqSimbolo', clave => /[!@#$%^&*(),.?":{}|<>]/.test(clave)],
+        ];
+        inputClave.addEventListener('input', function() {
+            requisitos.forEach(([id, cumple]) => {
+                const item = document.getElementById(id);
+                const listo = cumple(inputClave.value);
+                item.classList.toggle('requisito-cumplido', listo);
+                item.querySelector('i').className = (listo ? 'bi bi-check-circle-fill' : 'bi bi-circle') + ' me-2';
+            });
+        });
+
+        if (btnEliminarFoto) {
+            btnEliminarFoto.addEventListener('click', function() {
+                Swal.fire({
+                    title: '¿Eliminar foto de perfil?',
+                    text: 'Tu perfil quedará sin foto. Podrás subir una nueva cuando quieras.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#8B1D19',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Sí, eliminar foto',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        document.getElementById('formEliminarFoto').submit();
+                    }
+                });
+            });
+        }
+
         btnGuardar.addEventListener('click', function(e) {
             const clave = inputClave.value;
             const conf = inputConf.value;

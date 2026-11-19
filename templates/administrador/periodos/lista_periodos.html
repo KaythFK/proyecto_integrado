@@ -92,16 +92,16 @@
                             </a>
 
                             {% if periodo.estado %}
-                            <a href="{% url 'administracionApp:editar_periodo' periodo.id_periodo %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" title="{% if periodo.cerrado_por_fecha %}Extender la fecha de término para reabrirlo{% else %}Editar{% endif %}">
+                            <a href="{% url 'administracionApp:editar_periodo' periodo.id_periodo %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6 boton-accion-fijo" title="{% if periodo.cerrado_por_fecha %}Extender la fecha de término para reabrirlo{% else %}Editar{% endif %}">
                                 <i class="bi bi-pencil-square"></i> {% if periodo.cerrado_por_fecha %}Extender{% else %}Editar{% endif %}
                             </a>
                             {% else %}
-                            <button type="button" class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6" disabled title="Período cerrado: reábrelo para editar">
+                            <button type="button" class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6 boton-accion-fijo" disabled title="Período cerrado: reábrelo para editar">
                                 <i class="bi bi-lock"></i> Editar
                             </button>
                             {% endif %}
                             
-                            <div class="d-flex flex-column align-items-center ms-2">
+                            <div class="d-flex flex-column align-items-center ms-2 estado-accion-fijo">
                                 <span class="badge mb-1 {% if periodo.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
                                     {% if periodo.estado %}Abierto{% else %}Cerrado{% endif %}
                                 </span>
