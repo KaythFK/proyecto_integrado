@@ -11,7 +11,7 @@ urlpatterns = [
     # Rutas de Metas
     path('metas/', views.listar_metas, name='listar_metas'),
     path('metas/nueva/', views.crear_meta, name='crear_meta'),
-    path('metas/editar/<int:id_meta>/', views.editar_meta, name='editar_meta'),
+    path('metas/editar/<int:meta_id>/', views.editar_meta, name='editar_meta'),
     path('metas/estado/<int:id_meta>/', views.cambiar_estado_meta, name='cambiar_estado_meta'),
 
     #Rutas de Indicadores
@@ -19,4 +19,14 @@ urlpatterns = [
     path('indicadores/crear/', views.crear_indicador, name='crear_indicador'),
     path('indicadores/editar/<int:id_indicador>/', views.editar_indicador, name='editar_indicador'),
     path('indicadores/estado/<int:id_indicador>/', views.cambiar_estado_indicador, name='cambiar_estado_indicador'),
+
+    #Metas para Coordinador
+    # Tablero de Metas del Coordinador
+    path('metas/tablero/', views.tablero_metas_coordinador, name='tablero_metas_coordinador'),
+    path('metas/<int:meta_id>/historial/', views.historial_meta, name='historial_meta'),
+    path('metas/tablero/<int:id_meta>/estado/', views.cambiar_estado_meta_tablero, name='cambiar_estado_meta_tablero'),
+
+    #Indicadores para Coordinador
+    path('indicadores/tablero/', views.tablero_indicadores_coordinador, name='tablero_indicadores_coordinador'),
+    path('indicadores/tablero/<int:id_indicador>/estado/', views.cambiar_estado_indicador_tablero, name='cambiar_estado_indicador_tablero'),   
 ]

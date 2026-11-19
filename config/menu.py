@@ -19,8 +19,8 @@ MENU_POR_ROL = {
             ('Catálogos', 'book', 'administracionApp:panel_catalogos'),
         ]),
         ('Seguimiento', 'graph-up', [
-            ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),
-            ('Gestión de indicadores', 'bar-chart-line', 'monitoreoApp:lista_indicadores'),
+            ('Metas', 'bullseye', 'monitoreoApp:tablero_metas_coordinador'),
+            ('Gestión de indicadores', 'bar-chart-line', 'monitoreoApp:tablero_indicadores_coordinador'),
             ('Todas las actividades', 'list-check', 'tuboApp:listar_todas'),
         ]),
     ],
@@ -30,7 +30,7 @@ MENU_POR_ROL = {
             ('Actividades del equipo', 'clipboard-check', 'actividadApp:actividades_delegacion'),
             ('Tubo de compromisos', 'kanban', 'monitoreoApp:tubo_delegacion'),
             ('Revisar evidencias', 'camera', 'actividadApp:lista_evidencias'),
-            ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),
+            ('Metas', 'bullseye', 'monitoreoApp:tablero_metas_coordinador'),
         ]),
     ],
     'profesional': [
