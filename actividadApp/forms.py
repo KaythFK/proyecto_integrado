@@ -22,6 +22,10 @@ from django.core.exceptions import ValidationError as CoreValidationError
 from django.utils import timezone
 from datetime import timedelta
 
+
+def etiqueta_meta(meta):
+    return f"{meta.id_cargo_item.id_item.nombre} — {meta.valor_objetivo} {meta.unidad} ({meta.id_periodo.nombre})"
+
 class ActividadProfesionalForm(forms.ModelForm):
     class Meta:
         model = Actividad
@@ -60,10 +64,12 @@ class ActividadProfesionalForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.usuario_actual = kwargs.pop('usuario_actual', None)
         super().__init__(*args, **kwargs)
-
-        self.profesional_real = getattr(self.usuario_actual, 'profesional', None) if self.usuario_actual else None
+self.profesional_real = getattr(self.usuario_actual, 'profesional', None) if self.usuario_actual else None
         if self.usuario_actual and not self.profesional_real:
             self.profesional_real = Profesional.objects.filter(usuario=self.usuario_actual).first()
+
+        if 'id_meta' in self.fields:
+            self.fields['id_meta'].label_from_instance = etiqueta_meta
 
         if self.profesional_real:
             if 'id_meta' in self.fields and getattr(self.profesional_real, 'id_cargo_id', None):
@@ -74,7 +80,12 @@ class ActividadProfesionalForm(forms.ModelForm):
                 )
                 if self.instance and self.instance.pk and self.instance.id_meta_id:
                     filtro_meta |= Q(pk=self.instance.id_meta_id)
-                self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(filtro_meta).distinct()
+                self.fields['id_meta'].queryset = (
+                    self.fields['id_meta'].queryset
+                    .filter(filtro_meta)
+                    .select_related('id_cargo_item__id_item', 'id_periodo')
+                    .distinct()
+                )
 
             if 'solicitante_profesional' in self.fields and getattr(self.profesional_real, 'id_delegacion_id', None):
                 self.fields['solicitante_profesional'].queryset = Profesional.objects.filter(
@@ -82,7 +93,6 @@ class ActividadProfesionalForm(forms.ModelForm):
                     estado=True,
                     usuario__groups__name='Profesional'
                 ).distinct().order_by('nombres')
-
         hoy = timezone.localdate()
         limite = hoy - timedelta(days=7 if hoy.weekday() == 0 else hoy.weekday())
         self.fields['fecha_finalizacion'].widget.attrs['min'] = limite.strftime('%Y-%m-%d')
@@ -102,15 +112,19 @@ class ActividadProfesionalForm(forms.ModelForm):
         meta = cleaned_data.get('id_meta')
         en_tubo = cleaned_data.get('en_tubo')
 
-        if meta:
-            if (
-                self.profesional_real
-                and getattr(self.profesional_real, 'id_cargo_id', None)
-                and getattr(meta.id_cargo_item, 'id_cargo_id', None) != self.profesional_real.id_cargo_id
-            ):
-                self.add_error('id_meta', "La meta seleccionada no corresponde a tu cargo.")
-            self._ejecutar_validacion('id_meta', validar_periodo_abierto, meta)
+        if self.profesional_real:
+            cleaned_data['id_profesional'] = self.profesional_real
 
+        # 1. Validar Meta y Periodo Abierto (Usando tu utils.py)
+        if meta_seleccionada:
+            if self.profesional_real and meta_seleccionada.id_cargo_item.id_cargo_id != self.profesional_real.id_cargo_id:
+                self.add_error('id_meta', "Debe seleccionar una meta asignada a su cargo.")
+            try:
+                validar_periodo_abierto(meta_seleccionada)
+            except CoreValidationError as e:
+                self.add_error('id_meta', str(e.message if hasattr(e, 'message') else e.messages[0]))
+
+        # 2. Validar Vecino (Usando tu utils.py)
         if vecino:
             self._ejecutar_validacion('solicitante_vecino', validar_datos_vecino_actividad, vecino)
 
@@ -178,6 +192,7 @@ class ActividadForm(forms.ModelForm):
         if self.instance.pk and self.instance.id_meta_id:
             filtro |= Q(pk=self.instance.id_meta_id)
         self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(filtro)
+        self.fields['id_meta'].label_from_instance = etiqueta_meta
 
     def clean_id_meta(self):
         meta = self.cleaned_data.get('id_meta')

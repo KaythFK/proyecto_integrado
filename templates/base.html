@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     {# Subir el número de ?v= cada vez que cambie estilos.css, para que el navegador no use la copia antigua #}
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v=12">
 </head>
 <body class="d-flex flex-column min-vh-100 bg-light">
     <div class="d-flex flex-column flex-md-row flex-grow-1">
@@ -21,7 +21,7 @@
             <ul class="nav flex-column gap-2 mt-4 menu-lateral">
                 {% for item in menu_lateral %}
                     {% if item.hijos %}
-                    <li class="nav-item text-center">
+                    <li class="nav-item">
                         <button class="menu-grupo {% if not item.abierto %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#menu-grupo-{{ forloop.counter }}" aria-expanded="{{ item.abierto|yesno:'true,false' }}" aria-controls="menu-grupo-{{ forloop.counter }}">
                             <i class="bi bi-{{ item.icono }} menu-icono" aria-hidden="true"></i>{{ item.texto }} <span class="menu-flecha" aria-hidden="true"></span>
                         </button>
@@ -34,7 +34,7 @@
                         </div>
                     </li>
                     {% else %}
-                    <li class="nav-item text-center"><a class="nav-link text-white fw-bold {% if item.activo %}activo{% endif %}" href="{{ item.url }}"><i class="bi bi-{{ item.icono }} menu-icono" aria-hidden="true"></i>{{ item.texto }}</a></li>
+                    <li class="nav-item"><a class="nav-link text-white fw-bold {% if item.activo %}activo{% endif %}" href="{{ item.url }}"><i class="bi bi-{{ item.icono }} menu-icono" aria-hidden="true"></i>{{ item.texto }}</a></li>
                     {% endif %}
                 {% endfor %}
             </ul>
@@ -43,7 +43,7 @@
             <div class="mt-5">
                 <hr class="border-white mx-4" style="opacity: 0.3;">
                 <ul class="nav flex-column mt-4">
-                    <li class="nav-item text-center">
+                    <li class="nav-item">
                         <a class="nav-link fw-bold text-uppercase" style="color: #ffb3b3; font-size: 0.9rem;" href="{% url 'usuariosApp:logout' %}">
                             <i class="bi bi-door-open menu-icono" aria-hidden="true"></i>Cerrar sesión
                         </a>

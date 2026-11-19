@@ -23,7 +23,7 @@ class ActividadFilter(django_filters.FilterSet):
         field_name='id_meta__id_periodo', label='Período', queryset=Periodo.objects.order_by('-fecha_inicio'),
         empty_label='Todos', widget=forms.Select(attrs=SELECT))
     item = django_filters.ModelChoiceFilter(
-        field_name='id_meta__id_item', label='Ítem', queryset=CatalagoItem.objects.order_by('nombre'),
+        field_name='id_meta__id_cargo_item__id_item', label='Ítem', queryset=CatalagoItem.objects.order_by('nombre'),
         empty_label='Todos', widget=forms.Select(attrs=SELECT))
     estado = django_filters.ChoiceFilter(
         field_name='estado_progreso', label='Estado', choices=Actividad.OPCIONES_ESTADO_PROGRESO,

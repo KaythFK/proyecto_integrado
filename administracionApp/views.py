@@ -64,10 +64,50 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
 def main(request):
     return render(request, 'main.html')
 
+SECCIONES_PANEL_ADMIN = [
+    ('Personas y estructura', [
+        ('Profesionales', 'Usuarios, roles y delegación', 'people', 'administracionApp:directorio_profesional'),
+        ('Cargos', 'Funciones y vigencia', 'person-badge', 'administracionApp:lista_cargos'),
+        ('Delegaciones', 'Unidades territoriales', 'building', 'administracionApp:delegaciones'),
+        ('Vecinos', 'Personas atendidas', 'person-vcard', 'administracionApp:lista_vecinos'),
+    ]),
+    ('Operación', [
+        ('Actividades', 'Registro de intervenciones', 'clipboard-check', 'administracionApp:admin-actividades'),
+        ('Gestiones', 'Acciones por actividad', 'list-task', 'actividadApp:lista_todas_gestiones'),
+        ('Tubo', 'Compromisos y estados', 'kanban', 'tuboApp:tubo'),
+        ('Evidencias', 'Respaldos fotográficos', 'camera', 'actividadApp:lista_evidencias'),
+        ('Validaciones', 'Revisión de evidencias', 'patch-check', 'actividadApp:lista_validaciones'),
+    ]),
+    ('Medición', [
+        ('Metas', 'Objetivos por cargo', 'bullseye', 'monitoreoApp:listar_metas'),
+        ('Indicadores', 'Avance y semáforo', 'bar-chart-line', 'monitoreoApp:lista_indicadores'),
+        ('Períodos', 'Fechas y umbrales', 'calendar-range', 'administracionApp:lista_periodos'),
+        ('Ausencias', 'Licencias y permisos', 'calendar-x', 'actividadApp:lista_ausencias'),
+    ]),
+    ('Comunidad', [
+        ('Organizaciones', 'Juntas y agrupaciones', 'house-heart', 'comunidadApp:lista_organizaciones'),
+        ('Afiliaciones', 'Vecinos por organización', 'person-plus', 'comunidadApp:lista_afiliaciones'),
+        ('Cargas', 'Cargas familiares', 'diagram-3', 'comunidadApp:lista_cargas'),
+        ('Vínculos', 'Relaciones familiares', 'link-45deg', 'comunidadApp:lista_vinculos'),
+        ('Retroalimentaciones', 'Felicitaciones y reclamos', 'chat-heart', 'actividadApp:lista_retroalimentaciones'),
+    ]),
+    ('Configuración', [
+        ('Catálogos', 'Ítems, servicios y tipos', 'journal-text', 'administracionApp:panel_catalogos'),
+    ]),
+]
+
+
 @role_required('Administrador')
 @login_required
 def dashboard_admin(request):
-    return render(request, 'administrador/dashboard_admin.html')
+    secciones = [
+        {'titulo': titulo, 'accesos': [
+            {'texto': texto, 'detalle': detalle, 'icono': icono, 'url': reverse(nombre_url)}
+            for texto, detalle, icono, nombre_url in accesos
+        ]}
+        for titulo, accesos in SECCIONES_PANEL_ADMIN
+    ]
+    return render(request, 'administrador/dashboard_admin.html', {'secciones': secciones})
 
 def generar_clave_segura(longitud=10):
     alfabeto = string.ascii_letters + string.digits
