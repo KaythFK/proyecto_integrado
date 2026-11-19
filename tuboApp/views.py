@@ -234,6 +234,8 @@ def agregar_observacion_tubo(request, id_compromiso):
                 with transaction.atomic():
                     nueva_observacion = ObservacionCompromiso.objects.create(
                         id_compromiso=compromiso,
+                        id_actividad=compromiso.id_actividad,
+                        autor=getattr(request.user, 'profesional', None),
                         texto=texto_obs.strip(),
                         fecha=timezone.now()
                     )

@@ -30,7 +30,7 @@ MENU_POR_ROL = {
             ('Actividades del equipo', 'clipboard-check', 'actividadApp:actividades_delegacion'),
             ('Tubo de compromisos', 'kanban', 'monitoreoApp:tubo_delegacion'),
             ('Revisar evidencias', 'camera', 'actividadApp:lista_evidencias'),
-            ('Metas', 'bullseye', 'monitoreoApp:tablero_metas_coordinador'),
+            ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),
         ]),
     ],
     'profesional': [
