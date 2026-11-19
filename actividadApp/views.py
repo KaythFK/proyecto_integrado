@@ -9,7 +9,7 @@ from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacio
 from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm, ActividadProfesionalForm
 from administracionApp.models import Profesional, Auditoria, Vecino, Periodo # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
-from monitoreoApp.views import elegir_periodo, resumen_indicadores
+from monitoreoApp.views import estado_desviacion, resumen_indicadores
 from .filters import ActividadFilter
 from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades, delegacion_del_delegado
 from tuboApp.models import Compromiso
@@ -50,6 +50,22 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
         print(f"Error interno registrando auditoría: {e}")
 # ---------------------------------------
 
+def periodo_vigente():
+    hoy = date.today()
+    candidatos = Periodo.objects.filter(estado=True, fecha_inicio__lte=hoy, fecha_termino__gte=hoy).order_by('-fecha_inicio')
+    return next((p for p in candidatos if p.esta_vigente), None)
+
+
+def avance_diario(profesional, periodo):
+    """Avance real vs. esperado al día; sin indicadores registrados el avance real es 0 %."""
+    filas = resumen_indicadores(None, periodo, profesional=profesional)[0]
+    if filas:
+        return filas[0]
+    esperado = periodo.porcentaje_esperado()
+    return {'cumplimiento': 0, 'esperado': esperado, 'diferencia': round(-esperado, 1),
+            'desviacion': estado_desviacion(0, esperado, periodo)}
+
+
 @login_required
 @role_required('Profesional')
 def dashboard_profesional(request):
@@ -72,23 +88,6 @@ def dashboard_profesional(request):
     total_asignadas = actividades_asignadas.count()
     evidencias_registradas = Evidencia.objects.filter(id_actividad__in=actividades_asignadas).count()
 
-    evidencias_aprobadas = Evidencia.objects.filter(
-        id_actividad__in=actividades_asignadas, 
-        estado_revision='APROBADO'
-    ).count()
-
-    if total_asignadas > 0:
-        porcentaje_avance = int((evidencias_aprobadas / total_asignadas) * 100)
-    else:
-        porcentaje_avance = 0
-
-    if porcentaje_avance >= 80:
-        semaforo = 'VERDE'
-    elif porcentaje_avance >= 50:
-        semaforo = 'AMARILLO'
-    else:
-        semaforo = 'ROJO'
-
     for actividad in actividades_asignadas:
         evidencia = Evidencia.objects.filter(id_actividad=actividad).first()
         if evidencia:
@@ -96,11 +95,10 @@ def dashboard_profesional(request):
         else:
             actividad.estado_evidencia = 'SIN_EVIDENCIA'
 
-    periodo_actual = elegir_periodo(request)[1]
-    mi_avance = None
-    if profesional_actual and periodo_actual:
-        filas_propias = resumen_indicadores(None, periodo_actual, profesional=profesional_actual)[0]
-        mi_avance = filas_propias[0] if filas_propias else None
+    periodo_actual = periodo_vigente()
+    mi_avance = avance_diario(profesional_actual, periodo_actual) if profesional_actual and periodo_actual else None
+    semaforo = mi_avance['desviacion'] if mi_avance else None
+    porcentaje_avance = round(mi_avance['cumplimiento']) if mi_avance else 0
 
     limite_vencimiento = date.today() + timedelta(days=3)
     total_proximos = compromisos_tubo.filter(
