@@ -16,7 +16,7 @@ from django.core.exceptions import PermissionDenied
 from .filters import MetaFilter
 from config.utils import procesar_resumen_dashboard
 from django.core.exceptions import ValidationError as CoreValidationError
-from administracionApp.models import CargoItem, CatalagoItem, Periodo, Delegacion, Profesional, Auditoria
+from administracionApp.models import Cargo, CargoItem, CatalagoItem, Periodo, Delegacion, Profesional, Auditoria
 
 
 
@@ -228,10 +228,11 @@ def equipo_de(delegacion):
     return Profesional.objects.filter(id_delegacion=delegacion, estado=True)
 
 
-#def validar_meta_de_su_delegacion(user, meta):
-    #delegacion = delegacion_del_delegado(user)
-    #if delegacion is not None and meta.id_funcionario.id_delegacion_id != delegacion.pk:
-        #raise PermissionDenied('No tienes permiso para modificar esta meta: pertenece a otra delegación.')
+def cargos_del_equipo(user):
+    delegacion = delegacion_del_delegado(user)
+    if delegacion is None:
+        return None
+    return Cargo.objects.filter(profesional__id_delegacion=delegacion, profesional__estado=True).distinct()
 
 
 def validar_meta_de_su_equipo(user, meta):
@@ -244,11 +245,12 @@ def validar_meta_de_su_equipo(user, meta):
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def listar_metas(request):
     metas = Meta.objects.select_related('id_cargo_item', 'id_periodo', 'autor').order_by('-id_meta')
-    delegacion = delegacion_del_delegado(request.user)
-    if delegacion is not None:
-        filtro = MetaFilter(request.GET, queryset=metas, ocultar=('delegacion',))
-    else:
-        filtro = MetaFilter(request.GET, queryset=metas)
+    cargos = cargos_del_equipo(request.user)
+    if cargos is not None:
+        metas = metas.filter(id_cargo_item__id_cargo__in=cargos)
+    filtro = MetaFilter(request.GET, queryset=metas)
+    if cargos is not None:
+        filtro.filters['cargo'].queryset = cargos.order_by('nombre')
     recordar_filtros(request, 'monitoreoApp:listar_metas')
 
     context = {
@@ -289,8 +291,7 @@ def crear_meta(request):
         else:
             messages.error(request, 'Corrige los errores del formulario.')
     else:
-        form = MetaForm()
-        limitar_funcionarios_meta(request.user, form)
+        form = MetaForm(cargos=cargos_del_equipo(request.user))
 
     context = {
         'form': form,
@@ -304,7 +305,7 @@ def crear_meta(request):
 @role_required('Administrador', 'Coordinador', 'Delegado')
 def editar_meta(request, meta_id):
     meta = get_object_or_404(Meta, id_meta=meta_id) 
-    validar_meta_de_su_delegacion(request.user, meta) 
+    validar_meta_de_su_equipo(request.user, meta)
     try:
         validar_periodo_abierto(meta) 
     except CoreValidationError as e:
@@ -314,8 +315,7 @@ def editar_meta(request, meta_id):
 
     if request.method == 'POST':
         datos_antiguos = model_to_dict(meta) 
-        form = MetaForm(request.POST, instance=meta) 
-        limitar_funcionarios_meta(request.user, form) 
+        form = MetaForm(request.POST, instance=meta, cargos=cargos_del_equipo(request.user))
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -343,8 +343,7 @@ def editar_meta(request, meta_id):
         else:
             messages.error(request, 'Corrige los errores del formulario.') 
     else:
-        form = MetaForm(instance=meta) 
-        limitar_funcionarios_meta(request.user, form) 
+        form = MetaForm(instance=meta, cargos=cargos_del_equipo(request.user))
 
     context = {
         'form': form, 

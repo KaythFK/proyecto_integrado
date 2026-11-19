@@ -42,14 +42,16 @@ class MetaForm(forms.ModelForm):
             }),
             'id_cargo_item': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'id_periodo': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'required': True}),
-            'fecha_termino': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'fecha_inicio': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date', 'required': True}),
+            'fecha_termino': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date'}),
         }
 
     def __init__(self, *args, cargos=None, **kwargs):
         super().__init__(*args, **kwargs)
         if 'id_cargo_item' in self.fields:
             filtro = Q(estado=True)
+            if cargos is not None:
+                filtro &= Q(id_cargo__in=cargos)
             if self.instance and self.instance.pk and self.instance.id_cargo_item_id:
                 filtro |= Q(pk=self.instance.id_cargo_item_id)
             self.fields['id_cargo_item'].queryset = (

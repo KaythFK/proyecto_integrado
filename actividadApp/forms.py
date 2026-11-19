@@ -64,7 +64,7 @@ class ActividadProfesionalForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.usuario_actual = kwargs.pop('usuario_actual', None)
         super().__init__(*args, **kwargs)
-self.profesional_real = getattr(self.usuario_actual, 'profesional', None) if self.usuario_actual else None
+        self.profesional_real = getattr(self.usuario_actual, 'profesional', None) if self.usuario_actual else None
         if self.usuario_actual and not self.profesional_real:
             self.profesional_real = Profesional.objects.filter(usuario=self.usuario_actual).first()
 
@@ -112,19 +112,15 @@ self.profesional_real = getattr(self.usuario_actual, 'profesional', None) if sel
         meta = cleaned_data.get('id_meta')
         en_tubo = cleaned_data.get('en_tubo')
 
-        if self.profesional_real:
-            cleaned_data['id_profesional'] = self.profesional_real
+        if meta:
+            if (
+                self.profesional_real
+                and getattr(self.profesional_real, 'id_cargo_id', None)
+                and getattr(meta.id_cargo_item, 'id_cargo_id', None) != self.profesional_real.id_cargo_id
+            ):
+                self.add_error('id_meta', "La meta seleccionada no corresponde a tu cargo.")
+            self._ejecutar_validacion('id_meta', validar_periodo_abierto, meta)
 
-        # 1. Validar Meta y Periodo Abierto (Usando tu utils.py)
-        if meta_seleccionada:
-            if self.profesional_real and meta_seleccionada.id_cargo_item.id_cargo_id != self.profesional_real.id_cargo_id:
-                self.add_error('id_meta', "Debe seleccionar una meta asignada a su cargo.")
-            try:
-                validar_periodo_abierto(meta_seleccionada)
-            except CoreValidationError as e:
-                self.add_error('id_meta', str(e.message if hasattr(e, 'message') else e.messages[0]))
-
-        # 2. Validar Vecino (Usando tu utils.py)
         if vecino:
             self._ejecutar_validacion('solicitante_vecino', validar_datos_vecino_actividad, vecino)
 
