@@ -10,6 +10,7 @@ from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, Retroalim
 from administracionApp.models import Profesional, Auditoria, Vecino, Periodo # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador
 from monitoreoApp.views import estado_desviacion, resumen_indicadores
+from monitoreoApp.services import dias_aviso_vencimiento, registrar_incumplimiento
 from .filters import ActividadFilter
 from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades, delegacion_del_delegado
 from tuboApp.models import Compromiso
@@ -100,9 +101,9 @@ def dashboard_profesional(request):
     semaforo = mi_avance['desviacion'] if mi_avance else None
     porcentaje_avance = round(mi_avance['cumplimiento']) if mi_avance else 0
 
-    limite_vencimiento = date.today() + timedelta(days=3)
+    limite_vencimiento = date.today() + timedelta(days=dias_aviso_vencimiento())
     total_proximos = compromisos_tubo.filter(
-        fecha_comprometida__lte=limite_vencimiento
+        fecha_comprometida__gte=date.today(), fecha_comprometida__lte=limite_vencimiento
     ).exclude(estado_progreso='REALIZADO').count()
 
     context = {
@@ -283,6 +284,7 @@ def actualizar_estado_tubo(request, id_compromiso):
             raise PermissionDenied('No tienes permiso para modificar este compromiso: está asignado a otro funcionario.')
 
         nuevo_estado = request.POST.get('estado_progreso')
+        registrar_incumplimiento(compromiso)
         estados_validos = dict(Compromiso.OPCIONES_ESTADO_PROGRESO).keys()
         
         if nuevo_estado in estados_validos:

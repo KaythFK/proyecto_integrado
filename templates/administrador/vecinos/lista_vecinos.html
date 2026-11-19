@@ -152,18 +152,19 @@ function confirmarCambio(event, id, nombre, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Registro';
-        mensaje.innerText = '¿Estás segura de inhabilitar al vecino:';
+        mensaje.innerText = '¿Estás segura de inhabilitar al vecino';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Registro';
-        mensaje.innerText = '¿Deseas restaurar al vecino:';
+        mensaje.innerText = '¿Deseas restaurar al vecino';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = nombre;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();

@@ -149,18 +149,19 @@ function confirmarCambio(event, id, nombre, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230'; 
         titulo.innerText = 'Desactivar Profesional';
-        mensaje.innerText = '¿Estás segura/o de desactivar el acceso al sistema de:';
+        mensaje.innerText = '¿Estás segura/o de desactivar el acceso al sistema de';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754'; 
         titulo.innerText = 'Reactivar Profesional';
-        mensaje.innerText = '¿Deseas restaurar el acceso al sistema de:';
+        mensaje.innerText = '¿Deseas restaurar el acceso al sistema de';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Restaurar';
     }
     
     nombreStr.innerText = nombre;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     const modal = new bootstrap.Modal(document.getElementById('modalEstado'));

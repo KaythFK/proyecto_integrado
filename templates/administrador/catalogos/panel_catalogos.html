@@ -346,7 +346,7 @@ function abrirModalEstado(event, tipo, id_obj, nombre, estadoStr) {
     document.getElementById('inputTipoEstado').value = tipo; 
     document.getElementById('inputIdEstado').value = id_obj;
     document.getElementById('nombreEstado').innerText = nombre;
-    
+    document.getElementById('nombreEstado').insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     const header = document.getElementById('headerEstado');
     const btn = document.getElementById('btnConfirmarEstado');
     
@@ -354,13 +354,13 @@ function abrirModalEstado(event, tipo, id_obj, nombre, estadoStr) {
         header.style.backgroundColor = '#C41230';
         btn.style.backgroundColor = '#C41230';
         document.getElementById('tituloEstado').innerText = 'Desactivar Registro';
-        document.getElementById('mensajeEstado').innerText = '¿Estás segura de inhabilitar:';
+        document.getElementById('mensajeEstado').innerText = '¿Estás segura de inhabilitar';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         btn.style.backgroundColor = '#198754';
         document.getElementById('tituloEstado').innerText = 'Reactivar Registro';
-        document.getElementById('mensajeEstado').innerText = '¿Deseas restaurar:';
+        document.getElementById('mensajeEstado').innerText = '¿Deseas restaurar';
         btn.innerText = 'Sí, Reactivar';
     }
     new bootstrap.Modal(document.getElementById('modalEstadoCatalogos')).show();

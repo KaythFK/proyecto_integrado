@@ -1,19 +1,19 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from django.contrib import messages
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad, Ausencia
 from .models import Alerta, HistorialMeta, Meta, Indicador, ReglaAlerta
-from .services import generar_alertas, tipo_de_alerta
+from .services import dias_aviso_vencimiento, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta
 from .forms import MetaForm, IndicadorForm, ReglaAlertaForm
 from django.http import Http404
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-from tuboApp.models import Compromiso
+from tuboApp.models import Compromiso, HistorialIncumplimiento
 from tuboApp.filters import CompromisoFilter
-from datetime import date
+from datetime import date, timedelta
 from django.core.exceptions import ValidationError
 from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador
 from django.core.exceptions import PermissionDenied
@@ -100,8 +100,8 @@ def dashboard_delegado(request):
         'total_actividades': actividades_equipo.count(),
         'en_proceso': actividades_equipo.filter(estado_progreso='EN_PROCESO').count(),
         'finalizadas': actividades_equipo.filter(estado_progreso='FINALIZADA').count(),
-        'tubo_total': compromisos_equipo.count(),
-        'tubo_vencidos': compromisos_equipo.filter(fecha_comprometida__lt=hoy).exclude(estado_progreso='REALIZADO').count(),
+        'tubo': resumen_compromisos(compromisos_equipo, hoy),
+        'dias_aviso': dias_aviso_vencimiento(hoy),
     }
     return render(request, 'delegado/dashboard_delegado.html', context)
 
@@ -199,7 +199,9 @@ def tubo_delegacion(request):
     # Filtro estricto: Solo compromisos de funcionarios que pertenecen a la delegación del usuario
     compromisos = Compromiso.objects.filter(
         id_funcionario__id_delegacion=delegacion_actual
-    ).order_by('fecha_comprometida', 'id_compromiso')
+    ).annotate(fecha_incumplimiento=Subquery(
+        HistorialIncumplimiento.objects.filter(compromiso=OuterRef('pk'), estado=True).values('fecha_vencimiento')[:1]
+    )).order_by('fecha_comprometida', 'id_compromiso')
 
     if query:
         compromisos = compromisos.filter(
@@ -209,6 +211,7 @@ def tubo_delegacion(request):
         ).distinct()
 
     hoy = date.today()
+    registrar_incumplimientos(hoy)
     profesionales_equipo = Profesional.objects.filter(id_delegacion=delegacion_actual, estado=True).order_by('nombres')
     filtro = CompromisoFilter(request.GET, queryset=compromisos, responsables=profesionales_equipo)
     ausentes_hoy = set(Ausencia.objects.filter(
@@ -223,6 +226,8 @@ def tubo_delegacion(request):
         'delegacion_nombre': delegacion_actual.nombre,
         'profesionales_equipo': profesionales_equipo,
         'ausentes_hoy': ausentes_hoy,
+        'hoy': hoy,
+        'limite_aviso': hoy + timedelta(days=dias_aviso_vencimiento(hoy)),
     }
     return render(request, 'delegado/lista_tubo_delegado.html', context)
 

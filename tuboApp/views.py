@@ -2,15 +2,17 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required 
-from .models import Compromiso, ObservacionCompromiso
+from .models import Compromiso, HistorialIncumplimiento, ObservacionCompromiso
 from actividadApp.models import Actividad
 from django.contrib import messages
 from django.db import transaction
 from django.utils import timezone
+from django.urls import reverse
 from datetime import date
 from actividadApp.models import Actividad
 from .forms import ObservacionRegistroForm
 from monitoreoApp.views import elegir_periodo, resumen_indicadores
+from monitoreoApp.services import registrar_incumplimiento
 from actividadApp.filters import ActividadFilter
 from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades
 
@@ -151,7 +153,8 @@ def actualizar_progreso_tubo(request, id_compromiso):
             raise PermissionDenied('No tienes permiso para modificar este compromiso: pertenece a otro funcionario o delegación.')
 
         nuevo_estado = request.POST.get('nuevo_estado')
-        
+        registrar_incumplimiento(compromiso)
+
         estados_validos = dict(Compromiso.OPCIONES_ESTADO_PROGRESO).keys()
         if nuevo_estado in estados_validos:
             try:
@@ -197,6 +200,9 @@ def actualizar_progreso_tubo(request, id_compromiso):
 def cambiar_estado_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
+        if compromiso.estado and (compromiso.esta_vencido or HistorialIncumplimiento.objects.filter(compromiso=compromiso, estado=True).exists()):
+            messages.error(request, f'El compromiso de la actividad {compromiso.id_actividad.codigo_unico} tiene un incumplimiento registrado y no se puede inhabilitar.')
+            return redirect('tuboApp:tubo')
 
         try:
             with transaction.atomic():
@@ -299,6 +305,7 @@ def detalle_actividad(request, pk):
     actividad = get_object_or_404(Actividad, pk=pk)
     compromiso = Compromiso.objects.filter(id_actividad=actividad).first()
     observaciones = ObservacionCompromiso.objects.filter(id_actividad=actividad)
+    desde_alertas = request.GET.get('volver') == 'alertas'
 
     if request.method == 'POST':
         form = ObservacionRegistroForm(request.POST)
@@ -314,6 +321,8 @@ def detalle_actividad(request, pk):
             
             nueva_obs.save()
             messages.success(request, "Observación registrada correctamente.")
+            if desde_alertas:
+                return redirect(f"{reverse('tuboApp:detalle_actividad', args=[pk])}?volver=alertas")
             return redirect('tuboApp:detalle_actividad', pk=pk)
     else:
         form = ObservacionRegistroForm()
@@ -322,5 +331,6 @@ def detalle_actividad(request, pk):
         'actividad': actividad,
         'observaciones': observaciones,
         'form': form,
-        'url_volver': url_listado_actividades(request),
+        'url_volver': reverse('monitoreoApp:mis_alertas') if desde_alertas else url_listado_actividades(request),
+        'texto_volver': 'Volver a mis alertas' if desde_alertas else 'Volver al listado',
     })

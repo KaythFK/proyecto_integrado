@@ -140,18 +140,19 @@ function confirmarCambio(event, id, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Indicador';
-        mensaje.innerText = '¿Estás segura de inhabilitar el indicador:';
+        mensaje.innerText = '¿Estás segura de inhabilitar el indicador';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Indicador';
-        mensaje.innerText = '¿Deseas restaurar el indicador:';
+        mensaje.innerText = '¿Deseas restaurar el indicador';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = 'Indicador #' + id;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();

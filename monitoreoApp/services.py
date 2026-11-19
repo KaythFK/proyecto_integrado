@@ -158,6 +158,7 @@ def generar_alertas(hoy=None):
     """Revisa las condiciones de cada regla vigente y crea las alertas nuevas. Devuelve cuántas creó."""
     from .models import ReglaAlerta
     hoy = hoy or date.today()
+    registrar_incumplimientos(hoy)
     creadas = 0
     for tipo, generador in GENERADORES_ALERTA.items():
         regla = ReglaAlerta.vigente(tipo, hoy)
@@ -170,3 +171,57 @@ def generar_alertas_periodicamente():
     """Como no hay tareas programadas, se revisa al navegar, a lo más una vez cada SEGUNDOS_ENTRE_REVISIONES."""
     if cache.add('alertas_revisadas_recientemente', True, SEGUNDOS_ENTRE_REVISIONES):
         generar_alertas()
+
+
+# --- SEGUIMIENTO DE COMPROMISOS (HU-14) ---
+DIAS_AVISO_POR_DEFECTO = 2
+
+
+def dias_aviso_vencimiento(hoy=None):
+    """Días de anticipación de la regla de alerta de vencimiento vigente."""
+    from .models import ReglaAlerta
+    regla = ReglaAlerta.vigente(ReglaAlerta.VENCIMIENTO, hoy or date.today())
+    return int(regla.umbral) if regla else DIAS_AVISO_POR_DEFECTO
+
+
+def resumen_compromisos(compromisos, hoy=None):
+    """Conteo por estado en una sola consulta: pendientes, próximos a vencer, vencidos y realizados."""
+    from django.db.models import Count, Q
+    hoy = hoy or date.today()
+    limite = hoy + timedelta(days=dias_aviso_vencimiento(hoy))
+    abierto = ~Q(estado_progreso='REALIZADO')
+    return compromisos.aggregate(
+        total=Count('pk'),
+        realizados=Count('pk', filter=Q(estado_progreso='REALIZADO')),
+        vencidos=Count('pk', filter=abierto & Q(fecha_comprometida__lt=hoy)),
+        proximos=Count('pk', filter=abierto & Q(fecha_comprometida__gte=hoy, fecha_comprometida__lte=limite)),
+        pendientes=Count('pk', filter=abierto & Q(fecha_comprometida__gt=limite)),
+    )
+
+
+def registrar_incumplimiento(compromiso, hoy=None):
+    """Deja constancia del vencimiento; la fecha original se conserva aunque el compromiso se realice o se reprograme."""
+    from tuboApp.models import HistorialIncumplimiento
+    hoy = hoy or date.today()
+    if compromiso.estado_progreso == 'REALIZADO' or not compromiso.fecha_comprometida or compromiso.fecha_comprometida >= hoy:
+        return None
+    registro, creado = HistorialIncumplimiento.objects.get_or_create(
+        compromiso=compromiso, estado=True,
+        defaults={'actividad_id': compromiso.id_actividad_id, 'profesional_id': compromiso.id_funcionario_id,
+                  'fecha_vencimiento': compromiso.fecha_comprometida,
+                  'dias_retraso': (hoy - compromiso.fecha_comprometida).days},
+    )
+    if not creado:
+        dias = (hoy - registro.fecha_vencimiento).days
+        if dias != registro.dias_retraso:
+            registro.dias_retraso = dias
+            registro.save(update_fields=['dias_retraso'])
+    return registro
+
+
+def registrar_incumplimientos(hoy=None):
+    from tuboApp.models import Compromiso
+    hoy = hoy or date.today()
+    vencidos = Compromiso.objects.filter(estado=True, fecha_comprometida__lt=hoy).exclude(estado_progreso='REALIZADO')
+    for compromiso in vencidos:
+        registrar_incumplimiento(compromiso, hoy)

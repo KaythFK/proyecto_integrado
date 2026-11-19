@@ -217,18 +217,19 @@ function confirmarCambio(event, id, nombre, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Cargo';
-        mensaje.innerText = '¿Estás segura de inhabilitar el cargo de:';
+        mensaje.innerText = '¿Estás segura de inhabilitar el cargo de';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Cargo';
-        mensaje.innerText = '¿Deseas restaurar el cargo de:';
+        mensaje.innerText = '¿Deseas restaurar el cargo de';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = nombre;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     const modal = new bootstrap.Modal(document.getElementById('modalEstado'));

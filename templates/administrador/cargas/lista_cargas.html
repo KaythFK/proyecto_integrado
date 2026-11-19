@@ -122,18 +122,19 @@ function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Carga Familiar';
-        mensaje.innerText = '¿Estás segura de inhabilitar a la carga:';
+        mensaje.innerText = '¿Estás segura de inhabilitar a la carga';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Carga Familiar';
-        mensaje.innerText = '¿Deseas restaurar a la carga:';
+        mensaje.innerText = '¿Deseas restaurar a la carga';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = textoDetalle;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();

@@ -278,18 +278,19 @@ function confirmarCambioMeta(event, id, estadoActualStr) {
     if (estaActiva) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Meta';
-        mensaje.innerText = '¿Estás segura de inhabilitar la Meta número:';
+        mensaje.innerText = '¿Estás segura de inhabilitar la Meta número';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Meta';
-        mensaje.innerText = '¿Deseas restaurar la Meta número:';
+        mensaje.innerText = '¿Deseas restaurar la Meta número';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = '#' + id;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstadoMeta')).show();

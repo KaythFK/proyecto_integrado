@@ -129,18 +129,19 @@ function confirmarCambio(event, id, nombre, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Organización';
-        mensaje.innerText = '¿Estás segura de inhabilitar la organización:';
+        mensaje.innerText = '¿Estás segura de inhabilitar la organización';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Organización';
-        mensaje.innerText = '¿Deseas restaurar la organización:';
+        mensaje.innerText = '¿Deseas restaurar la organización';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = nombre;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();
