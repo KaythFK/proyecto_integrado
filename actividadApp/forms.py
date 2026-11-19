@@ -18,13 +18,17 @@ from config.utils import (
 )
 from datetime import date
 from administracionApp.models import Profesional
-from django.core.exceptions import ValidationError as CoreValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError as CoreValidationError
 from django.utils import timezone
 from datetime import timedelta
 
 
 def etiqueta_meta(meta):
-    return f"{meta.id_cargo_item.id_item.nombre} — {meta.valor_objetivo} {meta.unidad} ({meta.id_periodo.nombre})"
+    try:
+        item = meta.id_cargo_item.id_item.nombre
+    except ObjectDoesNotExist:
+        item = f'Meta #{meta.pk}'
+    return f"{item} — {meta.valor_objetivo} {meta.unidad} ({meta.id_periodo.nombre})"
 
 class ActividadProfesionalForm(forms.ModelForm):
     class Meta:

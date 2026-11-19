@@ -103,22 +103,41 @@
 
     {% include 'parciales/avance_esperado.html' with periodos=None %}
 
-    <h6 class="fw-bold text-muted mb-3"><i class="bi bi-funnel-fill"></i> Tubo de Compromisos del Equipo</h6>
+    <h6 class="fw-bold text-muted mb-3"><i class="bi bi-funnel-fill"></i> Tubo de Compromisos del Equipo <span class="fw-normal">· {{ tubo.total }} en total</span></h6>
     <div class="row g-4 mb-5">
-        <div class="col-12 col-md-6">
+        <div class="col-12 col-sm-6 col-lg-3">
             <a href="{% url 'monitoreoApp:tubo_delegacion' %}{% if periodo %}?desde={{ periodo.fecha_inicio|date:'Y-m-d' }}&hasta={{ periodo.fecha_termino|date:'Y-m-d' }}{% endif %}" class="text-decoration-none">
-                <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #8B1D19 !important; border-radius: 15px;">
-                    <h6 class="text-muted fw-bold text-uppercase mb-3">Total en Tubo</h6>
-                    <h1 class="display-4 fw-bold text-dark m-0">{{ tubo_total }}</h1>
+                <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #6c757d !important; border-radius: 15px;">
+                    <h6 class="text-muted fw-bold text-uppercase mb-3">Pendientes</h6>
+                    <h1 class="display-5 fw-bold text-dark m-0">{{ tubo.pendientes }}</h1>
+                    <small class="text-muted">Vencen en más de {{ dias_aviso }} día{{ dias_aviso|pluralize }}</small>
                 </div>
             </a>
         </div>
-
-        <div class="col-12 col-md-6">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <a href="{% url 'monitoreoApp:tubo_delegacion' %}?proximos=true{% if periodo %}&desde={{ periodo.fecha_inicio|date:'Y-m-d' }}&hasta={{ periodo.fecha_termino|date:'Y-m-d' }}{% endif %}" class="text-decoration-none">
+                <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #d97706 !important; border-radius: 15px;">
+                    <h6 class="text-muted fw-bold text-uppercase mb-3">Próximos a vencer</h6>
+                    <h1 class="display-5 fw-bold m-0" style="color: #b45309;">{{ tubo.proximos }}</h1>
+                    <small class="text-muted">En los próximos {{ dias_aviso }} día{{ dias_aviso|pluralize }}</small>
+                </div>
+            </a>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
             <a href="{% url 'monitoreoApp:tubo_delegacion' %}?vencidos=true{% if periodo %}&desde={{ periodo.fecha_inicio|date:'Y-m-d' }}&hasta={{ periodo.fecha_termino|date:'Y-m-d' }}{% endif %}" class="text-decoration-none">
                 <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #C41230 !important; border-radius: 15px;">
-                    <h6 class="text-muted fw-bold text-uppercase mb-3">Compromisos Vencidos</h6>
-                    <h1 class="display-4 fw-bold text-danger m-0">{{ tubo_vencidos }}</h1>
+                    <h6 class="text-muted fw-bold text-uppercase mb-3">Vencidos</h6>
+                    <h1 class="display-5 fw-bold text-danger m-0">{{ tubo.vencidos }}</h1>
+                    <small class="text-muted">Fecha comprometida ya pasó</small>
+                </div>
+            </a>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <a href="{% url 'monitoreoApp:tubo_delegacion' %}?estado=REALIZADO{% if periodo %}&desde={{ periodo.fecha_inicio|date:'Y-m-d' }}&hasta={{ periodo.fecha_termino|date:'Y-m-d' }}{% endif %}" class="text-decoration-none">
+                <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #198754 !important; border-radius: 15px;">
+                    <h6 class="text-muted fw-bold text-uppercase mb-3">Realizados</h6>
+                    <h1 class="display-5 fw-bold text-success m-0">{{ tubo.realizados }}</h1>
+                    <small class="text-muted">Compromisos cumplidos</small>
                 </div>
             </a>
         </div>

@@ -149,18 +149,19 @@ function confirmarCambioDelegacion(event, id, nombre, estadoActualStr) {
     if (estaActiva) {
         header.style.backgroundColor = '#C41230'; 
         titulo.innerText = 'Desactivar Delegación';
-        mensaje.innerText = '¿Estás segura/o de inhabilitar la delegación:';
+        mensaje.innerText = '¿Estás segura/o de inhabilitar la delegación';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754'; 
         titulo.innerText = 'Reactivar Delegación';
-        mensaje.innerText = '¿Deseas restaurar la delegación:';
+        mensaje.innerText = '¿Deseas restaurar la delegación';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Restaurar';
     }
     
     nombreStr.innerText = nombre;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     const modal = new bootstrap.Modal(document.getElementById('modalEstadoDelegacion'));

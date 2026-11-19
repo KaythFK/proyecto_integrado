@@ -126,18 +126,19 @@ function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Retroalimentación';
-        mensaje.innerText = '¿Estás segura de inhabilitar la retroalimentación:';
+        mensaje.innerText = '¿Estás segura de inhabilitar la retroalimentación';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Retroalimentación';
-        mensaje.innerText = '¿Deseas restaurar la retroalimentación:';
+        mensaje.innerText = '¿Deseas restaurar la retroalimentación';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = textoDetalle;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();

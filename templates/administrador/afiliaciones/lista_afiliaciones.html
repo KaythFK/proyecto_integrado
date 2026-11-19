@@ -127,18 +127,19 @@ function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Afiliación';
-        mensaje.innerText = '¿Estás segura de inhabilitar la afiliación de:'; // Texto más claro
+        mensaje.innerText = '¿Estás segura de inhabilitar la afiliación de'; // Texto más claro
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Afiliación';
-        mensaje.innerText = '¿Deseas restaurar la afiliación de:'; // Texto más claro
+        mensaje.innerText = '¿Deseas restaurar la afiliación de'; // Texto más claro
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = textoDetalle; // Inyecta el nombre del vecino y organización
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();

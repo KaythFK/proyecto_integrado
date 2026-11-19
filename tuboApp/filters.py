@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import django_filters
 from django import forms
@@ -24,6 +24,7 @@ class CompromisoFilter(django_filters.FilterSet):
         field_name='fecha_comprometida', lookup_expr='lte',
         widget=forms.DateInput(attrs={'class': 'form-control borde-guinda', 'type': 'date'}))
     vencidos = django_filters.BooleanFilter(method='filtrar_vencidos', widget=forms.HiddenInput)
+    proximos = django_filters.BooleanFilter(method='filtrar_proximos', widget=forms.HiddenInput)
 
     class Meta:
         model = Compromiso
@@ -32,6 +33,14 @@ class CompromisoFilter(django_filters.FilterSet):
     def filtrar_vencidos(self, queryset, name, value):
         if value:
             return queryset.filter(fecha_comprometida__lt=date.today()).exclude(estado_progreso='REALIZADO')
+        return queryset
+
+    def filtrar_proximos(self, queryset, name, value):
+        if value:
+            from monitoreoApp.services import dias_aviso_vencimiento
+            hoy = date.today()
+            limite = hoy + timedelta(days=dias_aviso_vencimiento(hoy))
+            return queryset.filter(fecha_comprometida__gte=hoy, fecha_comprometida__lte=limite).exclude(estado_progreso='REALIZADO')
         return queryset
 
     def __init__(self, *args, responsables=None, **kwargs):

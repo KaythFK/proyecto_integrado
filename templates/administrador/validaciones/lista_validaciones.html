@@ -128,18 +128,19 @@ function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Validación';
-        mensaje.innerText = '¿Estás segura de inhabilitar la validación:';
+        mensaje.innerText = '¿Estás segura de inhabilitar la validación';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Validación';
-        mensaje.innerText = '¿Deseas restaurar la validación:';
+        mensaje.innerText = '¿Deseas restaurar la validación';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = textoDetalle;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();

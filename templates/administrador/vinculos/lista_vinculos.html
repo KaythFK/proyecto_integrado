@@ -136,18 +136,19 @@ function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Vínculo';
-        mensaje.innerText = '¿Estás segura de inhabilitar el vínculo:';
+        mensaje.innerText = '¿Estás segura de inhabilitar el vínculo';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Vínculo';
-        mensaje.innerText = '¿Deseas restaurar el vínculo:';
+        mensaje.innerText = '¿Deseas restaurar el vínculo';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = textoDetalle;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();

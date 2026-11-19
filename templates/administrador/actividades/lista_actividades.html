@@ -275,18 +275,19 @@ function confirmarCambio(event, id, codigo, estadoActualStr) {
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Actividad';
-        mensaje.innerText = '¿Estás segura de inhabilitar la actividad:';
+        mensaje.innerText = '¿Estás segura de inhabilitar la actividad';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Actividad';
-        mensaje.innerText = '¿Deseas restaurar la actividad:';
+        mensaje.innerText = '¿Deseas restaurar la actividad';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
     
     nombreStr.innerText = codigo;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
     
     new bootstrap.Modal(document.getElementById('modalEstado')).show();
