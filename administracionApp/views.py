@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db.models import Q
+from django.db.models import Q, Max
 from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria, CargoItem
 # --- IMPORTAMOS CatalogoTipoGestion ---
 from actividadApp.models import Actividad, CatalogoTipoGestion
@@ -25,6 +25,7 @@ from config.utils import (
     validar_suma_ponderaciones, 
 )
 import json
+import re
 from django.forms.models import model_to_dict
 from decimal import Decimal, InvalidOperation
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
@@ -839,16 +840,31 @@ def cambiar_estado_periodo(request, id_periodo):
     return redirect('administracionApp:lista_periodos')
 
 
+SUFIJO_VERSION = re.compile(r'\s*\(v\d+\)$')
+
+
 @role_required('Administrador', 'Coordinador')
 @login_required
 def versionar_periodo(request, id_periodo):
     periodo_original = get_object_or_404(Periodo, id_periodo=id_periodo)
+    nombre_base = SUFIJO_VERSION.sub('', periodo_original.nombre)
+    familia = Periodo.objects.filter(
+        Q(nombre__iexact=nombre_base) | Q(nombre__iregex=r'^' + re.escape(nombre_base) + r' \(v[0-9]+\)$')
+    )
+    version = max(familia.aggregate(m=Max('version_parametros'))['m'] or 1, periodo_original.version_parametros or 1) + 1
+    while Periodo.objects.filter(nombre__iexact=f"{nombre_base} (v{version})").exists():
+        version += 1
+    nombre_nuevo = f"{nombre_base} (v{version})"
+    if len(nombre_nuevo) > Periodo._meta.get_field('nombre').max_length:
+        messages.error(request, f'No se pudo versionar: el nombre "{nombre_nuevo}" supera el largo permitido.')
+        return redirect('administracionApp:lista_periodos')
+
     try:
         with transaction.atomic():
             nueva_version = Periodo.objects.get(id_periodo=id_periodo)
             nueva_version.pk = None
-            nueva_version.version_parametros = (nueva_version.version_parametros or 1) + 1
-            nueva_version.nombre = f"{periodo_original.nombre} (v{nueva_version.version_parametros})"
+            nueva_version.version_parametros = version
+            nueva_version.nombre = nombre_nuevo
             nueva_version.estado = True
             nueva_version.save()
 
@@ -867,35 +883,6 @@ def versionar_periodo(request, id_periodo):
             f'Se generó la versión {nueva_version.version_parametros}. Por favor ajusta las nuevas fechas o umbrales y guarda los cambios.'
         )
         return redirect('administracionApp:editar_periodo', id_periodo=nueva_version.id_periodo)
-
-    except Exception as e:
-        messages.error(request, f'Error al crear nueva versión: {str(e)}')
-
-    return redirect('administracionApp:lista_periodos')
-
-
-@role_required('Administrador', 'Coordinador')
-@login_required
-def versionar_periodo(request, id_periodo):
-    periodo_original = get_object_or_404(Periodo, id_periodo=id_periodo)
-    try:
-        with transaction.atomic():
-            nueva_version = Periodo.objects.get(id_periodo=id_periodo)
-            nueva_version.pk = None
-            nueva_version.version_parametros += 1
-            nueva_version.nombre = f"{periodo_original.nombre} (v{nueva_version.version_parametros})"
-            nueva_version.estado = True
-            nueva_version.save()
-
-            # AUDITORIA
-            registrar_auditoria(request, "NUEVA_VERSION", "Periodo", nueva_version)
-
-            if nueva_version.esta_abierto:
-                from monitoreoApp.services import inicializar_items_vigentes_periodo
-                inicializar_items_vigentes_periodo(nueva_version)
-
-            messages.success(request, f'Se generó la versión {nueva_version.version_parametros}. Por favor ajusta las nuevas fechas o umbrales y guarda los cambios.')
-            return redirect('administracionApp:editar_periodo', id_periodo=nueva_version.id_periodo)
 
     except Exception as e:
         messages.error(request, f'Error al crear nueva versión: {str(e)}')
