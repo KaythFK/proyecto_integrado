@@ -155,40 +155,51 @@ class DelegacionForm(forms.ModelForm):
 class CargoForm(forms.ModelForm):
     class Meta:
         model = Cargo
-        exclude = ['estado']
+        fields = ['nombre', 'fecha_inicio', 'fecha_termino']
         widgets = {
             'nombre': forms.TextInput(attrs={
-                'class': 'form-control', 
+                'class': 'form-control',
                 'placeholder': 'Ej: Supervisor de Obras',
                 'minlength': '3',
-                'required': True  # <-- 1. Bloqueo en el navegador HTML
+                'required': True,
             }),
-            'vigencia': forms.NumberInput(attrs={
-                'class': 'form-control', 
-                'placeholder': 'Ej: 12 (meses)',
-                'min': '1'
+            'fecha_inicio': forms.DateInput(format='%Y-%m-%d', attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True,
+            }),
+            'fecha_termino': forms.DateInput(format='%Y-%m-%d', attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True,
             }),
         }
 
     def clean_nombre(self):
         nombre = self.cleaned_data.get('nombre')
-        
-        # <-- 2. Bloqueo estricto en el servidor
+
         if not nombre or nombre.strip() == '':
             raise forms.ValidationError("El nombre del cargo es obligatorio y no puede estar vacío.")
-            
-        qs = Cargo.objects.filter(nombre__iexact=nombre)
+
+        qs = Cargo.objects.filter(nombre__iexact=nombre.strip())
         if self.instance and self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             raise forms.ValidationError("Ya existe un cargo registrado con este nombre.")
-        return nombre
+        return nombre.strip()
 
-    def clean_vigencia(self):
-        vigencia = self.cleaned_data.get('vigencia')
-        if vigencia is not None and vigencia <= 0:
-            raise forms.ValidationError("La vigencia (en meses) debe ser mayor a cero.")
-        return vigencia
+    def clean(self):
+        cleaned_data = super().clean()
+        fecha_inicio = cleaned_data.get('fecha_inicio')
+        fecha_termino = cleaned_data.get('fecha_termino')
+
+        if fecha_inicio and fecha_termino and fecha_termino < fecha_inicio:
+            self.add_error(
+                'fecha_termino',
+                "La fecha de término de vigencia debe ser igual o posterior a la fecha de inicio."
+            )
+
+        return cleaned_data
 
 class PeriodoForm(forms.ModelForm):
     class Meta:

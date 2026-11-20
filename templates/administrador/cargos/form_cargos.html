@@ -33,23 +33,37 @@
                     Información del Cargo
                 </h5>
                 <div class="row p-3 rounded mb-4 borde-gris">
-                    <!-- Ajuste responsivo: col-12 para móviles, col-md-8 para PC -->
-                    <div class="col-12 col-md-8 mb-3">
+                    <div class="col-12 mb-3">
                         <label class="form-label fw-bold text-dark">Nombre del Cargo *</label>
                         {{ form.nombre }}
                         {% for error in form.nombre.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
-                    <!-- Ajuste responsivo: col-12 para móviles, col-md-4 para PC -->
-                    <div class="col-12 col-md-4 mb-3">
-                        <label class="form-label fw-bold text-dark">Vigencia (Meses)</label>
-                        {{ form.vigencia }}
-                        {% for error in form.vigencia.errors %}
+
+                    <div class="col-12 col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Fecha de Inicio de Vigencia *</label>
+                        {{ form.fecha_inicio }}
+                        {% for error in form.fecha_inicio.errors %}
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
-                        <div class="form-text">Dejar en blanco si es indefinida.</div>
                     </div>
+
+                    <div class="col-12 col-md-6 mb-3">
+                        <label class="form-label fw-bold text-dark">Fecha de Término de Vigencia *</label>
+                        {{ form.fecha_termino }}
+                        {% for error in form.fecha_termino.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    {% if form.non_field_errors %}
+                        <div class="col-12">
+                            {% for error in form.non_field_errors %}
+                                <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
 
                 <!-- Ajuste responsivo: d-grid en móviles, flex en PC -->

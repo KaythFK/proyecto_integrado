@@ -3,8 +3,10 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import request
 from django.urls import reverse
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 def calcular_indicadores_meta(avance_real, meta):
     """
@@ -225,3 +227,212 @@ def registrar_incumplimientos(hoy=None):
     vencidos = Compromiso.objects.filter(estado=True, fecha_comprometida__lt=hoy).exclude(estado_progreso='REALIZADO')
     for compromiso in vencidos:
         registrar_incumplimiento(compromiso, hoy)
+
+
+
+
+
+def sincronizar_indicador(indicador, guardar=True):
+    """
+    Calcula el avance desde actividades activas con evidencia aprobada
+    para ese funcionario y meta, y actualiza cumplimiento y semáforo.
+    """
+    from actividadApp.models import Evidencia
+
+    meta = indicador.meta_id_meta
+    funcionario = indicador.id_funcionario
+
+    if not meta or not funcionario:
+        return indicador
+
+    avance_real = Evidencia.objects.filter(
+        estado=True,
+        estado_revision='APROBADO',
+        id_actividad__estado=True,
+        id_actividad__id_meta=meta,
+        id_actividad__id_profesional=funcionario,
+    ).count()
+
+    calculo = calcular_indicadores_meta(avance_real, meta)
+
+    indicador.avance = Decimal(str(avance_real)).quantize(Decimal('0.01'))
+    indicador.cumplimiento = Decimal(str(calculo['cumplimiento'])).quantize(Decimal('0.01'))
+    indicador.semaforo = calculo['semaforo']
+    if indicador.ponderacion is None:
+        indicador.ponderacion = Decimal(str(meta.ponderador or 0)).quantize(Decimal('0.01'))
+    if indicador.ajuste is None:
+        indicador.ajuste = Decimal('0.00')
+
+    if guardar:
+        indicador.save(update_fields=['avance', 'cumplimiento', 'semaforo', 'ponderacion', 'ajuste'])
+
+    return indicador
+
+
+def _es_vigente_en_fecha(obj, fecha_ref):
+    """
+    [KAN-414 / KAN-415] Verifica si un Cargo o una Meta rige en la fecha_ref indicada
+    (estado activo, fecha_inicio <= fecha_ref y fecha_termino nula o >= fecha_ref).
+    """
+    if not getattr(obj, 'estado', True):
+        return False
+    inicio = getattr(obj, 'fecha_inicio', None)
+    termino = getattr(obj, 'fecha_termino', None)
+    if inicio and inicio > fecha_ref:
+        return False
+    if termino and termino < fecha_ref:
+        return False
+    return True
+
+
+def asegurar_indicadores_profesional(profesional, periodo_id=None, fecha_referencia=None):
+    """
+    [KAN-414 / KAN-415] Asegura indicadores en 0 para las metas activas del cargo
+    del profesional cuya vigencia aplique en la fecha de referencia, sin alterar
+    períodos cerrados ni aplicar cambios antes de su fecha de vigencia.
+    """
+    from django.db import DatabaseError, transaction
+    from .models import Indicador, Meta
+
+    if not profesional or not profesional.estado or not profesional.id_cargo_id:
+        return []
+
+    cargo = profesional.id_cargo
+    if not cargo or not cargo.estado:
+        return []
+
+    metas_qs = Meta.objects.filter(
+        estado=True,
+        id_cargo_item__estado=True,
+        id_cargo_item__id_cargo_id=profesional.id_cargo_id,
+        id_periodo__estado=True,
+    ).select_related('id_periodo', 'id_cargo_item__id_cargo', 'id_cargo_item__id_item')
+
+    if periodo_id:
+        metas_qs = metas_qs.filter(id_periodo_id=periodo_id)
+
+    hoy = fecha_referencia or date.today()
+    indicadores = []
+
+    for meta in metas_qs:
+        periodo = meta.id_periodo
+        # CA3: Nunca crear ni modificar indicadores en períodos cerrados
+        if not periodo or not periodo.esta_abierto:
+            continue
+
+        fecha_corte = max(periodo.fecha_inicio, hoy)
+        if fecha_corte > periodo.fecha_termino:
+            continue
+
+        # CA2 y CA3: El Cargo y la Meta deben estar vigentes en fecha_corte
+        if not _es_vigente_en_fecha(cargo, fecha_corte):
+            continue
+        if not _es_vigente_en_fecha(meta, fecha_corte):
+            continue
+
+        try:
+            with transaction.atomic():
+                indicador, _ = Indicador.objects.get_or_create(
+                    meta_id_meta=meta,
+                    id_funcionario=profesional,
+                    defaults={
+                        'avance': Decimal('0.00'),
+                        'cumplimiento': Decimal('0.00'),
+                        'ponderacion': Decimal(str(meta.ponderador or 0)).quantize(Decimal('0.01')),
+                        'ajuste': Decimal('0.00'),
+                        'semaforo': 'ROJO',
+                        'estado': True,
+                    },
+                )
+                sincronizar_indicador(indicador, guardar=True)
+                indicadores.append(indicador)
+        except (ValidationError, DatabaseError) as exc:
+            print(f"Error asegurando indicador para {profesional} en meta {meta}: {exc}")
+
+    return indicadores
+
+def inicializar_items_vigentes_periodo(periodo):
+    """
+    [KAN-414 - CA2] Al iniciar o abrir un período, asigna automáticamente
+    los ítems/metas vigentes de cada cargo a todos los profesionales activos.
+    """
+    from django.db import DatabaseError, transaction
+    from administracionApp.models import Profesional
+
+    if not periodo or not periodo.esta_abierto:
+        return 0
+
+    profesionales_activos = Profesional.objects.filter(
+        estado=True,
+        id_cargo__estado=True,
+    ).select_related('id_cargo', 'id_delegacion')
+
+    total_asignados = 0
+    for prof in profesionales_activos:
+        try:
+            with transaction.atomic():
+                asignados = asegurar_indicadores_profesional(
+                    prof,
+                    periodo_id=periodo.pk,
+                    fecha_referencia=periodo.fecha_inicio,
+                )
+                total_asignados += len(asignados)
+        except (ValidationError, DatabaseError) as exc:
+            print(f"Error asegurando indicadores para {prof}: {exc}")
+
+    return total_asignados
+
+def asegurar_indicadores_para_tablero(periodo_param='', delegacion_param=''):
+    """
+    Asegura los indicadores vigentes según cargo para los profesionales activos
+    antes de consultar el tablero (respeta vigencia y períodos cerrados).
+    """
+    from administracionApp.models import Profesional
+
+    profesionales_qs = Profesional.objects.filter(estado=True).select_related('id_cargo', 'id_delegacion')
+    if delegacion_param and str(delegacion_param).isdigit():
+        profesionales_qs = profesionales_qs.filter(id_delegacion_id=int(delegacion_param))
+
+    periodo_id = int(periodo_param) if periodo_param and str(periodo_param).isdigit() else None
+
+    for prof in profesionales_qs:
+        asegurar_indicadores_profesional(prof, periodo_id=periodo_id)
+
+
+def registrar_avance_por_validacion_aprobada(validacion):
+    """
+    Cuando una validación se aprueba, marca la evidencia como APROBADO,
+    asegura el indicador de (meta, funcionario) si el período está abierto
+    y recalcula avance, cumplimiento y semáforo.
+    """
+    from .models import Indicador
+
+    evidencia = validacion.id_evidencia
+    if not evidencia:
+        return None, True
+
+    evidencia.estado_revision = 'APROBADO'
+    evidencia.save(update_fields=['estado_revision'])
+
+    actividad = evidencia.id_actividad
+    meta = actividad.id_meta if actividad else None
+    funcionario = actividad.id_profesional if actividad else None
+
+    periodo_abierto = bool(meta and meta.id_periodo and meta.id_periodo.esta_abierto)
+    if not (meta and funcionario and periodo_abierto):
+        return None, periodo_abierto
+
+    indicador, _ = Indicador.objects.get_or_create(
+        meta_id_meta=meta,
+        id_funcionario=funcionario,
+        defaults={
+            'avance': Decimal('0.00'),
+            'cumplimiento': Decimal('0.00'),
+            'ponderacion': Decimal(str(meta.ponderador or 0)).quantize(Decimal('0.01')),
+            'ajuste': Decimal('0.00'),
+            'semaforo': 'ROJO',
+            'estado': True,
+        },
+    )
+    sincronizar_indicador(indicador, guardar=True)
+    return indicador, periodo_abierto
