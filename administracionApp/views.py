@@ -27,7 +27,6 @@ from config.utils import (
 import json
 from django.forms.models import model_to_dict
 from decimal import Decimal, InvalidOperation
-
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
 def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
     """
@@ -727,6 +726,7 @@ def crear_periodo(request):
     if request.method == 'POST':
         form = PeriodoForm(request.POST)
         if form.is_valid():
+            periodo = None
             try:
                 with transaction.atomic():
                     periodo = form.save(commit=False)
@@ -734,10 +734,18 @@ def crear_periodo(request):
                     if not periodo.version_parametros:
                         periodo.version_parametros = 1
                     periodo.save()
-                    
+
                     # AUDITORIA
                     registrar_auditoria(request, "CREACION", "Periodo", periodo)
-                    
+
+                # KAN-414 (CA2): Inicializar ítems vigentes una vez guardado el período
+                if periodo and periodo.esta_abierto:
+                    try:
+                        from monitoreoApp.services import inicializar_items_vigentes_periodo
+                        inicializar_items_vigentes_periodo(periodo)
+                    except Exception as err_init:
+                        print(f"Aviso al inicializar ítems del período: {err_init}")
+
                 messages.success(request, f'El periodo "{periodo.nombre}" fue registrado con éxito.')
                 return redirect('administracionApp:lista_periodos')
             except Exception as e:
@@ -746,12 +754,13 @@ def crear_periodo(request):
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
         form = PeriodoForm(initial={'version_parametros': 1})
-        
+
     return render(request, 'administrador/periodos/form_periodo.html', {
         'form': form,
         'titulo': 'Registrar Nuevo Periodo',
         'url_retorno': obtener_url_retorno(request.user)
     })
+
 
 @role_required('Administrador', 'Coordinador')
 @login_required
@@ -762,53 +771,108 @@ def editar_periodo(request, id_periodo):
         messages.error(request, f'El periodo "{periodo.nombre}" está cerrado. Reábrelo antes de editarlo.')
         return redirect('administracionApp:lista_periodos')
     estaba_vencido = periodo.cerrado_por_fecha
-    
+
     if request.method == 'POST':
         datos_antiguos = model_to_dict(periodo)
         form = PeriodoForm(request.POST, instance=periodo)
         if form.is_valid():
+            periodo_guardado = None
             try:
-                periodo_guardado = form.save()
-                
-                # AUDITORIA
-                evento = "REAPERTURA" if estaba_vencido and not periodo_guardado.cerrado_por_fecha else "EDICION"
-                registrar_auditoria(request, evento, "Periodo", periodo_guardado, datos_antiguos)
-                
-                messages.success(request, f'El periodo "{periodo.nombre}" fue actualizado.')
+                with transaction.atomic():
+                    periodo_guardado = form.save()
+
+                    # AUDITORIA
+                    evento = "REAPERTURA" if estaba_vencido and not periodo_guardado.cerrado_por_fecha else "EDICION"
+                    registrar_auditoria(request, evento, "Periodo", periodo_guardado, datos_antiguos)
+
+                if periodo_guardado and periodo_guardado.esta_abierto:
+                    try:
+                        from monitoreoApp.services import inicializar_items_vigentes_periodo
+                        inicializar_items_vigentes_periodo(periodo_guardado)
+                    except Exception as err_init:
+                        print(f"Aviso al sincronizar ítems del período: {err_init}")
+
+                messages.success(request, f'El periodo "{periodo_guardado.nombre}" fue actualizado.')
                 return redirect('administracionApp:lista_periodos')
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
         form = PeriodoForm(instance=periodo)
-        
+
     return render(request, 'administrador/periodos/form_periodo.html', {
         'form': form,
         'titulo': f'Editar Periodo v{periodo.version_parametros}',
         'url_retorno': obtener_url_retorno(request.user)
     })
 
+
 @role_required('Administrador', 'Coordinador')
 @login_required
 def cambiar_estado_periodo(request, id_periodo):
     if request.method == 'POST':
         periodo = get_object_or_404(Periodo, id_periodo=id_periodo)
-        
+        nuevo_estado = False
+
         with transaction.atomic():
             datos_antiguos = model_to_dict(periodo)
             nuevo_estado = not periodo.estado
             periodo.estado = nuevo_estado
             periodo.save()
-            
+
             # AUDITORIA
-            # Solo Administrador y Coordinador pueden hacerlo (autorización por rol).
             registrar_auditoria(request, "REAPERTURA" if nuevo_estado else "CIERRE", "Periodo", periodo, datos_antiguos)
-                
+
+        if nuevo_estado and periodo.esta_abierto:
+            try:
+                from monitoreoApp.services import inicializar_items_vigentes_periodo
+                inicializar_items_vigentes_periodo(periodo)
+            except Exception as err_init:
+                print(f"Aviso al inicializar ítems al reabrir período: {err_init}")
+
         accion = "reabierto" if nuevo_estado else "cerrado"
         messages.success(request, f'El periodo "{periodo.nombre}" fue {accion}.')
         if nuevo_estado and periodo.cerrado_por_fecha:
             messages.warning(request, f'Su fecha de término ya pasó: sigue cerrado hasta que se extienda en "Editar".')
-        
+
     return redirect('administracionApp:lista_periodos')
+
+
+@role_required('Administrador', 'Coordinador')
+@login_required
+def versionar_periodo(request, id_periodo):
+    periodo_original = get_object_or_404(Periodo, id_periodo=id_periodo)
+    try:
+        with transaction.atomic():
+            nueva_version = Periodo.objects.get(id_periodo=id_periodo)
+            nueva_version.pk = None
+            nueva_version.version_parametros = (nueva_version.version_parametros or 1) + 1
+            nueva_version.nombre = f"{periodo_original.nombre} (v{nueva_version.version_parametros})"
+            nueva_version.estado = True
+            nueva_version.save()
+
+            registrar_auditoria(request, "NUEVA_VERSION", "Periodo", nueva_version)
+
+        if nueva_version.esta_abierto:
+            try:
+                with transaction.atomic():
+                    from monitoreoApp.services import inicializar_items_vigentes_periodo
+                    inicializar_items_vigentes_periodo(nueva_version)
+            except Exception as e_init:
+                print(f"Error al inicializar ítems en nueva versión: {e_init}")
+
+        messages.success(
+            request,
+            f'Se generó la versión {nueva_version.version_parametros}. Por favor ajusta las nuevas fechas o umbrales y guarda los cambios.'
+        )
+        return redirect('administracionApp:editar_periodo', id_periodo=nueva_version.id_periodo)
+
+    except Exception as e:
+        messages.error(request, f'Error al crear nueva versión: {str(e)}')
+
+    return redirect('administracionApp:lista_periodos')
+
 
 @role_required('Administrador', 'Coordinador')
 @login_required
@@ -822,16 +886,20 @@ def versionar_periodo(request, id_periodo):
             nueva_version.nombre = f"{periodo_original.nombre} (v{nueva_version.version_parametros})"
             nueva_version.estado = True
             nueva_version.save()
-            
+
             # AUDITORIA
             registrar_auditoria(request, "NUEVA_VERSION", "Periodo", nueva_version)
-            
+
+            if nueva_version.esta_abierto:
+                from monitoreoApp.services import inicializar_items_vigentes_periodo
+                inicializar_items_vigentes_periodo(nueva_version)
+
             messages.success(request, f'Se generó la versión {nueva_version.version_parametros}. Por favor ajusta las nuevas fechas o umbrales y guarda los cambios.')
             return redirect('administracionApp:editar_periodo', id_periodo=nueva_version.id_periodo)
-            
+
     except Exception as e:
         messages.error(request, f'Error al crear nueva versión: {str(e)}')
-        
+
     return redirect('administracionApp:lista_periodos')
 
 
@@ -990,7 +1058,7 @@ def configurar_matriz_cargo(request, pk):
 
         datos_items = []
         lista_ponderaciones_str = []
-        
+
         for key, value in request.POST.items():
             if key.startswith('ponderacion_'):
                 item_id = key.split('_')[1]
@@ -1023,7 +1091,26 @@ def configurar_matriz_cargo(request, pk):
             # 5. Auditoría centralizada con los parámetros correctos
             registrar_auditoria(request, "EDICION", "Cargo", cargo, datos_antiguos)
 
-            messages.success(request, f"Matriz y vigencia del cargo '{cargo.nombre}' configuradas exitosamente.")
+            from monitoreoApp.services import asegurar_indicadores_profesional
+            hoy = date.today()
+            vigente_hoy = (
+                (not cargo.fecha_inicio or cargo.fecha_inicio <= hoy)
+                and (not cargo.fecha_termino or cargo.fecha_termino >= hoy)
+            )
+
+            if vigente_hoy:
+                for prof in Profesional.objects.filter(id_cargo=cargo, estado=True):
+                    asegurar_indicadores_profesional(prof, fecha_referencia=hoy)
+                messages.success(
+                    request,
+                    f"Matriz y vigencia del cargo '{cargo.nombre}' configuradas y aplicadas desde hoy ({hoy.strftime('%d/%m/%Y')}) en períodos abiertos."
+                )
+            else:
+                fecha_txt = cargo.fecha_inicio.strftime('%d/%m/%Y') if cargo.fecha_inicio else 'la fecha indicada'
+                messages.success(
+                    request,
+                    f"Matriz y vigencia del cargo '{cargo.nombre}' guardadas. Regirán desde el {fecha_txt} sin modificar períodos cerrados."
+                )
             return redirect('administracionApp:lista_cargos')
 
         except ValidationError as e:
