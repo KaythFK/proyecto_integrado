@@ -1,8 +1,11 @@
+from datetime import timedelta
+
 import django_filters
 from django import forms
 from django.db.models import Q
 
 from administracionApp.models import CatalagoItem, Delegacion, Periodo, Profesional
+from config.utils import inicio_del_dia
 from .models import Actividad
 
 SELECT = {'class': 'form-select borde-guinda'}
@@ -29,9 +32,9 @@ class ActividadFilter(django_filters.FilterSet):
         field_name='estado_progreso', label='Estado', choices=Actividad.OPCIONES_ESTADO_PROGRESO,
         empty_label='Todos', widget=forms.Select(attrs=SELECT))
     desde = django_filters.DateFilter(
-        field_name='fecha_registro', lookup_expr='date__gte', label='Desde', widget=forms.DateInput(attrs=FECHA))
+        method='filtrar_desde', label='Desde', widget=forms.DateInput(attrs=FECHA))
     hasta = django_filters.DateFilter(
-        field_name='fecha_registro', lookup_expr='date__lte', label='Hasta', widget=forms.DateInput(attrs=FECHA))
+        method='filtrar_hasta', label='Hasta', widget=forms.DateInput(attrs=FECHA))
 
     class Meta:
         model = Actividad
@@ -45,6 +48,12 @@ class ActividadFilter(django_filters.FilterSet):
         ).order_by('nombres')
         for nombre in ocultar:
             self.filters.pop(nombre)
+
+    def filtrar_desde(self, queryset, name, value):
+        return queryset.filter(fecha_registro__gte=inicio_del_dia(value))
+
+    def filtrar_hasta(self, queryset, name, value):
+        return queryset.filter(fecha_registro__lt=inicio_del_dia(value + timedelta(days=1)))
 
     def buscar_texto(self, queryset, name, value):
         return queryset.filter(

@@ -1,12 +1,12 @@
 from django.core.exceptions import ValidationError
-from datetime import date, timezone, timedelta
+from datetime import date, datetime, time, timezone, timedelta
 
 from django.db import models
 
 from administracionApp.models import Delegacion, Periodo, Profesional
 from actividadApp.models import Evidencia, Actividad
 from django.db.models import Q
-from django.utils.timezone import localdate
+from django.utils.timezone import localdate, make_aware
 from decimal import Decimal, InvalidOperation
 def validar_y_formatear_rut(rut_ingresado):
     """
@@ -289,13 +289,19 @@ def validar_datos_vecino_actividad(vecino):
     if not vecino.nombres or not vecino.telefono:
         raise ValidationError("El vecino no tiene nombre o teléfono registrado.")
 
+def inicio_del_dia(dia):
+    """Primer instante del día en hora local. Se compara por rango porque MySQL sin tablas de zona horaria no resuelve __date."""
+    return make_aware(datetime.combine(dia, time.min))
+
+
 def validar_tope_diario_actividades(profesional):
     # Usamos localdate() directo para evitar el choque de librerías
     hoy = localdate()
     
     cantidad_hoy = Actividad.objects.filter(
-        id_profesional=profesional, 
-        fecha_registro__date=hoy
+        id_profesional=profesional,
+        fecha_registro__gte=inicio_del_dia(hoy),
+        fecha_registro__lt=inicio_del_dia(hoy + timedelta(days=1)),
     ).count()
     
     if cantidad_hoy >= 7:
