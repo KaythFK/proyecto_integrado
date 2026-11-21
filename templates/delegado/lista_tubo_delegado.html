@@ -141,9 +141,9 @@
 
                     <td class="text-center">
                         <div class="d-flex justify-content-center gap-2 flex-nowrap">
-                            <button type="button" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6" data-bs-toggle="modal" data-bs-target="#modalObs{{ compromiso.id_compromiso }}">
+                            <a href="{% url 'tuboApp:detalle_actividad' compromiso.id_actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6">
                                 <i class="bi bi-chat-left-text"></i> Observaciones
-                            </button>
+                            </a>
                             {% if compromiso.estado and compromiso.estado_progreso != 'REALIZADO' %}
                             <button type="button" class="btn btn-sm btn-outline-dark shadow-sm redondeado-6"
                                     onclick="abrirReasignar('{{ compromiso.id_compromiso }}', '{{ compromiso.id_actividad.codigo_unico|escapejs }}', '{{ compromiso.id_funcionario_id }}', '{{ compromiso.id_funcionario.nombres|escapejs }} {{ compromiso.id_funcionario.apellido_paterno|escapejs }}')">
@@ -162,54 +162,6 @@
         </table>
     </div>
 </div>
-
-{% for compromiso in compromisos %}
-<div class="modal fade" id="modalObs{{ compromiso.id_compromiso }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header text-white fondo-guinda">
-                <h5 class="modal-title fw-bold">
-                    Observaciones - Actividad {{ compromiso.id_actividad.codigo_unico }}
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-4">
-                <form method="POST" action="{% url 'tuboApp:agregar_observacion_tubo' compromiso.id_compromiso %}" class="mb-4 p-3 rounded shadow-sm bg-light border">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-dark">Agregar nueva observación o avance:</label>
-                        <textarea name="texto_observacion" class="form-control" rows="3" placeholder="Escribe aquí los detalles..." required></textarea>
-                    </div>
-                    <div class="d-flex justify-content-end">
-                        <button type="submit" class="btn text-white fw-bold px-4 shadow-sm" style="background-color: #A91D22;">
-                            <i class="bi bi-save"></i> Guardar Observación
-                        </button>
-                    </div>
-                </form>
-                
-                <hr class="text-muted opacity-25 mb-4">
-
-                <h6 class="fw-bold text-secondary mb-3">Historial de Observaciones:</h6>
-                <div class="list-group">
-                    {% for obs in observaciones %}
-                        {% if obs.id_compromiso.id_compromiso == compromiso.id_compromiso %}
-                            <div class="list-group-item flex-column align-items-start mb-2 border rounded shadow-sm">
-                                <div class="d-flex w-100 justify-content-between align-items-center mb-2">
-                                    <small class="fw-bold text-muted"><i class="bi bi-clock"></i> {{ obs.fecha|date:"d/m/Y - H:i" }} hrs</small>
-                                </div>
-                                <p class="mb-1 text-dark" style="white-space: pre-wrap;">{{ obs.texto }}</p>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="modal-footer border-0 bg-light">
-                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cerrar</button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endfor %}
 
 <div class="modal fade" id="modalReasignar" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
