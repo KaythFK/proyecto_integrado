@@ -144,9 +144,15 @@
 
                     <td class="text-center">
                         <div class="d-flex justify-content-center gap-2 flex-nowrap">
-                            <a href="{% url 'tuboApp:detalle_actividad' compromiso.id_actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6">
+                            {% if compromiso.id_actividad %}
+                            <a href="{% url 'tuboApp:detalle_actividad' compromiso.id_actividad_id %}?volver=tubo" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6">
                                 <i class="bi bi-chat-left-text"></i> Observaciones
                             </a>
+                            {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6" disabled title="La actividad de este compromiso no existe">
+                                <i class="bi bi-chat-left-text"></i> Observaciones
+                            </button>
+                            {% endif %}
                             {% if compromiso.estado and compromiso.estado_progreso != 'REALIZADO' %}
                             <button type="button" class="btn btn-sm btn-outline-dark shadow-sm redondeado-6"
                                     onclick="abrirReasignar('{{ compromiso.id_compromiso }}', '{{ compromiso.id_actividad.codigo_unico|escapejs }}', '{{ compromiso.id_funcionario_id }}', '{{ compromiso.id_funcionario.nombres|escapejs }} {{ compromiso.id_funcionario.apellido_paterno|escapejs }}')">

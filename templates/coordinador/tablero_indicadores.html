@@ -233,15 +233,15 @@
                                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
                                             {% if ind.meta_id_meta.id_periodo.esta_abierto %}
                                                 <a href="{% url 'monitoreoApp:editar_indicador' ind.id_indicador %}"
-                                                   class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6">
-                                                    Editar
+                                                   class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
+                                                    <i class="bi bi-pencil-square"></i> Editar
                                                 </a>
                                             {% else %}
                                                 <button type="button"
-                                                    class="btn btn-sm btn-secondary px-2 shadow-sm redondeado-6"
+                                                    class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6"
                                                     disabled
                                                     title="Período cerrado">
-                                                    Editar
+                                                    <i class="bi bi-lock"></i> Editar
                                                 </button>
                                             {% endif %}
 

@@ -68,19 +68,19 @@
                     <td class="text-center" style="width: 140px;">
                         <!-- TU MENÚ ORIGINAL DROPDOWN (HACIA ABAJO) -->
                         <div class="dropdown">
-                            <button class="btn btn-sm text-white fw-bold fondo-guinda dropdown-toggle shadow-sm redondeado-6 px-3" 
+                            <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" 
                                     type="button" 
                                     id="dropdownAcciones{{ actividad.pk }}" 
                                     data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' 
                                     aria-expanded="false">
-                                <i class="bi bi-gear-fill"></i> Acciones
+                                <i class="bi bi-three-dots-vertical"></i> Acciones
                             </button>
 
                             <!-- Menú Desplegable -->
-                            <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow-lg border-0 py-2 redondeado-10" aria-labelledby="dropdownAcciones{{ actividad.pk }}" style="min-width: 180px;">
+                            <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2" aria-labelledby="dropdownAcciones{{ actividad.pk }}" style="min-width: 180px;">
                                 
                                 <li>
-                                    <button type="button" class="dropdown-item py-2 fw-semibold text-dark"
+                                    <button type="button" class="dropdown-item fw-semibold text-dark py-2"
                                             data-codigo="{{ actividad.codigo_unico }}"
                                             data-fecha="{{ actividad.fecha_registro|date:'d/m/Y H:i' }}"
                                             data-estado="{{ actividad.get_estado_progreso_display }}"
@@ -89,19 +89,19 @@
                                             data-url="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}"
                                             data-id="{{ actividad.pk }}"
                                             onclick="mostrarDetalle(this)">
-                                        <i class="bi bi-search text-primary me-2"></i> Ver Detalle
+                                        <i class="bi bi-eye me-2 texto-guinda"></i>Ver detalle
                                     </button>
                                 </li>
 
                                 <li>
-                                    <a class="dropdown-item py-2 fw-semibold text-dark" href="{% url 'actividadApp:gestiones_coordinador' actividad.id_actividad %}">
-                                        <i class="bi bi-briefcase text-secondary me-2"></i> Gestiones
+                                    <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'actividadApp:gestiones_coordinador' actividad.id_actividad %}">
+                                        <i class="bi bi-briefcase me-2 texto-guinda"></i>Gestiones
                                     </a>
                                 </li>
 
                                 <li>
-                                    <a class="dropdown-item py-2 fw-semibold text-dark" href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}">
-                                        <i class="bi bi-chat-text-fill text-success me-2"></i> Observaciones
+                                    <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}">
+                                        <i class="bi bi-chat-left-text me-2 texto-guinda"></i>Observaciones
                                     </a>
                                 </li>
 

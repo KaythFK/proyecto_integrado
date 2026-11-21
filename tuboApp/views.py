@@ -274,8 +274,17 @@ def detalle_actividad(request, pk):
     validar_acceso_observaciones(request.user, actividad)
 
     compromiso = Compromiso.objects.filter(id_actividad=actividad).first()
-    observaciones = ObservacionCompromiso.objects.filter(id_actividad=actividad)
-    desde_alertas = request.GET.get('volver') == 'alertas'
+    observaciones = ObservacionCompromiso.objects.filter(id_actividad=actividad).select_related('autor')
+    origen = request.GET.get('volver')
+    destinos = {
+        'alertas': (reverse('monitoreoApp:mis_alertas'), 'Volver a mis alertas'),
+        'tubo': (reverse(url_tubo_segun_rol(request.user)), 'Volver al Tubo'),
+    }
+    if request.user.groups.filter(name='Delegado').exists():
+        destinos['panel'] = (reverse('monitoreoApp:dashboard_delegado'), 'Volver al panel')
+    if origen not in destinos:
+        origen = None
+    url_volver, texto_volver = destinos.get(origen, (url_listado_actividades(request), 'Volver al listado'))
 
     if request.method == 'POST':
         form = ObservacionRegistroForm(request.POST)
@@ -294,8 +303,8 @@ def detalle_actividad(request, pk):
             nueva_obs.save()
             registrar_auditoria(request, "CREACION", "ObservacionCompromiso", nueva_obs)
             messages.success(request, "Observación registrada correctamente.")
-            if desde_alertas:
-                return redirect(f"{reverse('tuboApp:detalle_actividad', args=[pk])}?volver=alertas")
+            if origen:
+                return redirect(f"{reverse('tuboApp:detalle_actividad', args=[pk])}?volver={origen}")
             return redirect('tuboApp:detalle_actividad', pk=pk)
     else:
         form = ObservacionRegistroForm()
@@ -304,6 +313,6 @@ def detalle_actividad(request, pk):
         'actividad': actividad,
         'observaciones': observaciones,
         'form': form,
-        'url_volver': reverse('monitoreoApp:mis_alertas') if desde_alertas else url_listado_actividades(request),
-        'texto_volver': 'Volver a mis alertas' if desde_alertas else 'Volver al listado',
+        'url_volver': url_volver,
+        'texto_volver': texto_volver,
     })
