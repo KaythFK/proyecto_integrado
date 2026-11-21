@@ -665,3 +665,23 @@ def validar_meta_corresponde_a_profesional(profesional, meta):
         raise ValidationError("La meta seleccionada no corresponde al cargo del profesional elegido.")
 
     return meta
+def validar_acceso_observaciones(user, actividad):
+    """Regla exclusiva para bitácora de observaciones (HU-24)."""
+    from django.core.exceptions import PermissionDenied
+
+    if user.groups.filter(name__in=['Administrador', 'Coordinador']).exists():
+        return
+
+    profesional = getattr(user, 'profesional', None)
+    creador = getattr(actividad, 'id_profesional', None)
+
+    if profesional is None or creador is None:
+        raise PermissionDenied('No tienes permiso para acceder a las observaciones de esta actividad.')
+
+    if user.groups.filter(name='Delegado').exists() and creador.id_delegacion_id == profesional.id_delegacion_id:
+        return
+
+    if user.groups.filter(name='Profesional').exists() and creador.pk == profesional.pk:
+        return
+
+    raise PermissionDenied('No tienes permiso para acceder a las observaciones de esta actividad.')

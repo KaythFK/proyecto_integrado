@@ -14,7 +14,7 @@ from .forms import ObservacionRegistroForm
 from monitoreoApp.views import elegir_periodo, resumen_indicadores
 from monitoreoApp.services import registrar_incumplimiento
 from actividadApp.filters import ActividadFilter
-from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades
+from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades, validar_acceso_observaciones
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
 from administracionApp.models import Profesional, Auditoria
@@ -224,38 +224,6 @@ def cambiar_estado_tubo(request, id_compromiso):
     return redirect('tuboApp:tubo')
 
 
-@login_required
-@role_required('Administracion', 'Coordinacion', 'Delegado')
-def agregar_observacion_tubo(request, id_compromiso):
-    if request.method == 'POST':
-        compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
-
-        if not puede_modificar_compromiso(request.user, compromiso):
-            raise PermissionDenied('No tienes permiso para agregar observaciones a este compromiso: pertenece a otro funcionario o delegación.')
-
-        texto_obs = request.POST.get('texto_observacion')
-        
-        if texto_obs and texto_obs.strip():
-            try:
-                with transaction.atomic():
-                    nueva_observacion = ObservacionCompromiso.objects.create(
-                        id_compromiso=compromiso,
-                        id_actividad=compromiso.id_actividad,
-                        autor=getattr(request.user, 'profesional', None),
-                        texto=texto_obs.strip(),
-                        fecha=timezone.now()
-                    )
-                    # --- AUDITORÍA ---
-                    registrar_auditoria(request, "CREACION", "ObservacionCompromiso", nueva_observacion)
-                    
-                messages.success(request, 'Observación agregada exitosamente al historial.')
-            except Exception as e:
-                messages.error(request, f'Error al guardar la observación: {str(e)}')
-        else:
-            messages.error(request, 'El texto de la observación no puede estar vacío.')
-            
-    return redirect(url_tubo_segun_rol(request.user))
-
 
 @login_required
 @role_required('Coordinador')
@@ -303,6 +271,8 @@ def listar_todas_actividades(request):
 @login_required
 def detalle_actividad(request, pk):
     actividad = get_object_or_404(Actividad, pk=pk)
+    validar_acceso_observaciones(request.user, actividad)
+
     compromiso = Compromiso.objects.filter(id_actividad=actividad).first()
     observaciones = ObservacionCompromiso.objects.filter(id_actividad=actividad)
     desde_alertas = request.GET.get('volver') == 'alertas'
@@ -310,16 +280,19 @@ def detalle_actividad(request, pk):
     if request.method == 'POST':
         form = ObservacionRegistroForm(request.POST)
         if form.is_valid():
+            profesional_actual = Profesional.objects.filter(usuario=request.user).first()
+            if not profesional_actual:
+                raise PermissionDenied('Tu usuario no tiene un perfil de funcionario asociado para registrar observaciones.')
+
             nueva_obs = form.save(commit=False)
             nueva_obs.id_actividad = actividad
-            
+
             if compromiso:
                 nueva_obs.id_compromiso = compromiso
-                
-            if hasattr(request.user, 'profesional'):
-                nueva_obs.autor = request.user.profesional
-            
+
+            nueva_obs.autor = profesional_actual
             nueva_obs.save()
+            registrar_auditoria(request, "CREACION", "ObservacionCompromiso", nueva_obs)
             messages.success(request, "Observación registrada correctamente.")
             if desde_alertas:
                 return redirect(f"{reverse('tuboApp:detalle_actividad', args=[pk])}?volver=alertas")

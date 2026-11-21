@@ -15,7 +15,7 @@ from tuboApp.models import Compromiso, HistorialIncumplimiento
 from tuboApp.filters import CompromisoFilter
 from datetime import date, timedelta
 from django.core.exceptions import ValidationError
-from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador
+from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador 
 from django.core.exceptions import PermissionDenied
 from .filters import MetaFilter
 from config.utils import procesar_resumen_dashboard
