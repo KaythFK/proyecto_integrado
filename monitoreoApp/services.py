@@ -49,10 +49,12 @@ def calcular_indicadores_meta(avance_real, meta):
 
 # --- ALERTAS (HU-31) ---
 SEGUNDOS_ENTRE_REVISIONES = 300
-PREFIJO_POR_TIPO = {'VENCIMIENTO': 'Compromiso', 'EVIDENCIA_PENDIENTE': 'Evidencia', 'AVANCE_BAJO': 'Avance'}
+PREFIJO_POR_TIPO = {'VENCIMIENTO': 'Compromiso', 'EVIDENCIA_PENDIENTE': 'Evidencia', 'AVANCE_BAJO': 'Avance', 'RETROALIMENTACION': 'Recibiste un',}
 
 
 def tipo_de_alerta(alerta):
+    if alerta.motivo.startswith(('Recibiste una', 'Recibiste un')):
+        return 'RETROALIMENTACION'
     for tipo, prefijo in PREFIJO_POR_TIPO.items():
         if alerta.motivo.startswith(prefijo):
             return tipo
@@ -436,3 +438,88 @@ def registrar_avance_por_validacion_aprobada(validacion):
     )
     sincronizar_indicador(indicador, guardar=True)
     return indicador, periodo_abierto
+
+
+def calcular_ajuste_retroalimentaciones(meta, funcionario):
+    """
+    Suma los porcentajes de felicitaciones (+) y resta los de reclamos (-)
+    activos registrados para el funcionario en la meta indicada.
+    """
+    from actividadApp.models import Retroalimentacion
+
+    if not meta or not funcionario:
+        return Decimal('0.00')
+
+    retros = Retroalimentacion.objects.filter(
+        estado=True,
+        meta=meta,
+        retroalimentado=funcionario,
+    ).only('tipo', 'porcentaje_impacto')
+
+    total_ajuste = Decimal('0.00')
+    for r in retros:
+        pct = Decimal(str(r.porcentaje_impacto or 0))
+        if r.tipo == 'FELICITACION':
+            total_ajuste += pct
+        elif r.tipo == 'RECLAMO':
+            total_ajuste -= pct
+
+    return total_ajuste.quantize(Decimal('0.01'))
+
+
+def sincronizar_indicador(indicador, guardar=True):
+    """
+    Calcula el avance desde evidencias aprobadas, topa el cumplimiento base en
+    120%, aplica el ajuste por retroalimentaciones activas y actualiza
+    cumplimiento, ajuste y semáforo.
+    """
+    from actividadApp.models import Evidencia
+
+    meta = indicador.meta_id_meta
+    funcionario = indicador.id_funcionario
+
+    if not meta or not funcionario:
+        return indicador
+
+    avance_real = Evidencia.objects.filter(
+        estado=True,
+        estado_revision='APROBADO',
+        id_actividad__estado=True,
+        id_actividad__id_meta=meta,
+        id_actividad__id_profesional=funcionario,
+    ).count()
+
+    calculo = calcular_indicadores_meta(avance_real, meta)
+    ajuste_retro = calcular_ajuste_retroalimentaciones(meta, funcionario)
+
+    cumplimiento_base = min(Decimal(str(calculo['cumplimiento'])), Decimal('120.00'))
+    cumplimiento_ajustado = max(
+        Decimal('0.00'),
+        min(cumplimiento_base + ajuste_retro, Decimal('120.00'))
+    )
+
+    periodo = meta.id_periodo
+    regular = Decimal(str(periodo.umbral_regular))
+    excelencia = Decimal(str(periodo.umbral_exelencia))
+    if excelencia <= Decimal('1'):
+        regular *= Decimal('100')
+        excelencia *= Decimal('100')
+
+    if cumplimiento_ajustado >= excelencia:
+        semaforo_final = 'VERDE'
+    elif cumplimiento_ajustado >= regular:
+        semaforo_final = 'AMARILLO'
+    else:
+        semaforo_final = 'ROJO'
+
+    indicador.avance = Decimal(str(avance_real)).quantize(Decimal('0.01'))
+    indicador.ajuste = ajuste_retro
+    indicador.cumplimiento = cumplimiento_ajustado.quantize(Decimal('0.01'))
+    indicador.semaforo = semaforo_final
+    if indicador.ponderacion is None:
+        indicador.ponderacion = Decimal(str(meta.ponderador or 0)).quantize(Decimal('0.01'))
+
+    if guardar:
+        indicador.save(update_fields=['avance', 'cumplimiento', 'semaforo', 'ponderacion', 'ajuste'])
+
+    return indicador

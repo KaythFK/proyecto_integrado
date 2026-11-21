@@ -3,7 +3,6 @@
 
 {% block title %}{{ titulo }}{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Administración</h3>
 {% endblock %}
@@ -15,14 +14,7 @@
             <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
         </div>
         <div class="card-body p-4 p-md-5">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
+            {% include 'parciales/mensajes.html' %}
 
             {% if form.non_field_errors %}
                 <div class="alert alert-danger shadow-sm border-danger border-2 mb-4">
@@ -35,12 +27,12 @@
                 </div>
             {% endif %}
 
-            <form method="POST" novalidate>
+            <form method="POST" enctype="multipart/form-data" novalidate>
                 {% csrf_token %}
                 <h5 class="fw-bold mb-3 titulo-seccion">
                     Detalles de la Retroalimentación
                 </h5>
-                
+
                 <div class="row p-3 rounded mb-4 caja-gris">
                     {% for field in form %}
                         <div class="col-12 col-md-6 mb-3">
@@ -48,13 +40,20 @@
                                 {{ field.label }} {% if field.field.required %}*{% endif %}
                             </label>
                             {{ field }}
+                            {% if field.name == 'archivo_respaldo' and form.instance.pk and form.instance.archivo_respaldo %}
+                                <div class="mt-2">
+                                    <a href="{{ form.instance.archivo_respaldo.url }}" target="_blank" rel="noopener noreferrer" class="small fw-bold texto-guinda">
+                                        <i class="bi bi-image"></i> Ver respaldo actual
+                                    </a>
+                                </div>
+                            {% endif %}
                             {% for error in field.errors %}
                                 <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                             {% endfor %}
                         </div>
                     {% endfor %}
                 </div>
-                
+
                 <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
                     <a href="{% url 'actividadApp:lista_retroalimentaciones' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto shadow-sm">
                         Cancelar

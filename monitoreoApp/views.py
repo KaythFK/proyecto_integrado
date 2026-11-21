@@ -836,7 +836,7 @@ FILTROS_ALERTAS = {
 
 
 @login_required
-@role_required('Delegado', 'Coordinador')
+@role_required('Delegado', 'Coordinador', 'Profesional')
 def mis_alertas(request):
     generar_alertas()
     profesional = getattr(request.user, 'profesional', None)
@@ -858,7 +858,7 @@ def mis_alertas(request):
 
 
 @login_required
-@role_required('Delegado', 'Coordinador')
+@role_required('Delegado', 'Coordinador', 'Profesional')
 @require_POST
 def marcar_alerta_revisada(request, id_alerta):
     profesional = getattr(request.user, 'profesional', None)
