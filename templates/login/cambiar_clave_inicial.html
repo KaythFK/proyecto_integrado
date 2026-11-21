@@ -1,0 +1,89 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cambiar Contraseña - Portal Municipal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        #requisitosClave li { color: rgba(255, 255, 255, 0.6); transition: color 0.15s ease; }
+        #requisitosClave li.requisito-cumplido { color: #8FE3B0; font-weight: 600; }
+    </style>
+</head>
+
+<body class="d-flex align-items-center min-vh-100" style="background-color: #ffffff;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-4">
+
+                <div class="card text-center shadow-lg" style="background-color: #8B1D19; border: 3px solid black; color: white;">
+                    <img src="{% static 'images/logo_blanco.png' %}" class="card-img-top p-4" alt="Logo">
+
+                    <div class="card-body mb-2">
+                        <h5 class="card-title fw-bold">Cambia tu contraseña</h5>
+                        <p class="small text-white-50 mb-3">Por seguridad, antes de continuar debes reemplazar la contraseña temporal que te entregaron.</p>
+
+                            <form method="POST">
+                                {% csrf_token %}
+
+                                {% for error in form.non_field_errors %}
+                                    <div class="alert alert-warning py-2 px-2 mb-3 text-dark text-start" role="alert">
+                                        <small>{{ error }}</small>
+                                    </div>
+                                {% endfor %}
+
+                                {% for campo in form %}
+                                    <div class="mb-3 text-start">
+                                        <label for="{{ campo.id_for_label }}" class="form-label small fw-bold">{{ campo.label }}</label>
+                                        {{ campo }}
+                                        {% if campo.name == 'new_password1' %}
+                                            <ul class="list-unstyled small mb-0 mt-2" id="requisitosClave">
+                                                <li id="reqLargo"><i class="bi bi-circle me-2"></i>Mínimo 8 caracteres</li>
+                                                <li id="reqMayuscula"><i class="bi bi-circle me-2"></i>Al menos 1 mayúscula</li>
+                                                <li id="reqSimbolo"><i class="bi bi-circle me-2"></i>Al menos 1 símbolo especial (!@#$%^&*)</li>
+                                            </ul>
+                                        {% elif campo.help_text %}
+                                            <small class="d-block text-white-50">{{ campo.help_text|safe }}</small>
+                                        {% endif %}
+                                        {% for error in campo.errors %}
+                                            <small class="d-block text-warning">{{ error }}</small>
+                                        {% endfor %}
+                                    </div>
+                                {% endfor %}
+
+                                <button type="submit" class="btn btn-dark w-100 fw-bold mt-2" style="border: 1px solid white;">Guardar contraseña</button>
+                            </form>
+
+                        <a href="{% url 'usuariosApp:logout' %}" class="d-block mt-3 small text-white">Cerrar sesión</a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputClave = document.getElementById('id_new_password1');
+            if (!inputClave) return;
+            const requisitos = [
+                ['reqLargo', clave => clave.length >= 8],
+                ['reqMayuscula', clave => /[A-Z]/.test(clave)],
+                ['reqSimbolo', clave => /[!@#$%^&*(),.?":{}|<>]/.test(clave)],
+            ];
+            function actualizar() {
+                requisitos.forEach(([id, cumple]) => {
+                    const item = document.getElementById(id);
+                    const listo = cumple(inputClave.value);
+                    item.classList.toggle('requisito-cumplido', listo);
+                    item.querySelector('i').className = (listo ? 'bi bi-check-circle-fill' : 'bi bi-circle') + ' me-2';
+                });
+            }
+            inputClave.addEventListener('input', actualizar);
+            actualizar();
+        });
+    </script>
+</body>
+</html>

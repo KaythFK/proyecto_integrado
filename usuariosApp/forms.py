@@ -32,3 +32,12 @@ class RestablecerClaveForm(SetPasswordForm):
         if len(clave) < 8 or not any(c.isupper() for c in clave) or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", clave):
             raise forms.ValidationError('La contraseña no cumple con los requisitos.')
         return clave
+
+
+class CambioClaveInicialForm(RestablecerClaveForm):
+
+    def clean_new_password1(self):
+        clave = super().clean_new_password1()
+        if self.user.check_password(clave):
+            raise forms.ValidationError('La nueva contraseña debe ser distinta de la contraseña temporal.')
+        return clave

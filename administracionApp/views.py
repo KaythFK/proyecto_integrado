@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.db.models import Q, Max
 from django.core.paginator import Paginator
 from .filters import AuditoriaFilter
+from usuariosApp.models import ClaveTemporal
 from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria, CargoItem
 # --- IMPORTAMOS CatalogoTipoGestion ---
 from actividadApp.models import Actividad, CatalogoTipoGestion
@@ -286,6 +287,7 @@ def crear_profesional(request):
                     )
                     
                     nuevo_usuario.groups.add(grupo_seleccionado)
+                    ClaveTemporal.objects.update_or_create(usuario=nuevo_usuario)
                     
                     profesional = form_profesional.save(commit=False)
                     profesional.usuario = nuevo_usuario
@@ -303,7 +305,7 @@ def crear_profesional(request):
                     messages.success(
                         request, 
                         f'Profesional {profesional.nombres} creado con rol "{grupo_seleccionado.name}". '
-                        f'Usuario: {email} | Clave temporal: [{clave_temporal}]'
+                        f'Usuario: {email} | Clave temporal: [{clave_temporal}]. Deberá cambiarla en su primer ingreso.'
                     )
                     return redirect('administracionApp:directorio_profesional')
             except Exception as e:
@@ -346,6 +348,7 @@ def editar_profesional(request, id_profesional):
                             password=clave_temporal
                         )
                         profesional.usuario = usuario_asociado
+                        ClaveTemporal.objects.update_or_create(usuario=usuario_asociado)
                     else:
                         usuario_asociado.username = email
                         usuario_asociado.email = email
