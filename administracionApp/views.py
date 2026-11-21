@@ -1,5 +1,7 @@
 from django.shortcuts import render
 from django.db.models import Q, Max
+from django.core.paginator import Paginator
+from .filters import AuditoriaFilter
 from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria, CargoItem
 # --- IMPORTAMOS CatalogoTipoGestion ---
 from actividadApp.models import Actividad, CatalogoTipoGestion
@@ -1016,20 +1018,18 @@ def actualizar_progreso_actividad(request, id_actividad):
 @login_required
 @role_required('Administrador') 
 def lista_auditoria(request):
-    query = request.GET.get('q', '')
-    registros = Auditoria.objects.select_related('funcionario_id_funcionario').order_by('-fecha')
-    
-    if query:
-        registros = registros.filter(
-            Q(evento__icontains=query) | 
-            Q(entidad__icontains=query) |
-            Q(funcionario_id_funcionario__nombres__icontains=query) |
-            Q(funcionario_id_funcionario__apellido_paterno__icontains=query)
-        )
-        
+    registros = Auditoria.objects.select_related('funcionario_id_funcionario').order_by('-fecha', '-id_auditoria')
+    filtro = AuditoriaFilter(request.GET, queryset=registros)
+    resultado = filtro.qs if filtro.is_valid() else registros.none()
+    pagina = Paginator(resultado, 50).get_page(request.GET.get('page'))
+    parametros = request.GET.copy()
+    parametros.pop('page', None)
+
     return render(request, 'administrador/auditoria/lista_auditoria.html', {
-        'registros': registros,
-        'query': query
+        'filtro': filtro,
+        'registros': pagina,
+        'pagina': pagina,
+        'parametros': parametros.urlencode(),
     })
 
 
