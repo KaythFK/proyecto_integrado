@@ -83,6 +83,7 @@ SECCIONES_PANEL_ADMIN = [
     ('Medición', [
         ('Metas', 'Objetivos por cargo', 'bullseye', 'monitoreoApp:listar_metas'),
         ('Indicadores', 'Avance y semáforo', 'bar-chart-line', 'monitoreoApp:lista_indicadores'),
+        ('Tendencias', 'Cumplimiento histórico por cargo', 'graph-up-arrow', 'monitoreoApp:tendencias_cargo'),
         ('Períodos', 'Fechas y umbrales', 'calendar-range', 'administracionApp:lista_periodos'),
         ('Ausencias', 'Licencias y permisos', 'calendar-x', 'actividadApp:lista_ausencias'),
     ]),
