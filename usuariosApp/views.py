@@ -19,7 +19,48 @@ from django.db.models import Q
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from .correo import enviar_correo
-from .forms import RecuperarClaveForm, RestablecerClaveForm
+from .forms import CambioClaveInicialForm, RecuperarClaveForm, RestablecerClaveForm
+from .models import ClaveTemporal
+
+
+def destino_segun_rol(user):
+    roles = [grupo.name.upper() for grupo in user.groups.all()]
+    if user.is_superuser or any('ADMINISTRADOR' in rol for rol in roles):
+        return 'administracionApp:dashboard_admin'
+    if any('DELEGADO' in rol for rol in roles):
+        return 'monitoreoApp:dashboard_delegado'
+    if any('COORDINADOR' in rol for rol in roles):
+        return 'tuboApp:dashboard_coordinador'
+    if any('PROFESIONAL' in rol for rol in roles):
+        return 'actividadApp:dashboard_profesional'
+    return 'lista_actividades'
+
+
+@login_required
+def cambiar_clave_inicial(request):
+    usuario = request.user
+    pendiente = ClaveTemporal.objects.filter(usuario=usuario)
+    if not pendiente.exists():
+        return redirect(destino_segun_rol(usuario))
+
+    if request.method == 'POST':
+        form = CambioClaveInicialForm(usuario, request.POST)
+        if form.is_valid():
+            form.save()
+            pendiente.delete()
+            update_session_auth_hash(request, usuario)
+            profesional = Profesional.objects.filter(usuario=usuario).first()
+            if profesional:
+                from administracionApp.models import Auditoria
+                Auditoria.objects.create(evento='CAMBIO_CLAVE_INICIAL', entidad='Usuario', identificador=usuario.pk,
+                                         valor_nuevo={'descripcion_legible': f'{usuario.get_username()} reemplazó su contraseña temporal'},
+                                         funcionario_id_funcionario=profesional)
+            messages.success(request, 'Tu contraseña fue actualizada. Ya puedes usar el sistema.')
+            return redirect(destino_segun_rol(usuario))
+    else:
+        form = CambioClaveInicialForm(usuario)
+
+    return render(request, 'login/cambiar_clave_inicial.html', {'form': form})
 
 def login_view(request):
     
@@ -39,19 +80,9 @@ def login_view(request):
         
         if user is not None:
             login(request, user)
-            
-            roles = [grupo.name.upper() for grupo in user.groups.all()]
-            
-            if user.is_superuser or any('ADMINISTRADOR' in rol for rol in roles):
-                return redirect('administracionApp:dashboard_admin')  
-            elif any('DELEGADO' in rol for rol in roles):
-                return redirect('monitoreoApp:dashboard_delegado')  
-            elif any('COORDINADOR' in rol for rol in roles):
-                return redirect('tuboApp:dashboard_coordinador')
-            elif any('PROFESIONAL' in rol for rol in roles):
-                return redirect('actividadApp:dashboard_profesional')
-            else:
-                return redirect('lista_actividades') 
+            if ClaveTemporal.objects.filter(usuario=user).exists():
+                return redirect('usuariosApp:cambiar_clave_inicial')
+            return redirect(destino_segun_rol(user))
                 
         else:
             try:
@@ -112,7 +143,8 @@ def mi_perfil(request):
                 user = request.user
                 user.set_password(nueva_clave)
                 user.save()
-                update_session_auth_hash(request, user)  
+                ClaveTemporal.objects.filter(usuario=user).delete()
+                update_session_auth_hash(request, user)
                 messages.success(request, 'Tu contraseña ha sido actualizada con éxito.')
                 return redirect('usuariosApp:mi_perfil') 
 
@@ -191,6 +223,7 @@ def restablecer_clave(request, uidb64, token):
         form = RestablecerClaveForm(usuario, request.POST)
         if form.is_valid():
             form.save()
+            ClaveTemporal.objects.filter(usuario=usuario).delete()
             messages.success(request, 'Tu contraseña fue restablecida con éxito. Ya puedes iniciar sesión.')
             return redirect('usuariosApp:login')
     else:
