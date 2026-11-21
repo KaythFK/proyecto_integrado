@@ -119,12 +119,12 @@
                                 <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
 
                                     <div class="dropdown">
-                                        <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                            Acciones
+                                        <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                            <i class="bi bi-three-dots-vertical"></i> Acciones
                                         </button>
-                                        <ul class="dropdown-menu shadow border-0">
+                                        <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
                                             <li>
-                                                <button type="button" class="dropdown-item fw-bold text-dark"
+                                                <button type="button" class="dropdown-item fw-semibold text-dark py-2"
                                                         data-codigo="{{ actividad.codigo_unico }}"
                                                         data-fecha="{{ actividad.fecha_registro|date:'d/m/Y H:i' }}"
                                                         data-estado="{{ actividad.get_estado_progreso_display }}"
@@ -133,18 +133,18 @@
                                                         data-url="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}"
                                                         data-id="{{ actividad.pk }}"
                                                         onclick="mostrarDetalle(this)">
-                                                    Ver Detalle
+                                                    <i class="bi bi-eye me-2 texto-guinda"></i>Ver detalle
                                                 </button>
                                             </li>
                                             <li>
-                                                <a class="dropdown-item fw-bold text-dark" href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}">
-                                                    Registrar Evidencia
+                                                <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}">
+                                                    <i class="bi bi-camera me-2 texto-guinda"></i>Registrar evidencia
                                                 </a>
                                             </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
-                                                <a class="dropdown-item fw-bold text-dark" href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}">
-                                                    Observaciones
+                                                <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}">
+                                                    <i class="bi bi-chat-left-text me-2 texto-guinda"></i>Observaciones
                                                 </a>
                                             </li>
                                         </ul>

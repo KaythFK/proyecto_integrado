@@ -59,15 +59,15 @@
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             <div class="dropdown">
-                                <button class="btn btn-sm text-white fondo-guinda dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
                                     <i class="bi bi-three-dots-vertical"></i> Acciones
                                 </button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
                                     {% if r.archivo_respaldo %}
                                         <li>
-                                            <button type="button" class="dropdown-item"
+                                            <button type="button" class="dropdown-item fw-semibold text-dark py-2"
                                                 onclick="verRespaldo('{{ r.archivo_respaldo.url }}', '{{ r.get_tipo_display|escapejs }}')">
-                                                <i class="bi bi-image me-2"></i>Ver respaldo
+                                                <i class="bi bi-image me-2 texto-guinda"></i>Ver respaldo
                                             </button>
                                         </li>
                                     {% else %}
@@ -78,8 +78,8 @@
                                         </li>
                                     {% endif %}
                                     <li>
-                                        <a class="dropdown-item" href="{% url 'actividadApp:editar_retroalimentacion' r.pk %}">
-                                            <i class="bi bi-pencil-square me-2"></i>Editar
+                                        <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'actividadApp:editar_retroalimentacion' r.pk %}">
+                                            <i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar
                                         </a>
                                     </li>
                                 </ul>

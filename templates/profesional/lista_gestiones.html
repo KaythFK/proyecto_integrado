@@ -70,13 +70,13 @@
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             <!-- Botón Editar -->
-                            <a href="{% url 'actividadApp:editar_gestion' ges.id_gestion %}" class="btn btn-sm text-white px-3 shadow-sm fondo-rojo redondeado-6" title="Editar Gestión">
+                            <a href="{% url 'actividadApp:editar_gestion' ges.id_gestion %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" title="Editar Gestión">
                                 <i class="bi bi-pencil-square"></i> Editar
                             </a>
                             
                             <!-- Botón Ver Actividad -->
-                            <a href="{% url 'actividadApp:lista_gestiones' ges.actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6" title="Ver Actividad">
-                                <i class="bi bi-briefcase"></i> Ver Actividad
+                            <a href="{% url 'actividadApp:lista_gestiones' ges.actividad.id_actividad %}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6" title="Ver Actividad">
+                                <i class="bi bi-briefcase"></i> Ver actividad
                             </a>
 
                             <!-- Switch de Estado (Igual que en las actividades) -->

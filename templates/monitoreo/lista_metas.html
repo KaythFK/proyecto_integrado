@@ -100,16 +100,16 @@
                                 data-fecha-creacion="{{ meta.fecha_creacion|date:'d/m/Y H:i'|default:'No registrada' }}"
                                 data-estado="{{ meta.estado }}"
                                 onclick="verDetalleMeta(this)">
-                                Detalle
+                                <i class="bi bi-eye"></i> Ver detalle
                             </button>
 
                             {% if meta.id_periodo.esta_abierto %}
                             <a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
-                                Editar
+                                <i class="bi bi-pencil-square"></i> Editar
                             </a>
                             {% else %}
                             <button type="button" class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6" disabled title="Período cerrado">
-                                Editar
+                                <i class="bi bi-lock"></i> Editar
                             </button>
                             {% endif %}
 

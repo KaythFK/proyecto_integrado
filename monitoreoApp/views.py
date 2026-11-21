@@ -5,6 +5,7 @@ from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad, Ausencia
+from actividadApp.forms import etiqueta_meta
 from .models import Alerta, HistorialMeta, Meta, Indicador, ReglaAlerta
 from .services import dias_aviso_vencimiento, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta, asegurar_indicadores_para_tablero, sincronizar_indicador
 from .forms import MetaForm, IndicadorForm, ReglaAlertaForm
@@ -86,6 +87,7 @@ def dashboard_delegado(request):
         compromisos_equipo = compromisos_equipo.filter(fecha_comprometida__range=(periodo.fecha_inicio, periodo.fecha_termino))
 
     filas, cumplimiento_delegacion, semaforo_delegacion, metas_en_rojo = resumen_indicadores(delegacion_actual, periodo)
+    rezagados = resultados_bajo_umbral(delegacion_actual, periodo)
 
     context = {
         'delegacion_nombre': delegacion_actual.nombre,
@@ -96,6 +98,7 @@ def dashboard_delegado(request):
         'cumplimiento_delegacion': cumplimiento_delegacion,
         'semaforo_delegacion': semaforo_delegacion,
         'metas_en_rojo': metas_en_rojo,
+        'rezagados': rezagados,
         'desviaciones_criticas': [f for f in filas if f['desviacion'] == 'ROJO'],
         'total_actividades': actividades_equipo.count(),
         'en_proceso': actividades_equipo.filter(estado_progreso='EN_PROCESO').count(),
@@ -169,6 +172,42 @@ def resumen_indicadores(delegacion, periodo, profesional=None):
     
     # Se envía la data cruda a utils.py para que devuelva la tabla calculada
     return procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrupacion=modo)
+
+
+def resultados_bajo_umbral(delegacion, periodo):
+    """Indicadores del equipo en rojo, cada uno con su meta y las actividades aprobadas que forman su avance."""
+    if periodo is None:
+        return []
+    indicadores = (Indicador.objects
+                   .filter(estado=True, meta_id_meta__estado=True, meta_id_meta__id_periodo=periodo,
+                           id_funcionario__id_delegacion=delegacion)
+                   .select_related('id_funcionario', 'meta_id_meta__id_periodo', 'meta_id_meta__id_cargo_item__id_item'))
+    resultados = []
+    for indicador in indicadores:
+        meta = indicador.meta_id_meta
+        objetivo = float(meta.valor_objetivo)
+        if not objetivo:
+            continue
+        base = min(float(indicador.avance) / objetivo * 100, 120.0)
+        cumplimiento = max(0.0, min(base + float(indicador.ajuste or 0), 120.0))
+        if semaforo_segun_umbral(cumplimiento, periodo) != 'ROJO':
+            continue
+        registros = (Actividad.objects
+                     .filter(id_meta=meta, id_profesional=indicador.id_funcionario, estado=True,
+                             evidencia__estado=True, evidencia__estado_revision='APROBADO')
+                     .distinct().order_by('-fecha_registro'))
+        resultados.append({
+            'indicador': indicador,
+            'funcionario': indicador.id_funcionario,
+            'meta': etiqueta_meta(meta),
+            'objetivo': meta.valor_objetivo,
+            'avance': indicador.avance,
+            'ajuste': indicador.ajuste or 0,
+            'cumplimiento': round(cumplimiento, 1),
+            'registros': registros,
+        })
+    resultados.sort(key=lambda r: r['cumplimiento'])
+    return resultados
 
 @login_required
 @role_required('Delegado')

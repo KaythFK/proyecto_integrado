@@ -141,9 +141,15 @@
 
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
-                            <a href="{% url 'tuboApp:detalle_actividad' compromiso.id_actividad.id_actividad %}" class="btn btn-sm text-white fondo-guinda redondeado-6">
+                            {% if compromiso.id_actividad %}
+                            <a href="{% url 'tuboApp:detalle_actividad' compromiso.id_actividad_id %}?volver=tubo" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6">
                                 <i class="bi bi-chat-left-text"></i> Observaciones
                             </a>
+                            {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6" disabled title="La actividad de este compromiso no existe">
+                                <i class="bi bi-chat-left-text"></i> Observaciones
+                            </button>
+                            {% endif %}
 
                             <!-- Switch de Activación / Desactivación lógica -->
                             <div class="d-flex flex-column align-items-center">

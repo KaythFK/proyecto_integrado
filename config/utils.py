@@ -453,6 +453,7 @@ def procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrup
 
         fila = por_agrupacion.setdefault(clave, {
             'nombre': nombre,
+            'funcionario': ind.id_funcionario if modo_agrupacion != 'delegacion' else None,
             'metas': 0,
             'suma': 0,
             'peso': 0

@@ -69,11 +69,11 @@
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             {% if ind.meta_id_meta.id_periodo.esta_abierto %}
-                            <a href="{% url 'monitoreoApp:editar_indicador' ind.id_indicador %}" class="btn btn-sm text-white fondo-guinda" title="Editar">
+                            <a href="{% url 'monitoreoApp:editar_indicador' ind.id_indicador %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" title="Editar">
                                 <i class="bi bi-pencil-square"></i> Editar
                             </a>
                             {% else %}
-                            <button type="button" class="btn btn-sm btn-secondary" disabled title="Período cerrado">
+                            <button type="button" class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6" disabled title="Período cerrado">
                                 <i class="bi bi-lock"></i> Editar
                             </button>
                             {% endif %}

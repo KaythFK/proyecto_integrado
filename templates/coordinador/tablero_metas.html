@@ -214,7 +214,7 @@
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
                             <button type="button"
-                                class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6"
+                                class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6"
                                 data-id="{{ meta.id_meta }}"
                                 data-version="{{ meta.version|default:1 }}"
                                 data-periodo="{{ meta.id_periodo }}"
@@ -230,28 +230,28 @@
                                 data-fecha-creacion="{{ meta.fecha_creacion|date:'d/m/Y H:i'|default:'No registrada' }}"
                                 data-estado="{% if meta.estado %}Activa{% else %}Inactiva{% endif %}"
                                 onclick="verDetalleMeta(this)">
-                                Detalle
+                                <i class="bi bi-eye"></i> Ver detalle
                             </button>
 
                             {% if meta.id_periodo.esta_abierto %}
                                 <a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}"
-                                   class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6">
-                                    Editar
+                                   class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
+                                    <i class="bi bi-pencil-square"></i> Editar
                                 </a>
                             {% else %}
                                 <button type="button"
-                                    class="btn btn-sm btn-secondary px-2 shadow-sm redondeado-6"
+                                    class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6"
                                     disabled
                                     title="Período cerrado">
-                                    Editar
+                                    <i class="bi bi-lock"></i> Editar
                                 </button>
                             {% endif %}
 
                            
                             <a href="{% url 'monitoreoApp:historial_meta' meta.id_meta %}"
-                               class="btn btn-sm btn-outline-secondary px-2 shadow-sm redondeado-6"
+                               class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6"
                                title="Ver historial de versiones">
-                                Historial
+                                <i class="bi bi-clock-history"></i> Historial
                             </a>
                             
 

@@ -95,8 +95,8 @@
                             {% else %}<span class="badge bg-danger">Rojo</span>{% endif %}
                         </td>
                         <td class="text-center text-nowrap">
-                            <a href="{% url 'actividadApp:actividades_delegacion' %}?funcionario={{ fila.funcionario.pk }}&periodo={{ periodo.pk }}" class="btn btn-sm btn-outline-dark redondeado-6">Actividades</a>
-                            <a href="{% url 'monitoreoApp:tubo_delegacion' %}?responsable={{ fila.funcionario.pk }}&desde={{ periodo.fecha_inicio|date:'Y-m-d' }}&hasta={{ periodo.fecha_termino|date:'Y-m-d' }}" class="btn btn-sm btn-outline-dark redondeado-6">Compromisos</a>
+                            <a href="{% url 'actividadApp:actividades_delegacion' %}?funcionario={{ fila.funcionario.pk }}&periodo={{ periodo.pk }}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6"><i class="bi bi-clipboard-check"></i> Actividades</a>
+                            <a href="{% url 'monitoreoApp:tubo_delegacion' %}?responsable={{ fila.funcionario.pk }}&desde={{ periodo.fecha_inicio|date:'Y-m-d' }}&hasta={{ periodo.fecha_termino|date:'Y-m-d' }}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6"><i class="bi bi-kanban"></i> Compromisos</a>
                         </td>
                     </tr>
                     {% empty %}
@@ -107,6 +107,60 @@
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <h6 class="fw-bold text-muted mb-3"><i class="bi bi-exclamation-octagon-fill text-danger"></i> Resultados bajo el umbral <span class="fw-normal">· {{ rezagados|length }} en rojo</span></h6>
+    <div class="card shadow-sm border-0 mb-5 redondeado-15 overflow-hidden">
+        {% if rezagados %}
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="px-4">Funcionario</th>
+                        <th>Meta</th>
+                        <th class="text-center">Objetivo</th>
+                        <th class="text-center">Avance</th>
+                        <th class="text-center">Cumplimiento</th>
+                        <th class="text-center">Registros de origen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rezagados %}
+                    <tr>
+                        <td class="px-4 fw-bold">{{ r.funcionario.nombres }} {{ r.funcionario.apellido_paterno }}</td>
+                        <td>{{ r.meta }}</td>
+                        <td class="text-center">{{ r.objetivo|floatformat:"-2" }}</td>
+                        <td class="text-center">{{ r.avance|floatformat:"-2" }}{% if r.ajuste %} <small class="text-muted">(ajuste {{ r.ajuste|floatformat:"-2" }})</small>{% endif %}</td>
+                        <td class="text-center"><span class="badge bg-danger">{{ r.cumplimiento }}%</span></td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-dark redondeado-6" type="button" data-bs-toggle="collapse" data-bs-target="#origen-{{ r.indicador.pk }}" aria-expanded="false" aria-controls="origen-{{ r.indicador.pk }}">
+                                {{ r.registros|length }} registro{{ r.registros|length|pluralize }}
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="collapse" id="origen-{{ r.indicador.pk }}">
+                        <td colspan="6" class="bg-light px-4">
+                            {% if r.registros %}
+                            <ul class="list-unstyled mb-0 py-2">
+                                {% for actividad in r.registros %}
+                                <li class="py-1">
+                                    <a href="{% url 'tuboApp:detalle_actividad' actividad.pk %}?volver=panel" class="fw-bold texto-guinda">{{ actividad.codigo_unico }}</a>
+                                    · {{ actividad.fecha_registro|date:"d/m/Y" }} · {{ actividad.accion|truncatechars:90 }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="text-muted mb-0 py-2">Aún no tiene actividades con evidencia aprobada para esta meta.</p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4"><i class="bi bi-check2-circle text-success"></i> Ningún resultado del equipo está bajo el umbral en este período.</div>
+        {% endif %}
     </div>
 
     {% include 'parciales/avance_esperado.html' with periodos=None %}

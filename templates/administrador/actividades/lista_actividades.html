@@ -117,8 +117,8 @@
                     </td>
                     
                     <td class="text-center">
-                        <button type="button" class="btn btn-sm btn-info text-white text-nowrap" data-bs-toggle="modal" data-bs-target="#modalEvi{{ actividad.id_actividad }}">
-                            Ver Evidencias
+                        <button type="button" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6 text-nowrap" data-bs-toggle="modal" data-bs-target="#modalEvi{{ actividad.id_actividad }}">
+                            <i class="bi bi-camera"></i> Ver evidencias
                         </button>
                     </td>
                     
@@ -128,17 +128,17 @@
                             
                             <!-- Fila 1: Editar y Gestiones (Textos restaurados para máxima claridad) -->
                             <div class="d-flex justify-content-center gap-2 w-100">
-                                <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white fondo-guinda redondeado-6" title="Editar">
+                                <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" title="Editar">
                                     <i class="bi bi-pencil-square"></i> Editar
                                 </a>
-                                <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-gris-oscuro redondeado-6" title="Ver Gestiones">
+                                <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6" title="Ver Gestiones">
                                     <i class="bi bi-briefcase"></i> Gestiones
                                 </a>
                             </div>
 
                             <!-- Fila 2: Burbuja de texto para Mensajes -->
-                            <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm bg-white borde-guinda texto-guinda redondeado-6 fw-bold shadow-sm w-100" title="Ver historial de mensajes">
-                                <i class="bi bi-chat-text-fill"></i> Observaciones
+                            <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6 w-100" title="Ver historial de mensajes">
+                                <i class="bi bi-chat-left-text"></i> Observaciones
                             </a>
 
                             <!-- Fila 3: Tarjeta de Estado y Switch Centrado -->

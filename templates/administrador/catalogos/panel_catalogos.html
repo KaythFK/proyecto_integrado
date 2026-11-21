@@ -63,7 +63,7 @@
                             <td>{% if serv.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm text-white px-3 fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre|escapejs }}')">Editar</button>
+                                    <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'servicio', '{{ serv.id_servicios }}', '{{ serv.nombre|escapejs }}')"><i class="bi bi-pencil-square"></i> Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if serv.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
@@ -103,7 +103,7 @@
                             <td>{% if it.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm text-white px-3 fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre|escapejs }}')">Editar</button>
+                                    <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre|escapejs }}')"><i class="bi bi-pencil-square"></i> Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if it.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
@@ -159,9 +159,9 @@
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                                     <!-- AQUI ESTÁ EL ARREGLO: Sin conflictos de comillas usando un bloque if -->
-                                    <button class="btn btn-sm text-white px-3 fondo-guinda redondeado-6" 
+                                    <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" 
                                             onclick="abrirModalCatalogoArea('editar', '{{ ar.id_area_apoyo }}', '{{ ar.nombre|escapejs }}', '{% if ar.correo %}{{ ar.correo|escapejs }}{% endif %}')">
-                                        Editar
+                                        <i class="bi bi-pencil-square"></i> Editar
                                     </button>
                                     
                                     <div class="d-flex flex-column align-items-center">
@@ -202,7 +202,7 @@
                             <td>{% if ges.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm text-white px-3 fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'gestion', '{{ ges.id_tipo_gestion }}', '{{ ges.nombre|escapejs }}')">Editar</button>
+                                    <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'gestion', '{{ ges.id_tipo_gestion }}', '{{ ges.nombre|escapejs }}')"><i class="bi bi-pencil-square"></i> Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if ges.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
