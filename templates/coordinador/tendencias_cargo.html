@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Tendencias por cargo - SGR{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Tendencias por Cargo</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4 mb-5 px-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h4 class="fw-bold texto-guinda m-0">Cumplimiento histórico frente al objetivo del cargo</h4>
+            <small class="text-muted">Cada período se evalúa con sus propios umbrales y su versión de reglas.</small>
+        </div>
+        <a href="{{ url_reporte }}" class="btn text-white fw-bold fondo-guinda shadow-sm redondeado-6">
+            <i class="bi bi-file-earmark-excel"></i> Descargar reporte
+        </a>
+    </div>
+
+    <form method="GET" class="card shadow-sm border-0 p-3 mb-3 redondeado-10">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1" for="filtroCargo">Cargo</label>
+                <select name="cargo" id="filtroCargo" class="form-select borde-guinda">
+                    <option value="">Todos</option>
+                    {% for c in cargos %}<option value="{{ c.pk }}" {% if cargo and cargo.pk == c.pk %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1" for="filtroDelegacion">Delegación</label>
+                <select name="delegacion" id="filtroDelegacion" class="form-select borde-guinda">
+                    <option value="">Todas</option>
+                    {% for d in delegaciones %}<option value="{{ d.pk }}" {% if delegacion and delegacion.pk == d.pk %}selected{% endif %}>{{ d.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1" for="filtroDesde">Desde el período</label>
+                <select name="desde" id="filtroDesde" class="form-select borde-guinda">
+                    <option value="">Primero</option>
+                    {% for p in todos_los_periodos %}<option value="{{ p.pk }}" {% if desde and desde.pk == p.pk %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1" for="filtroHasta">Hasta el período</label>
+                <select name="hasta" id="filtroHasta" class="form-select borde-guinda">
+                    <option value="">Último</option>
+                    {% for p in todos_los_periodos %}<option value="{{ p.pk }}" {% if hasta and hasta.pk == p.pk %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="en_curso" value="1" id="filtroEnCurso" {% if incluir_en_curso %}checked{% endif %}>
+                    <label class="form-check-label small fw-bold" for="filtroEnCurso">Incluir períodos en curso</label>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-2 d-flex gap-2">
+                <button type="submit" class="btn text-white fw-bold fondo-guinda w-100">Filtrar</button>
+                {% if request.GET %}<a href="{{ request.path }}" class="btn btn-outline-secondary fw-bold w-100">Limpiar</a>{% endif %}
+            </div>
+        </div>
+    </form>
+
+    <div class="alert alert-secondary py-2 small mb-4" role="note"><i class="bi bi-info-circle"></i> {{ aviso }}</div>
+
+    {% if filas %}
+    <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+        <span class="small fw-bold text-muted">Períodos comparados:</span>
+        {% for p in periodos %}
+        <span class="badge {% if p.esta_abierto %}bg-warning text-dark{% else %}bg-dark{% endif %}">{{ p.nombre }} · v{{ p.version_parametros }}{% if p.esta_abierto %} · en curso{% endif %}</span>
+        {% endfor %}
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4 redondeado-15 p-3">
+        <div style="position: relative; height: 300px;">
+            <canvas id="graficoTendencia" aria-label="Cumplimiento por cargo y período frente al objetivo" role="img"></canvas>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4 redondeado-15 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="px-4">Período</th>
+                        <th class="text-center">Reglas</th>
+                        <th>Cargo</th>
+                        <th class="text-center">Cumplimiento</th>
+                        <th class="text-center">Objetivo</th>
+                        <th class="text-center">Brecha</th>
+                        <th class="text-center">Semáforo</th>
+                        <th class="text-center">Origen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in filas %}
+                    <tr>
+                        <td class="px-4 fw-bold">{{ f.periodo.nombre }}<br><small class="text-muted fw-normal">{{ f.periodo.fecha_inicio|date:"d/m/Y" }} – {{ f.periodo.fecha_termino|date:"d/m/Y" }}{% if not f.cerrado %} · en curso{% endif %}</small></td>
+                        <td class="text-center"><span class="badge bg-secondary">v{{ f.version }}</span><br><small class="text-muted">regular {{ f.regular }}%</small></td>
+                        <td>{{ f.cargo.nombre }}</td>
+                        <td class="text-center fw-bold">{{ f.cumplimiento }}%</td>
+                        <td class="text-center">{{ f.objetivo }}%</td>
+                        <td class="text-center fw-bold {% if f.brecha < 0 %}text-danger{% else %}text-success{% endif %}">{% if f.brecha > 0 %}+{% endif %}{{ f.brecha }} pts</td>
+                        <td class="text-center">
+                            {% if f.semaforo == 'VERDE' %}<span class="badge bg-success">Verde</span>
+                            {% elif f.semaforo == 'AMARILLO' %}<span class="badge bg-warning text-dark">Amarillo</span>
+                            {% else %}<span class="badge bg-danger">Rojo</span>{% endif %}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6" type="button" data-bs-toggle="collapse" data-bs-target="#origen-{{ f.clave }}" aria-expanded="false" aria-controls="origen-{{ f.clave }}">
+                                <i class="bi bi-search"></i> Ver detalle
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="collapse" id="origen-{{ f.clave }}">
+                        <td colspan="8" class="bg-light px-4 py-3">
+                            <table class="table table-sm mb-0 bg-white">
+                                <thead>
+                                    <tr class="small text-muted">
+                                        <th>Funcionario</th><th>Meta</th><th class="text-center">Objetivo</th><th class="text-center">Avance</th>
+                                        <th class="text-center">Cumplimiento</th><th>Actividades que originan el avance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for d in f.detalle %}
+                                    <tr class="small">
+                                        <td class="fw-bold">{{ d.funcionario.nombres }} {{ d.funcionario.apellido_paterno }}</td>
+                                        <td>{{ d.meta }}</td>
+                                        <td class="text-center">{{ d.objetivo|floatformat:"-2" }}</td>
+                                        <td class="text-center">{{ d.avance|floatformat:"-2" }}{% if d.ajuste %} <span class="text-muted">(ajuste {{ d.ajuste|floatformat:"-2" }})</span>{% endif %}</td>
+                                        <td class="text-center">{{ d.cumplimiento }}%</td>
+                                        <td>
+                                            {% for a in d.registros %}<a href="{% url 'tuboApp:detalle_actividad' a.pk %}" class="texto-guinda fw-bold">{{ a.codigo_unico }}</a>{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">Sin actividades aprobadas</span>{% endfor %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5 border rounded-3 bg-white">
+        <i class="bi bi-graph-up fs-2 d-block mb-2"></i>
+        No hay resultados de indicadores para los filtros seleccionados.
+    </div>
+    {% endif %}
+</div>
+
+{{ grafico|json_script:"datosTendencia" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    (function () {
+        const lienzo = document.getElementById('graficoTendencia');
+        if (!lienzo || typeof Chart === 'undefined') return;
+        const datos = JSON.parse(document.getElementById('datosTendencia').textContent);
+        const colores = ['#8B1D19', '#1f6f8b', '#d97706', '#198754', '#6f42c1', '#495057'];
+        const series = datos.series.map((s, i) => ({
+            label: s.label, data: s.data, borderColor: colores[i % colores.length], backgroundColor: colores[i % colores.length],
+            tension: 0.2, spanGaps: true, pointRadius: 5
+        }));
+        series.push({
+            label: 'Objetivo (umbral de excelencia)', data: datos.objetivo, borderColor: '#6c757d', backgroundColor: '#6c757d',
+            borderDash: [6, 4], pointRadius: 0, tension: 0
+        });
+        new Chart(lienzo, {
+            type: 'line',
+            data: { labels: datos.etiquetas, datasets: series },
+            options: {
+                maintainAspectRatio: false,
+                scales: { y: { min: 0, max: 120, ticks: { stepSize: 20, callback: v => v + '%' } } },
+                plugins: { tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y}%` } } }
+            }
+        });
+    })();
+</script>
+{% endblock %}

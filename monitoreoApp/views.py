@@ -9,7 +9,9 @@ from actividadApp.forms import etiqueta_meta
 from .models import Alerta, HistorialMeta, Meta, Indicador, ReglaAlerta
 from .services import dias_aviso_vencimiento, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta, asegurar_indicadores_para_tablero, sincronizar_indicador
 from .forms import MetaForm, IndicadorForm, ReglaAlertaForm
-from django.http import Http404, request
+from django.core.exceptions import ObjectDoesNotExist
+from django.http import Http404, HttpResponse, request
+from django.utils import timezone
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from tuboApp.models import Compromiso, HistorialIncumplimiento
@@ -174,6 +176,30 @@ def resumen_indicadores(delegacion, periodo, profesional=None):
     return procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrupacion=modo)
 
 
+def cumplimiento_de(indicador):
+    """Misma fórmula del panel: base topada en 120 %, más el ajuste por retroalimentaciones, acotada entre 0 % y 120 %."""
+    objetivo = float(indicador.meta_id_meta.valor_objetivo or 0)
+    if not objetivo:
+        return None
+    base = min(float(indicador.avance) / objetivo * 100, 120.0)
+    return max(0.0, min(base + float(indicador.ajuste or 0), 120.0))
+
+
+def registros_de_origen(meta, funcionario):
+    """Actividades activas con evidencia aprobada que forman el avance de un funcionario en una meta."""
+    return (Actividad.objects
+            .filter(id_meta=meta, id_profesional=funcionario, estado=True,
+                    evidencia__estado=True, evidencia__estado_revision='APROBADO')
+            .distinct().order_by('-fecha_registro'))
+
+
+def umbrales_en_porcentaje(periodo):
+    regular, excelencia = float(periodo.umbral_regular), float(periodo.umbral_exelencia)
+    if excelencia <= 1:
+        regular, excelencia = regular * 100, excelencia * 100
+    return regular, excelencia
+
+
 def resultados_bajo_umbral(delegacion, periodo):
     """Indicadores del equipo en rojo, cada uno con su meta y las actividades aprobadas que forman su avance."""
     if periodo is None:
@@ -185,17 +211,10 @@ def resultados_bajo_umbral(delegacion, periodo):
     resultados = []
     for indicador in indicadores:
         meta = indicador.meta_id_meta
-        objetivo = float(meta.valor_objetivo)
-        if not objetivo:
+        cumplimiento = cumplimiento_de(indicador)
+        if cumplimiento is None or semaforo_segun_umbral(cumplimiento, periodo) != 'ROJO':
             continue
-        base = min(float(indicador.avance) / objetivo * 100, 120.0)
-        cumplimiento = max(0.0, min(base + float(indicador.ajuste or 0), 120.0))
-        if semaforo_segun_umbral(cumplimiento, periodo) != 'ROJO':
-            continue
-        registros = (Actividad.objects
-                     .filter(id_meta=meta, id_profesional=indicador.id_funcionario, estado=True,
-                             evidencia__estado=True, evidencia__estado_revision='APROBADO')
-                     .distinct().order_by('-fecha_registro'))
+        registros = registros_de_origen(meta, indicador.id_funcionario)
         resultados.append({
             'indicador': indicador,
             'funcionario': indicador.id_funcionario,
@@ -954,4 +973,305 @@ def editar_regla_alerta(request, tipo):
         'form': form,
         'nombre_tipo': dict(ReglaAlerta.OPCIONES_TIPO)[tipo],
         'actual': actual,
+    })
+
+
+AVISO_REPORTE = 'Informe de apoyo al análisis. No ejecuta decisiones automáticas sobre el personal.'
+
+
+def periodos_para_tendencia(desde=None, hasta=None, incluir_en_curso=True):
+    """Períodos con metas activas, en orden cronológico; los abiertos solo si ya comenzaron y se pidió incluirlos."""
+    hoy = date.today()
+    periodos = []
+    for periodo in Periodo.objects.filter(meta__estado=True).distinct().order_by('fecha_inicio', 'id_periodo'):
+        if desde and periodo.fecha_inicio < desde.fecha_inicio:
+            continue
+        if hasta and periodo.fecha_inicio > hasta.fecha_inicio:
+            continue
+        if periodo.esta_abierto:
+            if not incluir_en_curso or periodo.fecha_inicio > hoy:
+                continue
+        periodos.append(periodo)
+    return periodos
+
+
+def tendencia_por_cargo(periodos, cargo=None, delegacion=None):
+    """
+    Cumplimiento ponderado de cada cargo en cada período, evaluado con los umbrales y la versión
+    de reglas de ese mismo período, con el detalle de indicadores y actividades que lo originan.
+    """
+    filas = []
+    for periodo in periodos:
+        regular, objetivo = umbrales_en_porcentaje(periodo)
+        indicadores = (Indicador.objects
+                       .filter(estado=True, meta_id_meta__estado=True, meta_id_meta__id_periodo=periodo)
+                       .select_related('id_funcionario__id_delegacion', 'meta_id_meta__id_periodo',
+                                       'meta_id_meta__id_cargo_item__id_cargo', 'meta_id_meta__id_cargo_item__id_item')
+                       .order_by('id_funcionario__nombres', 'id_indicador'))
+        if cargo:
+            indicadores = indicadores.filter(meta_id_meta__id_cargo_item__id_cargo=cargo)
+        if delegacion:
+            indicadores = indicadores.filter(id_funcionario__id_delegacion=delegacion)
+
+        por_cargo = {}
+        for indicador in indicadores:
+            meta = indicador.meta_id_meta
+            try:
+                cargo_meta = meta.id_cargo_item.id_cargo
+            except ObjectDoesNotExist:
+                continue
+            cumplimiento = cumplimiento_de(indicador)
+            if cumplimiento is None:
+                continue
+            grupo = por_cargo.setdefault(cargo_meta.pk, {'cargo': cargo_meta, 'suma': 0.0, 'peso': 0.0, 'detalle': []})
+            peso = float(meta.ponderador or 0)
+            grupo['suma'] += cumplimiento * peso
+            grupo['peso'] += peso
+            grupo['detalle'].append({
+                'funcionario': indicador.id_funcionario,
+                'meta': etiqueta_meta(meta),
+                'objetivo': meta.valor_objetivo,
+                'avance': indicador.avance,
+                'ajuste': indicador.ajuste or 0,
+                'cumplimiento': round(cumplimiento, 1),
+                'registros': list(registros_de_origen(meta, indicador.id_funcionario)),
+            })
+
+        for grupo in sorted(por_cargo.values(), key=lambda g: g['cargo'].nombre):
+            cumplimiento = round(grupo['suma'] / grupo['peso'], 1) if grupo['peso'] else 0.0
+            filas.append({
+                'clave': f"{periodo.pk}-{grupo['cargo'].pk}",
+                'periodo': periodo,
+                'cerrado': not periodo.esta_abierto,
+                'version': periodo.version_parametros,
+                'cargo': grupo['cargo'],
+                'cumplimiento': cumplimiento,
+                'objetivo': round(objetivo, 1),
+                'regular': round(regular, 1),
+                'brecha': round(cumplimiento - objetivo, 1),
+                'semaforo': semaforo_segun_umbral(cumplimiento, periodo),
+                'detalle': grupo['detalle'],
+            })
+    return filas
+
+
+def datos_grafico_tendencia(periodos, filas):
+    etiquetas = [p.nombre for p in periodos]
+    indice = {p.pk: i for i, p in enumerate(periodos)}
+    series = {}
+    for fila in filas:
+        serie = series.setdefault(fila['cargo'].pk, {'label': fila['cargo'].nombre, 'data': [None] * len(periodos)})
+        serie['data'][indice[fila['periodo'].pk]] = fila['cumplimiento']
+    objetivo = [round(umbrales_en_porcentaje(p)[1], 1) for p in periodos]
+    return {'etiquetas': etiquetas, 'series': list(series.values()), 'objetivo': objetivo}
+
+
+def reporte_tendencia_excel(request, filas, filtros, periodos):
+    from openpyxl import Workbook
+    from openpyxl.chart import LineChart, Reference
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    guinda, oscuro, gris = '8B1D19', '212529', 'F2F2F2'
+    blanco_negrita = Font(bold=True, color='FFFFFF')
+    linea = Side(style='thin', color='D0D0D0')
+    borde = Border(left=linea, right=linea, top=linea, bottom=linea)
+    centro = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    colores_semaforo = {'VERDE': ('C6EFCE', '006100', 'Verde'), 'AMARILLO': ('FFEB9C', '7F6000', 'Amarillo'),
+                        'ROJO': ('FFC7CE', '9C0006', 'Rojo')}
+    porcentaje, puntos, fecha = '0.0"%"', '+0.0" pts";-0.0" pts";0.0" pts"', 'DD/MM/YYYY'
+
+    def encabezado(hoja, fila, titulos, color=oscuro):
+        for col, titulo in enumerate(titulos, start=1):
+            celda = hoja.cell(row=fila, column=col, value=titulo)
+            celda.font, celda.alignment, celda.border = blanco_negrita, centro, borde
+            celda.fill = PatternFill('solid', fgColor=color)
+        hoja.row_dimensions[fila].height = 30
+
+    def titulo(hoja, texto, ancho):
+        hoja.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ancho)
+        celda = hoja.cell(row=1, column=1, value=texto)
+        celda.font = Font(bold=True, size=15, color='FFFFFF')
+        celda.fill = PatternFill('solid', fgColor=guinda)
+        celda.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+        hoja.row_dimensions[1].height = 32
+        hoja.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ancho)
+        sub = hoja.cell(row=2, column=1, value=f"Ilustre Municipalidad de La Serena · Generado el "
+                                              f"{timezone.localtime():%d/%m/%Y %H:%M} por {request.user.get_username()}")
+        sub.font = Font(italic=True, color='595959')
+
+    def anchos(hoja, medidas):
+        for col, medida in enumerate(medidas, start=1):
+            hoja.column_dimensions[get_column_letter(col)].width = medida
+
+    libro = Workbook()
+    resumen = libro.active
+    resumen.title = 'Resumen'
+    columnas = ['Período', 'Inicio', 'Término', 'Estado', 'Reglas', 'Cargo', 'Cumplimiento', 'Objetivo',
+                'Umbral regular', 'Brecha', 'Semáforo', 'Indicadores']
+    titulo(resumen, 'Reporte de tendencias por cargo', len(columnas))
+
+    fila = 4
+    for nombre, valor in filtros:
+        resumen.cell(row=fila, column=1, value=nombre).font = Font(bold=True, color=guinda)
+        resumen.merge_cells(start_row=fila, start_column=2, end_row=fila, end_column=len(columnas))
+        resumen.cell(row=fila, column=2, value=valor)
+        fila += 1
+    resumen.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=len(columnas))
+    aviso = resumen.cell(row=fila, column=1, value=AVISO_REPORTE)
+    aviso.font = Font(italic=True, color='595959')
+    aviso.fill = PatternFill('solid', fgColor=gris)
+
+    inicio_tabla = fila + 2
+    encabezado(resumen, inicio_tabla, columnas)
+    for i, f in enumerate(filas, start=inicio_tabla + 1):
+        valores = [f['periodo'].nombre, f['periodo'].fecha_inicio, f['periodo'].fecha_termino,
+                   'Cerrado' if f['cerrado'] else 'En curso', f"v{f['version']}", f['cargo'].nombre,
+                   f['cumplimiento'], f['objetivo'], f['regular'], f['brecha'], None, len(f['detalle'])]
+        for col, valor in enumerate(valores, start=1):
+            celda = resumen.cell(row=i, column=col, value=valor)
+            celda.border = borde
+            celda.alignment = Alignment(horizontal='left' if col in (1, 6) else 'center', vertical='center')
+            if (i - inicio_tabla) % 2 == 0:
+                celda.fill = PatternFill('solid', fgColor=gris)
+        resumen.cell(row=i, column=2).number_format = fecha
+        resumen.cell(row=i, column=3).number_format = fecha
+        for col in (7, 8, 9):
+            resumen.cell(row=i, column=col).number_format = porcentaje
+        resumen.cell(row=i, column=7).font = Font(bold=True)
+        brecha = resumen.cell(row=i, column=10)
+        brecha.number_format = puntos
+        brecha.font = Font(bold=True, color='9C0006' if f['brecha'] < 0 else '006100')
+        fondo, letra, texto = colores_semaforo.get(f['semaforo'], ('FFFFFF', '000000', f['semaforo']))
+        semaforo = resumen.cell(row=i, column=11, value=texto)
+        semaforo.fill = PatternFill('solid', fgColor=fondo)
+        semaforo.font = Font(bold=True, color=letra)
+        if not f['cerrado']:
+            resumen.cell(row=i, column=4).font = Font(italic=True, color='7F6000')
+    ultima = inicio_tabla + max(len(filas), 1)
+    resumen.auto_filter.ref = f"A{inicio_tabla}:{get_column_letter(len(columnas))}{ultima}"
+    resumen.freeze_panes = resumen.cell(row=inicio_tabla + 1, column=1)
+    anchos(resumen, [22, 13, 13, 13, 10, 24, 17, 13, 17, 14, 14, 15])
+
+    detalle = libro.create_sheet('Detalle')
+    columnas_det = ['Período', 'Cargo', 'Funcionario', 'Meta', 'Objetivo', 'Avance', 'Ajuste', 'Cumplimiento',
+                    'Actividades que originan el avance']
+    titulo(detalle, 'Detalle que origina cada resultado', len(columnas_det))
+    encabezado(detalle, 4, columnas_det, color=guinda)
+    i = 5
+    for f in filas:
+        for d in f['detalle']:
+            valores = [f['periodo'].nombre, f['cargo'].nombre, f"{d['funcionario'].nombres} {d['funcionario'].apellido_paterno}",
+                       d['meta'], float(d['objetivo']), float(d['avance']), float(d['ajuste']), d['cumplimiento'],
+                       ', '.join(a.codigo_unico for a in d['registros']) or 'Sin actividades aprobadas']
+            for col, valor in enumerate(valores, start=1):
+                celda = detalle.cell(row=i, column=col, value=valor)
+                celda.border = borde
+                celda.alignment = Alignment(horizontal='center' if 5 <= col <= 8 else 'left', vertical='center',
+                                            wrap_text=col in (4, 9))
+                if i % 2 == 0:
+                    celda.fill = PatternFill('solid', fgColor=gris)
+            detalle.cell(row=i, column=8).number_format = porcentaje
+            i += 1
+    detalle.auto_filter.ref = f"A4:{get_column_letter(len(columnas_det))}{max(i - 1, 5)}"
+    detalle.freeze_panes = 'A5'
+    anchos(detalle, [20, 24, 24, 38, 13, 13, 13, 17, 60])
+
+    grafico = libro.create_sheet('Gráfico')
+    cargos = list(dict.fromkeys(f['cargo'].nombre for f in filas))
+    titulo(grafico, 'Cumplimiento por cargo frente al objetivo', max(len(cargos) + 2, 4))
+    encabezado(grafico, 4, ['Período'] + cargos + ['Objetivo'])
+    valor_de = {(f['periodo'].pk, f['cargo'].nombre): f['cumplimiento'] for f in filas}
+    for i, periodo in enumerate(periodos, start=5):
+        grafico.cell(row=i, column=1, value=f"{periodo.nombre} (v{periodo.version_parametros})").border = borde
+        for col, cargo_nombre in enumerate(cargos, start=2):
+            celda = grafico.cell(row=i, column=col, value=valor_de.get((periodo.pk, cargo_nombre)))
+            celda.number_format, celda.border, celda.alignment = porcentaje, borde, centro
+        objetivo = grafico.cell(row=i, column=len(cargos) + 2, value=round(umbrales_en_porcentaje(periodo)[1], 1))
+        objetivo.number_format, objetivo.border, objetivo.alignment = porcentaje, borde, centro
+    anchos(grafico, [24] + [18] * (len(cargos) + 1))
+    if periodos:
+        linea_grafico = LineChart()
+        linea_grafico.title = 'Cumplimiento por cargo y período'
+        linea_grafico.y_axis.title = 'Cumplimiento (%)'
+        linea_grafico.x_axis.title = 'Período'
+        linea_grafico.y_axis.scaling.min, linea_grafico.y_axis.scaling.max = 0, 120
+        linea_grafico.height, linea_grafico.width = 9, 20
+        ultima_fila = 4 + len(periodos)
+        datos = Reference(grafico, min_col=2, max_col=len(cargos) + 2, min_row=4, max_row=ultima_fila)
+        linea_grafico.add_data(datos, titles_from_data=True)
+        linea_grafico.set_categories(Reference(grafico, min_col=1, min_row=5, max_row=ultima_fila))
+        paleta = [guinda, '1F6F8B', 'D97706', '198754', '6F42C1']
+        for n, serie in enumerate(linea_grafico.series):
+            if n == len(linea_grafico.series) - 1:
+                serie.graphicalProperties.line.solidFill = '6C757D'
+                serie.graphicalProperties.line.dashStyle = 'dash'
+            else:
+                serie.graphicalProperties.line.solidFill = paleta[n % len(paleta)]
+                serie.graphicalProperties.line.width = 28000
+            serie.smooth = False
+        grafico.add_chart(linea_grafico, f"A{ultima_fila + 3}")
+
+    for hoja in libro.worksheets:
+        hoja.page_setup.orientation = 'landscape'
+        hoja.page_setup.fitToWidth = 1
+        hoja.sheet_properties.pageSetUpPr.fitToPage = True
+
+    respuesta = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    respuesta['Content-Disposition'] = f'attachment; filename="tendencias_por_cargo_{date.today():%Y%m%d}.xlsx"'
+    libro.save(respuesta)
+    return respuesta
+
+
+@login_required
+@role_required('Coordinador', 'Administrador')
+def tendencias_cargo(request):
+    cargos = Cargo.objects.order_by('nombre')
+    delegaciones = Delegacion.objects.filter(estado=True).order_by('nombre')
+    todos_los_periodos = periodos_para_tendencia(incluir_en_curso=True)
+
+    def elegido(modelo, clave):
+        valor = request.GET.get(clave, '')
+        return modelo.objects.filter(pk=valor).first() if valor.isdigit() else None
+
+    cargo = elegido(Cargo, 'cargo')
+    delegacion = elegido(Delegacion, 'delegacion')
+    desde = elegido(Periodo, 'desde')
+    hasta = elegido(Periodo, 'hasta')
+    incluir_en_curso = request.GET.get('en_curso') == '1' or not request.GET
+
+    filas = tendencia_por_cargo(periodos_para_tendencia(desde, hasta, incluir_en_curso), cargo, delegacion)
+    periodos = list(dict.fromkeys(f['periodo'] for f in filas))
+    filtros = [
+        ('Cargo', cargo.nombre if cargo else 'Todos'),
+        ('Delegación', delegacion.nombre if delegacion else 'Todas'),
+        ('Desde', desde.nombre if desde else 'Primer período'),
+        ('Hasta', hasta.nombre if hasta else 'Último período'),
+        ('Períodos en curso', 'Incluidos' if incluir_en_curso else 'Solo cerrados'),
+        ('Períodos comparados', ', '.join(f'{p.nombre} (v{p.version_parametros})' for p in periodos) or 'Ninguno'),
+    ]
+
+    if request.GET.get('formato') == 'excel':
+        return reporte_tendencia_excel(request, filas, filtros, periodos)
+
+    parametros = request.GET.copy()
+    parametros.pop('formato', None)
+    if not request.GET:
+        parametros['en_curso'] = '1'
+    parametros['formato'] = 'excel'
+    return render(request, 'coordinador/tendencias_cargo.html', {
+        'cargos': cargos,
+        'delegaciones': delegaciones,
+        'todos_los_periodos': todos_los_periodos,
+        'cargo': cargo,
+        'delegacion': delegacion,
+        'desde': desde,
+        'hasta': hasta,
+        'incluir_en_curso': incluir_en_curso,
+        'periodos': periodos,
+        'filas': filas,
+        'filtros': filtros,
+        'grafico': datos_grafico_tendencia(periodos, filas),
+        'url_reporte': f"{request.path}?{parametros.urlencode()}",
+        'aviso': AVISO_REPORTE,
     })
