@@ -5,6 +5,8 @@ from PIL import Image
 from io import BytesIO
 from django.core.files.uploadedfile import InMemoryUploadedFile
 import sys
+from decimal import Decimal
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 # Create your models here.
 
@@ -23,6 +25,12 @@ class Actividad(models.Model):
     fecha_finalizacion = models.DateField(null=True, blank=True)
     solicitud_problema = models.TextField()
     accion = models.TextField()
+    porcentaje_impacto = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.01')), MaxValueValidator(Decimal('30.00'))]
+    )
     codigo_unico = models.CharField(max_length=100, unique=True)
     solicitante_profesional = models.ForeignKey('administracionApp.Profesional', blank=True, null=True, on_delete=models.DO_NOTHING, db_column='id_solicitante_profesional', related_name='solicitante_interno')
     solicitante_vecino = models.ForeignKey('administracionApp.Vecino', blank=True, null=True, on_delete=models.DO_NOTHING, db_column='id_solicitante_vecino')
@@ -183,25 +191,63 @@ class Validacion(models.Model):
 
 
 class Retroalimentacion(models.Model):
+    OPCIONES_TIPO = [
+        ('FELICITACION', 'Felicitación'),
+        ('RECLAMO', 'Reclamo'),
+    ]
+
     id_retroalimentacion = models.AutoField(primary_key=True)
-    tipo = models.CharField(max_length=150) 
-    archivo_respaldo = models.CharField(max_length=255, blank=True, null=True)
-    canal_recepcion = models.CharField(max_length=100) 
+    tipo = models.CharField(max_length=20, choices=OPCIONES_TIPO)
+    archivo_respaldo = models.ImageField(upload_to='retroalimentaciones/', blank=True, null=True)
+    canal_recepcion = models.CharField(max_length=100)
     fecha = models.DateField()
     estado = models.BooleanField(default=True)
     receptor = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, related_name='retro_recibidas', db_column='id_receptor')
     retroalimentado = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, related_name='retro_realizadas', db_column='id_retroalimentado')
     vecino = models.ForeignKey('administracionApp.Vecino', models.DO_NOTHING, db_column='id_vecino', blank=True, null=True)
-    delegacion = models.ForeignKey('administracionApp.Delegacion', models.DO_NOTHING, db_column='id_delegacion', blank=True, null=True) 
-    meta = models.ForeignKey('monitoreoApp.Meta', models.DO_NOTHING, db_column='id_meta', blank=True, null=True) 
+    delegacion = models.ForeignKey('administracionApp.Delegacion', models.DO_NOTHING, db_column='id_delegacion', blank=True, null=True)
+    meta = models.ForeignKey('monitoreoApp.Meta', models.DO_NOTHING, db_column='id_meta', blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if self.archivo_respaldo and hasattr(self.archivo_respaldo, 'file'):
+            try:
+                img = Image.open(self.archivo_respaldo)
+
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+
+                max_ancho = 1280
+                if img.width > max_ancho:
+                    output_alto = int((max_ancho / img.width) * img.height)
+                    img = img.resize((max_ancho, output_alto), Image.Resampling.LANCZOS)
+
+                output = BytesIO()
+                img.save(output, format='JPEG', quality=85, optimize=True)
+                output.seek(0)
+
+                fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
+                tipo_slug = (self.tipo or 'retro').lower()
+                nombre_archivo = f"{tipo_slug}_{fecha_actual}.jpg"
+
+                self.archivo_respaldo = InMemoryUploadedFile(
+                    output,
+                    'ImageField',
+                    nombre_archivo,
+                    'image/jpeg',
+                    output.getbuffer().nbytes,
+                    None
+                )
+            except Exception as e:
+                print(f"No se pudo optimizar la imagen de respaldo: {e}")
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Retroalimentación {self.id_retroalimentacion} - {self.tipo}"
+        return f"Retroalimentación {self.id_retroalimentacion} - {self.get_tipo_display()}"
 
     class Meta:
         db_table = 'retroalimentacion'
         verbose_name_plural = 'Retroalimentaciones'
-
 
 class Ausencia(models.Model):
     id_ausencia = models.AutoField(primary_key=True)

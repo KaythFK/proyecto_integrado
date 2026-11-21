@@ -37,6 +37,7 @@ MENU_POR_ROL = {
     ],
     'profesional': [
         ('Mi panel', 'speedometer2', 'actividadApp:dashboard_profesional'),
+        ('Mis alertas', 'bell', 'monitoreoApp:mis_alertas'),
         ('Mi trabajo', 'briefcase', [
             ('Registrar actividad', 'plus-circle', 'actividadApp:registrar_actividad'),
             ('Mis actividades', 'clipboard-check', 'actividadApp:listar_actividades'),

@@ -8,7 +8,7 @@ from usuariosApp.decorators import role_required
 from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacion, GestionActividad
 from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm, ActividadProfesionalForm
 from administracionApp.models import Profesional, Auditoria, Vecino, Periodo # <- Añadido Auditoria
-from monitoreoApp.models import Meta, Indicador
+from monitoreoApp.models import Meta, Indicador, Alerta
 from monitoreoApp.views import estado_desviacion, resumen_indicadores
 from monitoreoApp.services import dias_aviso_vencimiento, registrar_incumplimiento
 from .filters import ActividadFilter
@@ -316,7 +316,7 @@ def actualizar_estado_tubo(request, id_compromiso):
             messages.error(request, 'Error: El estado seleccionado no es válido.')
     return redirect('actividadApp:dashboard_profesional')
 
-@login_required
+login_required
 @role_required('Delegado')
 def actividades_delegacion(request):
     delegacion_actual = request.user.profesional.id_delegacion
@@ -325,11 +325,17 @@ def actividades_delegacion(request):
     filtro = ActividadFilter(request.GET, queryset=del_equipo, profesionales=equipo, ocultar=('delegacion',))
     recordar_filtros(request, 'actividadApp:actividades_delegacion')
 
+    retroalimentaciones_delegacion = Retroalimentacion.objects.filter(
+        delegacion=delegacion_actual,
+        estado=True
+    ).select_related('retroalimentado', 'meta', 'vecino').order_by('-fecha', '-id_retroalimentacion')
+
     context = {
         'actividades': filtro.qs if filtro.is_valid() else del_equipo.none(),
         'filtro': filtro,
         'query': request.GET.get('q'),
         'delegacion_nombre': delegacion_actual.nombre,
+        'retroalimentaciones': retroalimentaciones_delegacion,
     }
     return render(request, 'delegado/lista_actividades.html', context)
 
@@ -576,16 +582,19 @@ def cambiar_estado_ausencia(request, id_ausencia):
 
 
 @login_required
-@role_required('Administrador', 'Profesional')
+@role_required('Delegado', 'Administrador')
 def lista_retroalimentaciones(request):
+    delegado_prof = getattr(request.user, 'profesional', None)
+    if not delegado_prof or not delegado_prof.id_delegacion:
+        raise PermissionDenied("Tu usuario no tiene una delegación asociada.")
+
     query = request.GET.get('q')
-    retroalimentaciones = Retroalimentacion.objects.all().select_related(
+    retroalimentaciones = Retroalimentacion.objects.filter(
+        delegacion=delegado_prof.id_delegacion
+    ).select_related(
         'receptor', 'retroalimentado', 'vecino', 'delegacion', 'meta'
     ).order_by('-id_retroalimentacion')
-    if request.user.groups.filter(name='Profesional').exists():
-        propio = request.user.profesional
-        retroalimentaciones = retroalimentaciones.filter(Q(receptor=propio) | Q(retroalimentado=propio))
-    
+
     if query:
         retroalimentaciones = retroalimentaciones.filter(
             Q(tipo__icontains=query) |
@@ -593,46 +602,106 @@ def lista_retroalimentaciones(request):
             Q(receptor__nombres__icontains=query) |
             Q(retroalimentado__nombres__icontains=query)
         ).distinct()
-        
+
     return render(request, 'administrador/retroalimentaciones/lista_retroalimentaciones.html', {
         'retroalimentaciones': retroalimentaciones,
         'query': query
     })
 
+
 @login_required
-@role_required('Administrador', 'Profesional')
+@role_required('Delegado', 'Administrador')
 def crear_retroalimentacion(request):
+    delegado_prof = getattr(request.user, 'profesional', None)
+    if not delegado_prof or not delegado_prof.id_delegacion:
+        raise PermissionDenied("Tu usuario no tiene una delegación asociada.")
+
     if request.method == 'POST':
-        form = RetroalimentacionForm(request.POST)
+        form = RetroalimentacionForm(
+            request.POST,
+            request.FILES,
+            delegacion=delegado_prof.id_delegacion
+        )
         if form.is_valid():
             try:
                 with transaction.atomic():
                     retro = form.save(commit=False)
+
+                    # Bloqueo en backend (KAN-386): exige respaldo formal antes de asignar puntaje/impacto
+                    if not retro.archivo_respaldo:
+                        raise ValidationError("No se puede registrar ni asignar puntaje sin respaldo formal.")
+
                     retro.estado = True
+                    retro.receptor = delegado_prof
+                    retro.delegacion = delegado_prof.id_delegacion
                     retro.save()
+
+                    indicador = None
+                    if retro.meta and retro.retroalimentado:
+                        indicador = Indicador.objects.filter(
+                            meta_id_meta=retro.meta,
+                            id_funcionario=retro.retroalimentado,
+                            estado=True
+                        ).first()
+
+                    # KAN-388: Felicitación suma al avance; Reclamo genera Alerta y actualización negativa
+                    if retro.tipo == 'FELICITACION':
+                        if indicador and retro.meta.id_periodo.esta_abierto:
+                            indicador.avance += 1
+                            indicador.save()
+                            registrar_auditoria(request, "ACTUALIZACION_AVANCE", "Indicador", indicador)
+                    elif retro.tipo == 'RECLAMO':
+                        Alerta.objects.create(
+                            motivo=f"Reclamo formal registrado ({retro.retroalimentado})",
+                            enlace_referencia=retro.archivo_respaldo.url if retro.archivo_respaldo else "",
+                            id_destinatario=retro.retroalimentado,
+                            id_responsable=delegado_prof,
+                            id_delegacion=retro.delegacion,
+                        )
+                        if indicador and retro.meta.id_periodo.esta_abierto:
+                            indicador.ajuste = (indicador.ajuste or 0) - 1
+                            indicador.avance = max(0, indicador.avance - 1)
+                            indicador.save()
+                            registrar_auditoria(request, "AJUSTE_RECLAMO", "Indicador", indicador)
+
                     registrar_auditoria(request, "CREACION", "Retroalimentacion", retro)
-                messages.success(request, 'La retroalimentación fue registrada con éxito.')
+
+                messages.success(request, 'La retroalimentación formal fue registrada correctamente.')
                 return redirect('actividadApp:lista_retroalimentaciones')
+            except ValidationError as e:
+                msg = str(e.message if hasattr(e, 'message') else e.messages[0])
+                messages.error(request, msg)
             except Exception as e:
                 messages.error(request, f'Error al guardar: {str(e)}')
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        form = RetroalimentacionForm()
-        
+        form = RetroalimentacionForm(delegacion=delegado_prof.id_delegacion)
+
     return render(request, 'administrador/retroalimentaciones/form_retroalimentacion.html', {
         'form': form,
-        'titulo': 'Registrar Retroalimentación'
+        'titulo': 'Registrar Felicitación o Reclamo Formal'
     })
 
+
 @login_required
-@role_required('Administrador', 'Profesional')
+@role_required('Delegado', 'Administrador')
 def editar_retroalimentacion(request, id_retroalimentacion):
-    retro = get_object_or_404(Retroalimentacion, pk=id_retroalimentacion)
-    
+    delegado_prof = getattr(request.user, 'profesional', None)
+    retro = get_object_or_404(
+        Retroalimentacion,
+        pk=id_retroalimentacion,
+        delegacion=delegado_prof.id_delegacion if delegado_prof else None
+    )
+
     if request.method == 'POST':
         datos_antiguos = model_to_dict(retro)
-        form = RetroalimentacionForm(request.POST, instance=retro)
+        form = RetroalimentacionForm(
+            request.POST,
+            request.FILES,
+            instance=retro,
+            delegacion=delegado_prof.id_delegacion
+        )
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -643,30 +712,37 @@ def editar_retroalimentacion(request, id_retroalimentacion):
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
     else:
-        form = RetroalimentacionForm(instance=retro)
-        
+        form = RetroalimentacionForm(instance=retro, delegacion=delegado_prof.id_delegacion)
+
     return render(request, 'administrador/retroalimentaciones/form_retroalimentacion.html', {
         'form': form,
         'titulo': 'Editar Retroalimentación'
     })
 
+
 @login_required
-@role_required('Administrador', 'Profesional')
+@role_required('Delegado', 'Administrador')
 def cambiar_estado_retroalimentacion(request, id_retroalimentacion):
     if request.method == 'POST':
-        retro = get_object_or_404(Retroalimentacion, pk=id_retroalimentacion)
-        
+        delegado_prof = getattr(request.user, 'profesional', None)
+        retro = get_object_or_404(
+            Retroalimentacion,
+            pk=id_retroalimentacion,
+            delegacion=delegado_prof.id_delegacion if delegado_prof else None
+        )
+
         with transaction.atomic():
             datos_antiguos = model_to_dict(retro)
             nuevo_estado = not retro.estado
             retro.estado = nuevo_estado
             retro.save()
             registrar_auditoria(request, "CAMBIO_ESTADO", "Retroalimentacion", retro, datos_antiguos)
-                
+
         accion_str = "habilitada" if nuevo_estado else "inhabilitada"
         messages.success(request, f'La retroalimentación fue {accion_str} correctamente.')
-        
+
     return redirect('actividadApp:lista_retroalimentaciones')
+
 
 
 @login_required

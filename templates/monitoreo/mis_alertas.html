@@ -34,6 +34,7 @@
             <span class="alerta-icono">
                 {% if alerta.tipo == 'VENCIMIENTO' %}<i class="bi bi-calendar-x" aria-hidden="true"></i>
                 {% elif alerta.tipo == 'EVIDENCIA_PENDIENTE' %}<i class="bi bi-camera" aria-hidden="true"></i>
+                {% elif alerta.tipo == 'RETROALIMENTACION' %}<i class="bi bi-award" aria-hidden="true"></i>
                 {% else %}<i class="bi bi-graph-down-arrow" aria-hidden="true"></i>{% endif %}
             </span>
             <div class="flex-grow-1">
@@ -46,9 +47,15 @@
             </div>
             <div class="d-flex gap-2 flex-wrap justify-content-end">
                 {% if alerta.enlace_referencia %}
-                <a href="{{ alerta.enlace_referencia }}{% if '?' in alerta.enlace_referencia %}&{% else %}?{% endif %}volver=alertas" class="btn btn-sm btn-outline-dark redondeado-6">
-                    <i class="bi bi-box-arrow-up-right me-1"></i>Ver
-                </a>
+                    {% if '/media/' in alerta.enlace_referencia %}
+                    <a href="{{ alerta.enlace_referencia }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-dark redondeado-6">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Ver respaldo
+                    </a>
+                    {% else %}
+                    <a href="{{ alerta.enlace_referencia }}{% if '?' in alerta.enlace_referencia %}&{% else %}?{% endif %}volver=alertas" class="btn btn-sm btn-outline-dark redondeado-6">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Ver
+                    </a>
+                    {% endif %}
                 {% endif %}
                 {% if alerta.revision %}
                 <span class="badge bg-success align-self-center"><i class="bi bi-check2 me-1"></i>Revisada</span>

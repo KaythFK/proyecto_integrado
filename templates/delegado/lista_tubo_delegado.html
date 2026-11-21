@@ -16,6 +16,9 @@
             <h4 class="fw-bold m-0 texto-guinda">Panel de Compromisos</h4>
             <p class="text-muted m-0 mt-1">Delegación: {{ delegacion_nombre }}</p>
         </div>
+        <a href="{% url 'actividadApp:crear_retroalimentacion' %}" class="btn text-white fw-bold shadow-sm fondo-rojo redondeado-6">
+            + Felicitación / Reclamo
+        </a>
     </div>
 
     {% if messages %}
@@ -141,9 +144,9 @@
 
                     <td class="text-center">
                         <div class="d-flex justify-content-center gap-2 flex-nowrap">
-                            <button type="button" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6" data-bs-toggle="modal" data-bs-target="#modalObs{{ compromiso.id_compromiso }}">
+                            <a href="{% url 'tuboApp:detalle_actividad' compromiso.id_actividad.id_actividad %}" class="btn btn-sm text-white shadow-sm fondo-guinda redondeado-6">
                                 <i class="bi bi-chat-left-text"></i> Observaciones
-                            </button>
+                            </a>
                             {% if compromiso.estado and compromiso.estado_progreso != 'REALIZADO' %}
                             <button type="button" class="btn btn-sm btn-outline-dark shadow-sm redondeado-6"
                                     onclick="abrirReasignar('{{ compromiso.id_compromiso }}', '{{ compromiso.id_actividad.codigo_unico|escapejs }}', '{{ compromiso.id_funcionario_id }}', '{{ compromiso.id_funcionario.nombres|escapejs }} {{ compromiso.id_funcionario.apellido_paterno|escapejs }}')">
@@ -161,55 +164,81 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Retroalimentaciones Formales vinculadas al equipo de Compromisos -->
+    {% if retroalimentaciones %}
+    <div class="mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold m-0 texto-guinda">
+                <i class="bi bi-chat-square-quote"></i> Felicitaciones y Reclamos del Equipo
+            </h5>
+            <a href="{% url 'actividadApp:crear_retroalimentacion' %}" class="btn btn-sm text-white fw-bold fondo-rojo redondeado-6">
+                + Nuevo Registro
+            </a>
+        </div>
+        <div class="table-responsive shadow-sm rounded">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Registro</th>
+                        <th>Tipo</th>
+                        <th>Funcionario</th>
+                        <th class="text-center">Fecha</th>
+                        <th class="text-center">Respaldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in retroalimentaciones %}
+                    <tr>
+                        <td class="fw-bold">#{{ r.id_retroalimentacion }}</td>
+                        <td>
+                            {% if r.tipo == 'FELICITACION' %}
+                                <span class="badge bg-success">{{ r.get_tipo_display }}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ r.get_tipo_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ r.retroalimentado.nombres }} {{ r.retroalimentado.apellido_paterno }}</td>
+                        <td class="text-center">{{ r.fecha|date:"d/m/Y" }}</td>
+                        <td class="text-center">
+                            {% if r.archivo_respaldo %}
+                                <button type="button" class="btn btn-sm text-white fondo-guinda redondeado-6"
+                                        onclick="verRespaldoTubo('{{ r.archivo_respaldo.url }}', '{{ r.get_tipo_display|escapejs }}')">
+                                    <i class="bi bi-image"></i> Ver respaldo
+                                </button>
+                            {% else %}
+                                <span class="text-muted small">Sin respaldo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
-{% for compromiso in compromisos %}
-<div class="modal fade" id="modalObs{{ compromiso.id_compromiso }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg">
+<!-- Modal Respaldo Retroalimentación -->
+<div class="modal fade" id="modalRespaldoTubo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
             <div class="modal-header text-white fondo-guinda">
-                <h5 class="modal-title fw-bold">
-                    Observaciones - Actividad {{ compromiso.id_actividad.codigo_unico }}
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold" id="modalTituloRespaldoTubo">Respaldo Formal</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4">
-                <form method="POST" action="{% url 'tuboApp:agregar_observacion_tubo' compromiso.id_compromiso %}" class="mb-4 p-3 rounded shadow-sm bg-light border">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-dark">Agregar nueva observación o avance:</label>
-                        <textarea name="texto_observacion" class="form-control" rows="3" placeholder="Escribe aquí los detalles..." required></textarea>
-                    </div>
-                    <div class="d-flex justify-content-end">
-                        <button type="submit" class="btn text-white fw-bold px-4 shadow-sm" style="background-color: #A91D22;">
-                            <i class="bi bi-save"></i> Guardar Observación
-                        </button>
-                    </div>
-                </form>
-                
-                <hr class="text-muted opacity-25 mb-4">
-
-                <h6 class="fw-bold text-secondary mb-3">Historial de Observaciones:</h6>
-                <div class="list-group">
-                    {% for obs in observaciones %}
-                        {% if obs.id_compromiso.id_compromiso == compromiso.id_compromiso %}
-                            <div class="list-group-item flex-column align-items-start mb-2 border rounded shadow-sm">
-                                <div class="d-flex w-100 justify-content-between align-items-center mb-2">
-                                    <small class="fw-bold text-muted"><i class="bi bi-clock"></i> {{ obs.fecha|date:"d/m/Y - H:i" }} hrs</small>
-                                </div>
-                                <p class="mb-1 text-dark" style="white-space: pre-wrap;">{{ obs.texto }}</p>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
+            <div class="modal-body p-4 text-center">
+                <img id="imgRespaldoTubo" src="" alt="Respaldo formal" class="img-fluid rounded shadow-sm">
             </div>
-            <div class="modal-footer border-0 bg-light">
+            <div class="modal-footer justify-content-between border-0">
+                <a id="enlaceRespaldoTuboNuevaPestana" href="" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm">
+                    Abrir en pestaña nueva
+                </a>
                 <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
 </div>
-{% endfor %}
 
 <div class="modal fade" id="modalReasignar" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -248,6 +277,13 @@
 </div>
 
 <script>
+function verRespaldoTubo(urlImagen, tituloTipo) {
+    document.getElementById('modalTituloRespaldoTubo').innerText = 'Respaldo Formal - ' + tituloTipo;
+    document.getElementById('imgRespaldoTubo').src = urlImagen;
+    document.getElementById('enlaceRespaldoTuboNuevaPestana').href = urlImagen;
+    new bootstrap.Modal(document.getElementById('modalRespaldoTubo')).show();
+}
+
 function abrirReasignar(idCompromiso, codigo, idActual, nombreActual) {
     document.getElementById('formReasignar').action = "{% url 'tuboApp:reasignar_compromiso' 0 %}".replace('/0/', '/' + idCompromiso + '/');
     document.getElementById('reasignarCodigo').innerText = codigo;

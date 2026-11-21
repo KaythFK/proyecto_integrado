@@ -8,8 +8,6 @@ from actividadApp.models import Evidencia, Actividad
 from django.db.models import Q
 from django.utils.timezone import localdate
 from decimal import Decimal, InvalidOperation
-
-
 def validar_y_formatear_rut(rut_ingresado):
     """
     Valida un RUT chileno usando el algoritmo Módulo 11 de forma global 
@@ -17,7 +15,6 @@ def validar_y_formatear_rut(rut_ingresado):
     """
     if not rut_ingresado:
         raise ValidationError("El RUT no puede estar vacío.")
-        
     rut_limpio = str(rut_ingresado).strip().replace(".", "").replace("-", "").upper()
     
     if len(rut_limpio) < 2:
@@ -434,8 +431,9 @@ def estado_desviacion(real, esperado, periodo):
 
 def procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrupacion='delegacion'):
     """
-    Motor matemático: Calcula el cumplimiento ponderado y agrupa dinámicamente
-    por Delegación (para Coordinador) o por Funcionario (para Delegado).
+    Motor matemático: Calcula el cumplimiento ponderado (topando la base en 120%,
+    aplicando el ajuste de retroalimentaciones y acotando entre 0% y 120%)
+    y agrupa por Delegación o Funcionario.
     """
     metas_dict = {m.pk: m for m in metas}
     por_agrupacion = {}
@@ -445,8 +443,7 @@ def procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrup
         meta = metas_dict.get(ind.meta_id_meta_id)
         if not meta:
             continue
-            
-        # Determinamos la clave y el nombre según la vista que lo solicita
+
         if modo_agrupacion == 'delegacion':
             clave = ind.id_funcionario.id_delegacion.pk
             nombre = ind.id_funcionario.id_delegacion.nombre
@@ -460,14 +457,15 @@ def procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrup
             'suma': 0,
             'peso': 0
         })
-        
+
         objetivo = float(meta.valor_objetivo)
-        # Tope matemático del 120% exigido
-        cumplimiento = min(float(ind.avance) / objetivo * 100, 120) if objetivo else 0
-        
+        cumplimiento_base = min((float(ind.avance) / objetivo * 100), 120.0) if objetivo else 0.0
+        ajuste_ind = float(ind.ajuste or 0)
+        cumplimiento = max(0.0, min(cumplimiento_base + ajuste_ind, 120.0))
+
         if semaforo_segun_umbral(cumplimiento, periodo) == 'ROJO':
             metas_en_rojo += 1
-            
+
         fila['metas'] += 1
         fila['suma'] += cumplimiento * float(meta.ponderador)
         fila['peso'] += float(meta.ponderador)
@@ -480,12 +478,12 @@ def procesar_resumen_dashboard(metas, indicadores, periodo, esperado, modo_agrup
         fila['diferencia'] = round(fila['cumplimiento'] - esperado, 1)
         fila['desviacion'] = estado_desviacion(fila['cumplimiento'], esperado, periodo)
         filas.append(fila)
-        
+
     filas.sort(key=lambda f: f['cumplimiento'])
 
     if not filas:
         return [], None, None, 0
-        
+
     cumplimiento_global = round(sum(f['cumplimiento'] for f in filas) / len(filas), 1)
     return filas, cumplimiento_global, semaforo_segun_umbral(cumplimiento_global, periodo), metas_en_rojo
 
@@ -603,20 +601,30 @@ def calcular_avance_actividades_aprobadas(meta, profesional=None):
 
 def sincronizar_calculos_indicador(indicador, guardar=True):
     """
-    Calcula avance desde actividades aprobadas, actualiza cumplimiento y
-    semáforo según la meta y el período, y guarda si guardar=True.
+    Calcula avance desde actividades aprobadas, aplica el ajuste acumulado
+    sobre el cumplimiento base topado en 120%, acota entre 0% y 120%,
+    actualiza semáforo y guarda si guardar=True.
     """
     meta = indicador.meta_id_meta
     indicador.avance = calcular_avance_actividades_aprobadas(
         meta,
         profesional=indicador.id_funcionario,
     )
+    ajuste_actual = Decimal(str(indicador.ajuste or '0.00')).quantize(Decimal('0.01'))
+    indicador.ajuste = ajuste_actual
 
     if meta and meta.valor_objetivo is not None and Decimal(str(meta.valor_objetivo)) > Decimal('0'):
-        indicador.cumplimiento = calcular_porcentaje_cumplimiento(
+        cumplimiento_base = calcular_porcentaje_cumplimiento(
             indicador.avance,
             meta.valor_objetivo,
+            tope_maximo=Decimal('120.00'),
         )
+        cumplimiento_final = max(
+            Decimal('0.00'),
+            min(cumplimiento_base + ajuste_actual, Decimal('120.00'))
+        ).quantize(Decimal('0.01'))
+        indicador.cumplimiento = cumplimiento_final
+
         if getattr(meta, 'id_periodo', None):
             indicador.semaforo = semaforo_segun_umbral(
                 indicador.cumplimiento,
@@ -642,3 +650,18 @@ def filtrar_funcionarios_por_delegacion(user, form, nombre_campo='id_funcionario
             id_delegacion=delegacion,
             estado=True
         ).order_by('nombres')
+
+def validar_meta_corresponde_a_profesional(profesional, meta):
+    """
+    Valida que una meta pertenezca al cargo asignado al profesional.
+    """
+    if not profesional or not meta:
+        return meta
+
+    cargo_prof_id = getattr(profesional, 'id_cargo_id', None)
+    cargo_meta_id = getattr(getattr(meta, 'id_cargo_item', None), 'id_cargo_id', None)
+
+    if cargo_prof_id and cargo_meta_id and cargo_prof_id != cargo_meta_id:
+        raise ValidationError("La meta seleccionada no corresponde al cargo del profesional elegido.")
+
+    return meta

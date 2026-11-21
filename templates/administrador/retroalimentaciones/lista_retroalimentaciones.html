@@ -3,7 +3,6 @@
 
 {% block title %}Retroalimentaciones - Sistema Municipal{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0">Gestión de Retroalimentaciones</h3>
 {% endblock %}
@@ -24,8 +23,8 @@
         <div class="col-12 col-md-8 col-lg-6">
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control borde-guinda" 
-                        placeholder="Buscar por tipo, canal o profesionales..." 
+                    <input type="text" name="q" class="form-control borde-guinda"
+                        placeholder="Buscar por tipo, canal o profesionales..."
                         value="{{ query|default_if_none:'' }}">
                     <button class="btn text-white fw-bold fondo-guinda" type="submit">Buscar</button>
                     {% if query %}
@@ -50,20 +49,42 @@
             </thead>
             <tbody>
                 {% for r in retroalimentaciones %}
-                <!-- FILA CAMBIA DE COLOR SI ESTÁ INACTIVA -->
                 <tr class="{% if not r.estado %}table-secondary text-muted opacity-75{% endif %}">
-                    <td><strong>{{ r.tipo }}</strong></td>
+                    <td><strong>{{ r.get_tipo_display }}</strong></td>
                     <td><span class="badge bg-secondary">{{ r.canal_recepcion }}</span></td>
                     <td>{{ r.receptor }}</td>
                     <td>{{ r.retroalimentado }}</td>
                     <td class="text-center">{{ r.fecha|date:"d/m/Y" }}</td>
-                    
+
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                            <a href="{% url 'actividadApp:editar_retroalimentacion' r.pk %}" class="btn btn-sm text-white fondo-guinda" title="Editar">
-                                <i class="bi bi-pencil-square"></i> Editar
-                            </a>
-                            
+                            <div class="dropdown">
+                                <button class="btn btn-sm text-white fondo-guinda dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i> Acciones
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                    {% if r.archivo_respaldo %}
+                                        <li>
+                                            <button type="button" class="dropdown-item"
+                                                onclick="verRespaldo('{{ r.archivo_respaldo.url }}', '{{ r.get_tipo_display|escapejs }}')">
+                                                <i class="bi bi-image me-2"></i>Ver respaldo
+                                            </button>
+                                        </li>
+                                    {% else %}
+                                        <li>
+                                            <span class="dropdown-item-text text-muted small">
+                                                <i class="bi bi-image me-2"></i>Sin respaldo
+                                            </span>
+                                        </li>
+                                    {% endif %}
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'actividadApp:editar_retroalimentacion' r.pk %}">
+                                            <i class="bi bi-pencil-square me-2"></i>Editar
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+
                             <div class="d-flex flex-column align-items-center">
                                 <span class="badge mb-1 {% if r.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
                                     {% if r.estado %}Activo{% else %}Inactivo{% endif %}
@@ -71,7 +92,7 @@
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                     <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                         {% if r.estado %}checked{% endif %}
-                                        onclick="confirmarCambio(event, '{{ r.pk }}', '{{ r.tipo }}', '{{ r.estado }}')">
+                                        onclick="confirmarCambio(event, '{{ r.pk }}', '{{ r.get_tipo_display|escapejs }}', '{{ r.estado }}')">
                                 </div>
                             </div>
                         </div>
@@ -84,6 +105,27 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Modal Respaldo -->
+<div class="modal fade" id="modalRespaldo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white fondo-guinda">
+                <h5 class="modal-title fw-bold" id="modalTituloRespaldo">Respaldo Formal</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <img id="imgRespaldo" src="" alt="Respaldo formal" class="img-fluid rounded shadow-sm">
+            </div>
+            <div class="modal-footer justify-content-between border-0">
+                <a id="enlaceRespaldoNuevaPestana" href="" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm">
+                    Abrir en pestaña nueva
+                </a>
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -111,18 +153,25 @@
 </div>
 
 <script>
+function verRespaldo(urlImagen, tituloTipo) {
+    document.getElementById('modalTituloRespaldo').innerText = 'Respaldo Formal - ' + tituloTipo;
+    document.getElementById('imgRespaldo').src = urlImagen;
+    document.getElementById('enlaceRespaldoNuevaPestana').href = urlImagen;
+    new bootstrap.Modal(document.getElementById('modalRespaldo')).show();
+}
+
 function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
     event.preventDefault();
     const estaActivo = estadoActualStr === 'True';
     const actionUrl = "{% url 'actividadApp:cambiar_estado_retroalimentacion' 0 %}".replace('0', id);
-    
+
     const header = document.getElementById('modalHeaderEstado');
     const titulo = document.getElementById('modalTituloEstado');
     const mensaje = document.getElementById('modalMensajeEstado');
     const nombreStr = document.getElementById('modalNombre');
     const btn = document.getElementById('btnConfirmarEstado');
     const form = document.getElementById('formCambiarEstado');
-    
+
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Retroalimentación';
@@ -136,11 +185,11 @@ function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
-    
+
     nombreStr.innerText = textoDetalle;
     nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
     form.action = actionUrl;
-    
+
     new bootstrap.Modal(document.getElementById('modalEstado')).show();
 }
 </script>

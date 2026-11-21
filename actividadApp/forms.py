@@ -13,7 +13,8 @@ from config.utils import (
     validar_tope_diario_actividades,
     validar_cierre_semanal,
     validar_periodo_abierto,
-    validar_rango_fechas
+    validar_rango_fechas,
+    validar_meta_corresponde_a_profesional
     # <-- Validador modular de imágenes
 )
 from datetime import date
@@ -21,7 +22,8 @@ from administracionApp.models import Profesional
 from django.core.exceptions import ObjectDoesNotExist, ValidationError as CoreValidationError
 from django.utils import timezone
 from datetime import timedelta
-
+from decimal import Decimal
+from monitoreoApp.models import Meta
 
 def etiqueta_meta(meta):
     try:
@@ -262,60 +264,132 @@ class AusenciaForm(forms.ModelForm):
 class RetroalimentacionForm(forms.ModelForm):
     class Meta:
         model = Retroalimentacion
-        exclude = ['estado']
-        
+        exclude = ['estado', 'receptor']
+
         labels = {
-            'tipo': 'Tipo de Retroalimentación',
-            'archivo_respaldo': 'Archivo o Enlace de Respaldo',
+            'tipo': 'Tipo de Registro',
+            'porcentaje_impacto': 'Porcentaje de Impacto en Indicador (%)',
             'canal_recepcion': 'Canal de Recepción',
-            'fecha': 'Fecha de Retroalimentación',
-            'receptor': 'Delegado Receptor',
-            'retroalimentado': 'Profesional Retroalimentado',
-            'vecino': 'Vecino (Opcional)',
-            'delegacion': 'Delegación (Opcional)',
-            'meta': 'Meta Institucional (Opcional)',
+            'fecha': 'Fecha de Recepción',
+            'retroalimentado': 'Profesional del Equipo',
+            'vecino': 'Vecino Solicitante (Opcional)',
+            'delegacion': 'Delegación',
+            'meta': 'Meta Asociada',
+            'archivo_respaldo': 'Respaldo Formal (Imagen)',
         }
-        
+
         widgets = {
-            'tipo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Evaluación de desempeño', 'maxlength': '150', 'required': True}),
-            'archivo_respaldo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ruta o enlace del documento de respaldo', 'maxlength': '255'}),
-            'canal_recepcion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Presencial, Correo', 'maxlength': '100', 'required': True}),
+            'tipo': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'porcentaje_impacto': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'step': '0.01',
+                'min': '0.01',
+                'max': '30.00',
+                'placeholder': 'Ej: 10.00',
+                'required': True,
+            }),
+            'canal_recepcion': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Oficina de Partes / Carta / Presencial en delegación',
+                'maxlength': '100',
+                'required': True,
+            }),
             'fecha': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'required': True}),
-            'receptor': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'retroalimentado': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'vecino': forms.Select(attrs={'class': 'form-select'}),
             'delegacion': forms.Select(attrs={'class': 'form-select'}),
             'meta': forms.Select(attrs={'class': 'form-select'}),
+            'archivo_respaldo': forms.ClearableFileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/jpeg,image/png,image/webp',
+                'required': True,
+            }),
         }
 
     def __init__(self, *args, **kwargs):
+        delegacion = kwargs.pop('delegacion', None)
         super().__init__(*args, **kwargs)
-        self.fields['receptor'].queryset = Profesional.objects.filter(
-            id_delegacion__isnull=False
-        ).distinct()
+        self.fields['archivo_respaldo'].required = True
+        self.fields['meta'].label_from_instance = etiqueta_meta
 
-    def clean_tipo(self):
-        return validar_texto_no_vacio(self.cleaned_data.get('tipo'), "El tipo de retroalimentación")
+        qs_profesionales = Profesional.objects.filter(estado=True)
+        if delegacion:
+            qs_profesionales = qs_profesionales.filter(id_delegacion=delegacion)
+            self.fields['delegacion'].initial = delegacion
+        self.fields['retroalimentado'].queryset = qs_profesionales.order_by('nombres', 'apellido_paterno')
+
+        prof_id = (
+            self.data.get(self.add_prefix('retroalimentado'))
+            if self.is_bound
+            else getattr(self.instance, 'retroalimentado_id', None) or self.initial.get('retroalimentado')
+        )
+
+        qs_metas = Meta.objects.filter(
+            estado=True,
+            id_cargo_item__estado=True,
+        ).select_related('id_cargo_item__id_cargo', 'id_cargo_item__id_item', 'id_periodo')
+
+        if prof_id and str(prof_id).isdigit():
+            prof_obj = qs_profesionales.filter(pk=int(prof_id)).first()
+            if prof_obj and prof_obj.id_cargo_id:
+                filtro_meta = Q(id_cargo_item__id_cargo_id=prof_obj.id_cargo_id)
+                if self.instance and self.instance.pk and self.instance.meta_id:
+                    filtro_meta |= Q(pk=self.instance.meta_id)
+                qs_metas = qs_metas.filter(filtro_meta).distinct()
+
+        self.fields['meta'].queryset = qs_metas.order_by('-id_meta')
+
+    def clean(self):
+        cleaned_data = super().clean()
+        try:
+            validar_meta_corresponde_a_profesional(
+                cleaned_data.get('retroalimentado'),
+                cleaned_data.get('meta'),
+            )
+        except CoreValidationError as e:
+            msg = str(e.message if hasattr(e, 'message') else e.messages[0])
+            self.add_error('meta', msg)
+        return cleaned_data
+
+    def clean_porcentaje_impacto(self):
+        valor = self.cleaned_data.get('porcentaje_impacto')
+        if valor is None or valor <= Decimal('0.00'):
+            raise forms.ValidationError("Debe indicar un porcentaje de impacto mayor a 0%.")
+        if valor > Decimal('30.00'):
+            raise forms.ValidationError("El porcentaje de impacto no puede superar el 30%.")
+        return valor
 
     def clean_canal_recepcion(self):
         return validar_texto_no_vacio(self.cleaned_data.get('canal_recepcion'), "El canal de recepción")
 
     def clean_fecha(self):
-        fecha = self.cleaned_data.get('fecha')
-        return validar_fecha_no_futura(fecha)
+        return validar_fecha_no_futura(self.cleaned_data.get('fecha'))
 
-    def clean_receptor(self):
-        receptor = self.cleaned_data.get('receptor')
-        return validar_que_sea_delegado(receptor)
+    def clean_archivo_respaldo(self):
+        archivo = self.cleaned_data.get('archivo_respaldo')
+        if not archivo:
+            raise forms.ValidationError("Debe adjuntar una imagen de respaldo formal.")
+        return validar_imagen_evidencia(archivo)
+    def clean_porcentaje_impacto(self):
+        valor = self.cleaned_data.get('porcentaje_impacto')
+        if valor is None or valor <= Decimal('0.00'):
+            raise forms.ValidationError("Debe indicar un porcentaje de impacto mayor a 0%.")
+        if valor > Decimal('30.00'):
+            raise forms.ValidationError("El porcentaje de impacto no puede superar el 30%.")
+        return valor
 
-    def clean(self):
-        cleaned_data = super().clean()
-        receptor = cleaned_data.get('receptor')
-        retroalimentado = cleaned_data.get('retroalimentado')
-        validar_profesionales_distintos(receptor, retroalimentado)
-        return cleaned_data
+    def clean_canal_recepcion(self):
+        return validar_texto_no_vacio(self.cleaned_data.get('canal_recepcion'), "El canal de recepción")
 
+    def clean_fecha(self):
+        return validar_fecha_no_futura(self.cleaned_data.get('fecha'))
 
+    def clean_archivo_respaldo(self):
+        archivo = self.cleaned_data.get('archivo_respaldo')
+        if not archivo:
+            raise forms.ValidationError("Debe adjuntar una imagen de respaldo formal.")
+        return validar_imagen_evidencia(archivo)
+    
 class EvidenciaForm(forms.ModelForm):
     class Meta:
         model = Evidencia
