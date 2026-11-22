@@ -170,25 +170,63 @@ class AfiliacionVecinoForm(forms.ModelForm):
     class Meta:
         model = AfiliacionVecino
         exclude = ['estado']
-        
+
         labels = {
             'vecino': 'Vecino / Ciudadano',
             'organizacion': 'Organización Comunitaria',
-            'cargo_organizacion': 'Cargo en la Organización',
+            'cargo_organizacion': 'Cargo o Rol en la Organización',
             'fecha_ingreso': 'Fecha de Ingreso',
         }
-        
+
         widgets = {
             'vecino': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'organizacion': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'cargo_organizacion': forms.TextInput(attrs={
-                'class': 'form-control', 
-                'placeholder': 'Ej: Socio, Presidente, Tesorero', 
+                'class': 'form-control',
+                'placeholder': 'Ej: Socio, Presidente, Tesorero, Delegado de enlace',
                 'maxlength': '100',
-                'required': True
+                'required': True,
             }),
             'fecha_ingreso': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        vecino_fijo = kwargs.pop('vecino', None)
+        delegacion = kwargs.pop('delegacion', None)
+        super().__init__(*args, **kwargs)
+
+        if 'organizacion' in self.fields:
+            # CA2: Permitir cualquier organización funcional activa de la comuna,
+            # más organizaciones territoriales activas (filtradas por delegación si aplica).
+            qs_funcionales = OrganizacionComunitaria.objects.filter(
+                estado=True,
+                tipo=OrganizacionComunitaria.TipoOrganizacion.FUNCIONAL,
+            )
+            qs_territoriales = OrganizacionComunitaria.objects.filter(
+                estado=True,
+                tipo=OrganizacionComunitaria.TipoOrganizacion.TERRITORIAL,
+            )
+            if delegacion:
+                qs_territoriales = qs_territoriales.filter(id_delegacion=delegacion)
+
+            qs_orgs = (qs_funcionales | qs_territoriales).distinct()
+
+            if self.instance and self.instance.pk and self.instance.organizacion_id:
+                qs_orgs = (
+                    qs_orgs | OrganizacionComunitaria.objects.filter(pk=self.instance.organizacion_id)
+                ).distinct()
+
+            self.fields['organizacion'].queryset = qs_orgs.order_by('nombre')
+
+        if vecino_fijo and 'vecino' in self.fields:
+            self.fields['vecino'].initial = vecino_fijo
+            self.fields['vecino'].widget = forms.HiddenInput()
+
+    def clean_cargo_organizacion(self):
+        return validar_texto_no_vacio(
+            self.cleaned_data.get('cargo_organizacion'),
+            "El cargo o rol en la organización",
+        )
 
     def clean_fecha_ingreso(self):
         fecha = self.cleaned_data.get('fecha_ingreso')
@@ -201,14 +239,35 @@ class AfiliacionVecinoForm(forms.ModelForm):
         vecino = cleaned_data.get('vecino')
         organizacion = cleaned_data.get('organizacion')
 
-        # Evitar duplicidad exacta: Un vecino no puede estar afiliado dos veces a la misma organización de forma activa
         if vecino and organizacion:
             qs = AfiliacionVecino.objects.filter(vecino=vecino, organizacion=organizacion, estado=True)
             if self.instance and self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
-                raise forms.ValidationError("Este vecino ya se encuentra afiliado y activo en esta organización.")
-                
+                raise forms.ValidationError(
+                    "Este vecino ya se encuentra afiliado y activo en esta organización."
+                )
+
+        if vecino and organizacion:
+            instancia_temp = AfiliacionVecino(
+                pk=self.instance.pk if self.instance else None,
+                vecino=vecino,
+                organizacion=organizacion,
+                cargo_organizacion=cleaned_data.get('cargo_organizacion', ''),
+                fecha_ingreso=cleaned_data.get('fecha_ingreso'),
+                estado=True,
+            )
+            try:
+                instancia_temp.clean()
+            except CoreValidationError as e:
+                if hasattr(e, 'message_dict'):
+                    for campo, errores in e.message_dict.items():
+                        campo_form = campo if campo in self.fields else None
+                        for msg in errores:
+                            self.add_error(campo_form, msg)
+                else:
+                    raise forms.ValidationError(e.messages)
+
         return cleaned_data
 
 

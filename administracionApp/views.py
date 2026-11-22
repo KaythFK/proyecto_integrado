@@ -31,6 +31,9 @@ import json
 import re
 from django.forms.models import model_to_dict
 from decimal import Decimal, InvalidOperation
+from comunidadApp.models import OrganizacionComunitaria
+
+
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
 def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
     """
@@ -896,25 +899,37 @@ def versionar_periodo(request, id_periodo):
     return redirect('administracionApp:lista_periodos')
 
 
-@role_required('Administrador')
+@role_required('Administrador', 'Profesional')
 @login_required
 def lista_vecinos(request):
-    query = request.GET.get('q')
+    query = (request.GET.get('q') or '').strip()
+    organizacion_id = (request.GET.get('organizacion') or '').strip()
+
     vecinos = Vecino.objects.all().order_by('nombres')
-    
+
+    if organizacion_id.isdigit():
+        vecinos = vecinos.filter(
+            afiliacionvecino__organizacion_id=int(organizacion_id),
+            afiliacionvecino__estado=True,
+        ).distinct()
+
     if query:
         vecinos = vecinos.filter(
-            Q(nombres__icontains=query) | 
+            Q(nombres__icontains=query) |
             Q(apellido_paterno__icontains=query) |
             Q(rut__icontains=query)
         ).distinct()
-        
+
+    organizaciones_filtro = OrganizacionComunitaria.objects.filter(estado=True).order_by('nombre')
+
     return render(request, 'administrador/vecinos/lista_vecinos.html', {
         'vecinos': vecinos,
-        'query': query
+        'organizaciones_filtro': organizaciones_filtro,
+        'organizacion_seleccionada': organizacion_id,
+        'query': query,
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Profesional')
 @login_required
 def crear_vecino(request):
     if request.method == 'POST':
@@ -942,7 +957,7 @@ def crear_vecino(request):
         'titulo': 'Registrar Nuevo Vecino'
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Profesional')
 @login_required
 def editar_vecino(request, id_vecino):
     vecino = get_object_or_404(Vecino, id_vecino=id_vecino)
@@ -969,7 +984,7 @@ def editar_vecino(request, id_vecino):
         'titulo': 'Editar Información del Vecino'
     })
 
-@role_required('Administrador')
+@role_required('Administrador', 'Profesional')
 @login_required
 def cambiar_estado_vecino(request, id_vecino):
     if request.method == 'POST':

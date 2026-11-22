@@ -9,6 +9,7 @@ urlpatterns = [
     path('organizaciones/crear/', views.crear_organizacion, name='crear_organizacion'),
     path('organizaciones/editar/<int:id_organizacion>/', views.editar_organizacion, name='editar_organizacion'),
     path('organizaciones/estado/<int:id_organizacion>/', views.cambiar_estado_organizacion, name='cambiar_estado_organizacion'),
+    path('organizaciones/<int:id_organizacion>/detalle/', views.detalle_organizacion, name='detalle_organizacion'),
 
     # Afiliaciones
     path('afiliaciones/', views.lista_afiliaciones, name='lista_afiliaciones'),

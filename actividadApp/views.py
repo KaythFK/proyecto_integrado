@@ -20,7 +20,7 @@ from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError, PermissionDenied
 import json
 from django.forms.models import model_to_dict
-
+from comunidadApp.models import AfiliacionVecino
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
 def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
     """
@@ -1151,7 +1151,12 @@ def mis_gestiones(request):
 def detalle_vecino(request, id_vecino):
     vecino = get_object_or_404(Vecino, pk=id_vecino)
     actividades_vecino = Actividad.objects.filter(solicitante_vecino=vecino).order_by('-fecha_registro')
-    
+    afiliaciones_vecino = (
+        AfiliacionVecino.objects.filter(vecino=vecino)
+        .select_related('organizacion', 'organizacion__id_delegacion')
+        .order_by('-estado', '-id_afiliacion')
+    )
+
     # Determinamos el rol exacto para el menú lateral dinámico
     if request.user.groups.filter(name='Administrador').exists():
         rol_menu = 'administrador'
@@ -1165,6 +1170,7 @@ def detalle_vecino(request, id_vecino):
     context = {
         'vecino': vecino,
         'actividades_vecino': actividades_vecino,
+        'afiliaciones_vecino': afiliaciones_vecino,
         'rol_menu': rol_menu,
     }
     return render(request, 'detalle_vecino.html', context)

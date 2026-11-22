@@ -3,14 +3,13 @@
 
 {% block title %}Afiliaciones - Sistema Municipal{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0">Gestión de Afiliaciones de Vecinos</h3>
 {% endblock %}
 
 {% block contenido %}
 {% include 'parciales/mensajes.html' %}
-<div class="container mt-5">
+<div class="container mt-5 mb-5">
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <h4 class="fw-bold m-0 texto-guinda">Listado de Afiliaciones</h4>
@@ -19,22 +18,30 @@
         </a>
     </div>
 
-    <!-- Barra de Búsqueda -->
-    <div class="row mb-4">
-        <div class="col-12 col-md-8 col-lg-6">
-            <form method="GET" action="">
-                <div class="input-group shadow-sm">
-                    <input type="text" name="q" class="form-control borde-guinda" 
-                        placeholder="Buscar por vecino, RUT u organización..." 
-                        value="{{ query|default_if_none:'' }}">
-                    <button class="btn text-white fw-bold fondo-guinda" type="submit">Buscar</button>
-                    {% if query %}
-                        <a href="?" class="btn btn-outline-secondary">Limpiar</a>
-                    {% endif %}
-                </div>
-            </form>
+    <!-- Barra de Búsqueda y Filtro por Organización -->
+    <form method="GET" action="" class="row g-2 mb-4">
+        <div class="col-12 col-md-5">
+            <input type="text" name="q" class="form-control borde-guinda shadow-sm"
+                placeholder="Buscar por vecino, RUT, cargo u organización..."
+                value="{{ query|default_if_none:'' }}">
         </div>
-    </div>
+        <div class="col-12 col-md-4">
+            <select name="organizacion" class="form-select borde-guinda shadow-sm">
+                <option value="">Todas las organizaciones</option>
+                {% for org in organizaciones_filtro %}
+                    <option value="{{ org.pk }}" {% if organizacion_seleccionada == org.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ org.nombre }} ({{ org.get_tipo_display }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-3 d-flex gap-2">
+            <button class="btn text-white fw-bold fondo-guinda shadow-sm flex-grow-1" type="submit">Filtrar</button>
+            {% if query or organizacion_seleccionada %}
+                <a href="{% url 'comunidadApp:lista_afiliaciones' %}" class="btn btn-outline-secondary shadow-sm">Limpiar</a>
+            {% endif %}
+        </div>
+    </form>
 
     <div class="table-responsive shadow-sm rounded">
         <table class="table table-hover align-middle mb-0">
@@ -49,22 +56,33 @@
             </thead>
             <tbody>
                 {% for afi in afiliaciones %}
-                <!-- FILA CAMBIA DE COLOR SI ESTÁ INACTIVO -->
                 <tr class="{% if not afi.estado %}table-secondary text-muted opacity-75{% endif %}">
                     <td>
-                        <strong>{{ afi.vecino.nombres }} {{ afi.vecino.apellido_paterno }}</strong><br>
+                        <a href="{% url 'actividadApp:detalle_vecino' afi.vecino.pk %}" class="fw-bold text-decoration-none text-dark">
+                            {{ afi.vecino.nombres }} {{ afi.vecino.apellido_paterno }}
+                        </a><br>
                         <small class="text-muted">RUT: {{ afi.vecino.rut }}</small>
                     </td>
-                    <td>{{ afi.organizacion.nombre }}</td>
+                    <td>
+                        <a href="{% url 'comunidadApp:detalle_organizacion' afi.organizacion.pk %}" class="fw-bold text-decoration-none texto-guinda">
+                            {{ afi.organizacion.nombre }}
+                        </a><br>
+                        <span class="badge {% if afi.organizacion.tipo == 'FUNCIONAL' %}bg-info text-dark{% else %}bg-primary{% endif %} texto-075">
+                            {{ afi.organizacion.get_tipo_display }}
+                        </span>
+                    </td>
                     <td><span class="badge bg-secondary">{{ afi.cargo_organizacion }}</span></td>
                     <td class="text-center">{{ afi.fecha_ingreso|date:"d/m/Y"|default:"Sin registro" }}</td>
-                    
+
                     <td class="text-center">
-                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                            <a href="{% url 'comunidadApp:editar_afiliacion' afi.id_afiliacion %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" title="Editar">
+                        <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                            <a href="{% url 'comunidadApp:detalle_organizacion' afi.organizacion.pk %}" class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6" title="Ver organización y nómina">
+                                Organización
+                            </a>
+                            <a href="{% url 'comunidadApp:editar_afiliacion' afi.id_afiliacion %}" class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6" title="Editar">
                                 <i class="bi bi-pencil-square"></i> Editar
                             </a>
-                            
+
                             <div class="d-flex flex-column align-items-center">
                                 <span class="badge mb-1 {% if afi.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
                                     {% if afi.estado %}Activo{% else %}Inactivo{% endif %}
@@ -72,7 +90,7 @@
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                     <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                         {% if afi.estado %}checked{% endif %}
-                                        onclick="confirmarCambio(event, '{{ afi.id_afiliacion }}', '{{ afi.vecino.nombres }} {{ afi.vecino.apellido_paterno }} ({{ afi.organizacion.nombre }})', '{{ afi.estado }}')">
+                                        onclick="confirmarCambio(event, '{{ afi.id_afiliacion }}', '{{ afi.vecino.nombres|escapejs }} {{ afi.vecino.apellido_paterno|escapejs }} ({{ afi.organizacion.nombre|escapejs }})', '{{ afi.estado }}')">
                                 </div>
                             </div>
                         </div>
@@ -116,32 +134,31 @@ function confirmarCambio(event, id, textoDetalle, estadoActualStr) {
     event.preventDefault();
     const estaActivo = estadoActualStr === 'True';
     const actionUrl = "{% url 'comunidadApp:cambiar_estado_afiliacion' 0 %}".replace('0', id);
-    
+
     const header = document.getElementById('modalHeaderEstado');
     const titulo = document.getElementById('modalTituloEstado');
     const mensaje = document.getElementById('modalMensajeEstado');
     const nombreStr = document.getElementById('modalNombre');
     const btn = document.getElementById('btnConfirmarEstado');
     const form = document.getElementById('formCambiarEstado');
-    
+
     if (estaActivo) {
         header.style.backgroundColor = '#C41230';
         titulo.innerText = 'Desactivar Afiliación';
-        mensaje.innerText = '¿Estás segura de inhabilitar la afiliación de'; // Texto más claro
+        mensaje.innerText = '¿Estás segura de inhabilitar la afiliación de';
         btn.style.backgroundColor = '#C41230';
         btn.innerText = 'Sí, Desactivar';
     } else {
         header.style.backgroundColor = '#198754';
         titulo.innerText = 'Reactivar Afiliación';
-        mensaje.innerText = '¿Deseas restaurar la afiliación de'; // Texto más claro
+        mensaje.innerText = '¿Deseas restaurar la afiliación de';
         btn.style.backgroundColor = '#198754';
         btn.innerText = 'Sí, Reactivar';
     }
-    
-    nombreStr.innerText = textoDetalle; // Inyecta el nombre del vecino y organización
-    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
+
+    nombreStr.innerText = textoDetalle + '?';
     form.action = actionUrl;
-    
+
     new bootstrap.Modal(document.getElementById('modalEstado')).show();
 }
 </script>
