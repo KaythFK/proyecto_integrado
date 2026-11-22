@@ -34,8 +34,8 @@
         <form method="GET" action="{% url 'monitoreoApp:tubo_delegacion' %}" class="row g-2 align-items-end">
             <div class="col-12 col-lg-4">
                 <label class="form-label small fw-bold mb-1">Buscar</label>
-                <input type="text" name="q" class="form-control borde-guinda"
-                    placeholder="Código o problema..."
+                <input type="text" name="q" class="form-control borde-guinda" data-busqueda-dinamica autocomplete="off"
+                    placeholder="Código, RUT o nombre del solicitante..."
                     value="{{ query|default_if_none:'' }}">
             </div>
             <div class="col-6 col-lg-2">
@@ -301,4 +301,5 @@ function abrirReasignar(idCompromiso, codigo, idActual, nombreActual) {
     new bootstrap.Modal(document.getElementById('modalReasignar')).show();
 }
 </script>
+{% include 'parciales/busqueda_dinamica.html' %}
 {% endblock %}
