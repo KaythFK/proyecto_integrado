@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 load_dotenv()
 
@@ -8,16 +9,22 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+def lista_env(nombre, por_defecto=''):
+    return [valor.strip() for valor in os.getenv(nombre, por_defecto).split(',') if valor.strip()]
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-(*)w=5scqbgrmx7b5_73p_kle3(f9l4fk-@^0tt+oc^k=m9_)2'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Seguridad: los valores reales van en el archivo .env de cada entorno (ver .env.example).
+DEBUG = os.getenv('DEBUG', 'False').strip().lower() in ('1', 'true', 'si', 'sí', 'yes')
 
-ALLOWED_HOSTS = []
+SECRET_KEY = os.getenv('SECRET_KEY', '')
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('Falta SECRET_KEY en el archivo .env (obligatoria con DEBUG=False).')
+    from django.core.management.utils import get_random_secret_key
+    SECRET_KEY = get_random_secret_key()
+
+ALLOWED_HOSTS = lista_env('ALLOWED_HOSTS', 'localhost,127.0.0.1' if DEBUG else '')
+CSRF_TRUSTED_ORIGINS = lista_env('CSRF_TRUSTED_ORIGINS')
 
 
 # Application definition
@@ -123,6 +130,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -142,3 +150,20 @@ PASSWORD_RESET_TIMEOUT = 60 * 5
 
 
 PHPMAILER_SCRIPT = os.getenv('PHPMAILER_SCRIPT', '')
+
+
+# Protecciones de producción: solo con DEBUG=False. USAR_HTTPS=False permite probar en el servidor
+# antes de tener certificado; con HTTPS activo las cookies viajan solo cifradas.
+SESSION_COOKIE_HTTPONLY = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_REFERRER_POLICY = 'same-origin'
+if not DEBUG and os.getenv('USAR_HTTPS', 'True').strip().lower() in ('1', 'true', 'si', 'sí', 'yes'):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+
+# HSTS no se extiende a otros subdominios municipales ni se inscribe en la lista de precarga de los navegadores.
+SILENCED_SYSTEM_CHECKS = ['security.W005', 'security.W021']

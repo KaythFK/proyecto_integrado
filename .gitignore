@@ -225,3 +225,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Archivos subidos por los usuarios (evidencias, fotos de perfil, respaldos): no se versionan
+/media/
+# Archivos estáticos generados por collectstatic
+/staticfiles/
