@@ -1,73 +1,122 @@
-import re
-from datetime import date
 from django import forms
+from django.core.exceptions import ValidationError as CoreValidationError
 from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar
-from config.utils import validar_y_formatear_rut, validar_texto_no_vacio, validar_fecha_no_futura
+from config.utils import (
+    validar_y_formatear_rut,
+    validar_texto_no_vacio,
+    validar_fecha_no_futura,
+    validar_campo_obligatorio_o_sin_datos,
+    validar_rango_fechas_organizacion,
+    validar_organizacion_matriz,
+)
+from datetime import date
 
-# --- FUNCIONES AUXILIARES ---
 class OrganizacionComunitariaForm(forms.ModelForm):
     class Meta:
         model = OrganizacionComunitaria
         exclude = ['estado']
-        
+
         labels = {
-            'nombre': 'Organizaciones',
-            'tipo_marco': 'Clasificación Territorial/Funcional',
+            'nombre': 'Nombre de la Organización',
+            'tipo': 'Clasificación Territorial / Funcional',
             'subtipo': 'Subtipo de Organización',
             'direccion': 'Domicilio',
             'territorio': 'Territorio',
             'socios_activos': 'Socios Activos',
-            'fecha_formacion': 'Fecha Creacion',
+            'fecha_formacion': 'Fecha de Formación',
             'fecha_inscripcion_reg_date': 'Fecha Inscripción Registro',
-            'n_reg_pj': 'Numero Registro Personalidad Jurídica',
-            'n_reg_dir': 'Numero Registro Directorio',
-            'id_delegacion': 'Delegación Municipal (Opcional)',
-            'organizacion_matriz': 'Organización Matriz (Solo para Comités)',
+            'n_reg_pj': 'Número Registro Personalidad Jurídica',
+            'n_reg_dir': 'Número Registro Directorio',
+            'id_delegacion': 'Delegación Municipal',
+            'organizacion_matriz': 'Junta de Vecinos Matriz (Opcional para Comités)',
         }
-        
+
         widgets = {
             'nombre': forms.TextInput(attrs={
-                'class': 'form-control', 
-                'placeholder': 'Ej: Junta de Vecinos La Pampa', 
-                'minlength': '4', 
+                'class': 'form-control',
+                'placeholder': 'Ej: Junta de Vecinos La Pampa',
+                'minlength': '2',
                 'maxlength': '150',
-                'required': True
+                'required': True,
             }),
-            'tipo_marco': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'subtipo': forms.TextInput(attrs={
-                'class': 'form-control', 
-                'placeholder': 'Ej: Club de Adulto Mayor (Opcional)',
-                'maxlength': '100'
+            'tipo': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'subtipo': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'direccion': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Pasaje Los Aromos 123',
+                'maxlength': '200',
+                'required': True,
             }),
-            
-            # --- TODO LO DEMÁS ES OPCIONAL (Sin required=True) ---
-            'direccion': forms.TextInput(attrs={'class': 'form-control', 'maxlength': '150'}),
-            'territorio': forms.TextInput(attrs={'class': 'form-control', 'maxlength': '45'}),
-            'socios_activos': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-            'fecha_formacion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'fecha_inscripcion_reg_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'n_reg_pj': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-            'n_reg_dir': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
-            'id_delegacion': forms.Select(attrs={'class': 'form-select'}),
+            'territorio': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Las Compañías',
+                'maxlength': '45',
+                'required': True,
+            }),
+            'socios_activos': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '0',
+                'required': True,
+            }),
+            'fecha_formacion': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True,
+            }),
+            'fecha_inscripcion_reg_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date',
+                'required': True,
+            }),
+            'n_reg_pj': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: 3520 o 352-BIS',
+                'maxlength': '50',
+                'required': True,
+            }),
+            'n_reg_dir': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: 9840',
+                'maxlength': '50',
+                'required': True,
+            }),
+            'id_delegacion': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'organizacion_matriz': forms.Select(attrs={'class': 'form-select'}),
         }
 
-    # Hacemos que todos los campos del modelo que eran blank=True sean opcionales en el formulario
     def __init__(self, *args, **kwargs):
+        delegacion = kwargs.pop('delegacion', None)
         super().__init__(*args, **kwargs)
-        campos_opcionales = [
-            'direccion', 'territorio', 'socios_activos', 
-            'fecha_formacion', 'fecha_inscripcion_reg_date', 'n_reg_pj', 
-            'n_reg_dir', 'id_delegacion', 'organizacion_matriz'
-        ]
-        for campo in campos_opcionales:
-            self.fields[campo].required = False
+
+        self.campos_faltantes_aviso = (
+            self.instance.campos_sin_datos()
+            if self.instance and self.instance.pk
+            else []
+        )
+
+        if 'organizacion_matriz' in self.fields:
+            self.fields['organizacion_matriz'].required = False
+            qs_juntas = OrganizacionComunitaria.objects.filter(
+                subtipo=OrganizacionComunitaria.SubtipoOrganizacion.JUNTA_VECINOS,
+                estado=True,
+            )
+            if delegacion:
+                qs_juntas = qs_juntas.filter(id_delegacion=delegacion)
+            if self.instance and self.instance.pk:
+                qs_juntas = qs_juntas.exclude(pk=self.instance.pk)
+                if self.instance.organizacion_matriz_id:
+                    qs_juntas = (
+                        qs_juntas | OrganizacionComunitaria.objects.filter(pk=self.instance.organizacion_matriz_id)
+                    ).distinct()
+            self.fields['organizacion_matriz'].queryset = qs_juntas.order_by('nombre')
+
+        if delegacion and 'id_delegacion' in self.fields:
+            self.fields['id_delegacion'].queryset = self.fields['id_delegacion'].queryset.filter(pk=delegacion.pk)
+            if not (self.instance and self.instance.pk and self.instance.id_delegacion_id):
+                self.fields['id_delegacion'].initial = delegacion
 
     def clean_nombre(self):
-        nombre = self.cleaned_data.get('nombre', '').strip()
-        if not nombre:
-            raise forms.ValidationError("El nombre de la organización es obligatorio.")
-            
+        nombre = validar_texto_no_vacio(self.cleaned_data.get('nombre'), "El nombre de la organización")
         qs = OrganizacionComunitaria.objects.filter(nombre__iexact=nombre)
         if self.instance and self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
@@ -75,29 +124,47 @@ class OrganizacionComunitariaForm(forms.ModelForm):
             raise forms.ValidationError("Ya existe una organización registrada con este nombre exacto.")
         return nombre
 
+    def clean_direccion(self):
+        return validar_campo_obligatorio_o_sin_datos(self.cleaned_data.get('direccion'), "El domicilio")
+
+    def clean_territorio(self):
+        return validar_campo_obligatorio_o_sin_datos(self.cleaned_data.get('territorio'), "El territorio")
+
+    def clean_n_reg_pj(self):
+        return validar_campo_obligatorio_o_sin_datos(
+            self.cleaned_data.get('n_reg_pj'), "El número de registro de personalidad jurídica"
+        )
+
+    def clean_n_reg_dir(self):
+        return validar_campo_obligatorio_o_sin_datos(
+            self.cleaned_data.get('n_reg_dir'), "El número de registro de directorio"
+        )
+
     def clean_socios_activos(self):
         socios = self.cleaned_data.get('socios_activos')
-        if socios is not None and socios < 0:
+        if socios is None:
+            raise forms.ValidationError("La cantidad de socios activos es obligatoria.")
+        if socios < 0:
             raise forms.ValidationError("La cantidad de socios no puede ser un número negativo.")
         return socios
 
     def clean(self):
         cleaned_data = super().clean()
-        fecha_form = cleaned_data.get('fecha_formacion')
-        fecha_insc = cleaned_data.get('fecha_inscripcion_reg_date')
-        hoy = date.today()
 
-        if fecha_form and fecha_form > hoy:
-            self.add_error('fecha_formacion', "La fecha de formación no puede ser en el futuro.")
-        
-        if fecha_insc and fecha_insc > hoy:
-            self.add_error('fecha_inscripcion_reg_date', "La fecha de inscripción no puede ser en el futuro.")
-            
-        if fecha_form and fecha_insc and fecha_form > fecha_insc:
-            self.add_error('fecha_inscripcion_reg_date', "La fecha de inscripción no puede ser anterior a la formación.")
-            
+        errores_fechas = validar_rango_fechas_organizacion(
+            cleaned_data.get('fecha_formacion'),
+            cleaned_data.get('fecha_inscripcion_reg_date'),
+        )
+        for campo, msg in errores_fechas.items():
+            self.add_error(campo, msg)
+
+        try:
+            validar_organizacion_matriz(self.instance, cleaned_data.get('organizacion_matriz'))
+        except CoreValidationError as e:
+            msg = str(e.message if hasattr(e, 'message') else e.messages[0])
+            self.add_error('organizacion_matriz', msg)
+
         return cleaned_data
-
 
 class AfiliacionVecinoForm(forms.ModelForm):
     class Meta:
