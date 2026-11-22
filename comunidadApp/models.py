@@ -1,7 +1,7 @@
-from django.db import models
 
-
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 
 class OrganizacionComunitaria(models.Model):
@@ -98,20 +98,38 @@ class OrganizacionComunitaria(models.Model):
         
         
 class AfiliacionVecino(models.Model):
-    id_afiliacion = models.AutoField(primary_key=True) 
+    id_afiliacion = models.AutoField(primary_key=True)
     vecino = models.ForeignKey('administracionApp.Vecino', models.DO_NOTHING, db_column='id_vecino')
     organizacion = models.ForeignKey('OrganizacionComunitaria', models.DO_NOTHING, db_column='id_organizacion')
     cargo_organizacion = models.CharField(max_length=100)
     fecha_ingreso = models.DateField(blank=True, null=True)
     estado = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f"Afiliación: {self.vecino} - {self.organizacion}"
-
     class Meta:
         db_table = 'afiliacion_vecino'
         verbose_name_plural = 'Afiliaciones Vecinos'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vecino', 'organizacion'],
+                condition=Q(estado=True),
+                name='uq_afiliacion_vecino_org_activa',
+            )
+        ]
 
+    def __str__(self):
+        return f"Afiliación: {self.vecino} - {self.organizacion}"
+
+    def clean(self):
+        super().clean()
+        if self.organizacion_id and not self.organizacion.estado:
+            raise ValidationError({
+                'organizacion': 'No se puede afiliar a una organización comunitaria inactiva.'
+            })
+
+        # CA2: Si la organización es funcional, se omite cualquier restricción
+        # de coincidencia territorial con el vecino.
+        if self.organizacion_id and self.organizacion.tipo == OrganizacionComunitaria.TipoOrganizacion.FUNCIONAL:
+            return
 
 class CargaFamiliar(models.Model):
     id_carga = models.AutoField(primary_key=True)

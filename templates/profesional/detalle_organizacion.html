@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalle de Organización - Sistema Municipal{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Ficha de Organización Comunitaria</h3>
+{% endblock %}
+
+{% block contenido %}
+{% include 'parciales/mensajes.html' %}
+<div class="container mt-4 mb-5">
+
+    <!-- Encabezado y Acciones Rápidas -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h4 class="fw-bold m-0 texto-guinda">{{ organizacion.nombre }}</h4>
+            <div class="mt-2 d-flex flex-wrap gap-2">
+                <span class="badge {% if organizacion.tipo == 'FUNCIONAL' %}bg-info text-dark{% else %}bg-primary{% endif %}">
+                    {{ organizacion.get_tipo_display }}
+                </span>
+                <span class="badge bg-secondary">{{ organizacion.get_subtipo_display }}</span>
+                <span class="badge {% if organizacion.estado %}bg-success{% else %}bg-danger{% endif %}">
+                    {% if organizacion.estado %}Activa{% else %}Inactiva{% endif %}
+                </span>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{% url 'comunidadApp:lista_organizaciones' %}" class="btn btn-secondary fw-bold shadow-sm">
+                <i class="bi bi-arrow-left"></i> Volver a Organizaciones
+            </a>
+            <a href="{% url 'comunidadApp:editar_organizacion' organizacion.id_organizacion %}" class="btn text-white fw-bold shadow-sm fondo-guinda">
+                <i class="bi bi-pencil-square"></i> Editar Organización
+            </a>
+            {% if organizacion.estado %}
+            <a href="{% url 'comunidadApp:crear_afiliacion' %}?organizacion={{ organizacion.id_organizacion }}&next={{ request.path|urlencode }}" class="btn text-white fw-bold shadow-sm fondo-rojo">
+                + Vincular Vecino
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if organizacion.tiene_datos_incompletos %}
+    <div class="alert alert-warning shadow-sm mb-4">
+        <strong><i class="bi bi-exclamation-triangle-fill"></i> Ficha con datos pendientes:</strong>
+        Faltan completar: {{ organizacion.campos_sin_datos|join:", " }}.
+    </div>
+    {% endif %}
+
+    <!-- Tarjeta de Información General de la Organización -->
+    <div class="card shadow-sm border-0 mb-5 p-4 redondeado-15 caja-gris">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <p class="mb-2"><strong>Delegación Municipal:</strong> {{ organizacion.id_delegacion.nombre|default:"Sin delegación asignada" }}</p>
+                <p class="mb-2"><strong>Territorio / Sector:</strong> {{ organizacion.territorio|default:"SIN DATOS" }}</p>
+                <p class="mb-2"><strong>Domicilio Legal:</strong> {{ organizacion.direccion|default:"SIN DATOS" }}</p>
+                <p class="mb-0"><strong>Socios Activos Declarados:</strong> {{ organizacion.socios_activos }}</p>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-2"><strong>N° Registro Personalidad Jurídica:</strong> {{ organizacion.n_reg_pj|default:"SIN DATOS" }}</p>
+                <p class="mb-2"><strong>N° Registro Directorio:</strong> {{ organizacion.n_reg_dir|default:"SIN DATOS" }}</p>
+                <p class="mb-2"><strong>Fecha de Formación:</strong> {{ organizacion.fecha_formacion|date:"d/m/Y"|default:"SIN DATOS" }}</p>
+                <p class="mb-0"><strong>Fecha Inscripción Registro:</strong> {{ organizacion.fecha_inscripcion_reg_date|date:"d/m/Y"|default:"SIN DATOS" }}</p>
+            </div>
+            {% if organizacion.organizacion_matriz %}
+            <div class="col-12 pt-2 border-top">
+                <p class="mb-0">
+                    <strong>Junta de Vecinos Matriz:</strong>
+                    <a href="{% url 'comunidadApp:detalle_organizacion' organizacion.organizacion_matriz.id_organizacion %}" class="texto-guinda fw-bold text-decoration-none">
+                        {{ organizacion.organizacion_matriz.nombre }}
+                    </a>
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Nómina de Integrantes y Directiva (CA3 / KAN-364) -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-3">
+        <h4 class="fw-bold m-0 texto-guinda">
+            Nómina de Integrantes y Directiva
+            <span class="badge bg-dark ms-2">{{ total_integrantes_activos }}</span>
+        </h4>
+
+        <form method="GET" action="" class="d-flex gap-2">
+            <input type="text" name="q" class="form-control borde-guinda shadow-sm"
+                placeholder="Buscar por vecino, RUT o cargo..."
+                value="{{ query|default_if_none:'' }}">
+            <button type="submit" class="btn text-white fw-bold fondo-guinda shadow-sm">Buscar</button>
+            {% if query %}
+                <a href="{% url 'comunidadApp:detalle_organizacion' organizacion.id_organizacion %}" class="btn btn-outline-secondary shadow-sm">Limpiar</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-5 redondeado-15 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Cargo / Rol</th>
+                            <th>Vecino / Integrante</th>
+                            <th>Teléfono de Contacto</th>
+                            <th>Correo / Dirección</th>
+                            <th class="text-center">Fecha Ingreso</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for afi in afiliaciones_activas %}
+                        <tr>
+                            <td>
+                                {% with cargo_lower=afi.cargo_organizacion|lower %}
+                                <span class="badge {% if 'president' in cargo_lower or 'secretari' in cargo_lower or 'tesorer' in cargo_lower %}fondo-rojo text-white{% else %}bg-secondary{% endif %} px-3 py-2">
+                                    {{ afi.cargo_organizacion }}
+                                </span>
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <a href="{% url 'actividadApp:detalle_vecino' afi.vecino.pk %}" class="fw-bold text-decoration-none text-dark">
+                                    {{ afi.vecino.nombres }} {{ afi.vecino.apellido_paterno }} {{ afi.vecino.apellido_materno|default:"" }}
+                                </a><br>
+                                <small class="text-muted">RUT: {{ afi.vecino.rut|default:"Sin RUT" }}</small>
+                            </td>
+                            <td class="fw-bold text-nowrap">
+                                {{ afi.vecino.telefono|default:"Sin teléfono" }}
+                            </td>
+                            <td>
+                                <div>{{ afi.vecino.correo|default:"Sin correo" }}</div>
+                                <small class="text-muted">{{ afi.vecino.direccion|default:"Sin dirección" }}</small>
+                            </td>
+                            <td class="text-center">{{ afi.fecha_ingreso|date:"d/m/Y"|default:"Sin registro" }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                                    <a href="{% url 'actividadApp:detalle_vecino' afi.vecino.pk %}" class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6" title="Ver ficha del vecino">
+                                        Ficha Vecino
+                                    </a>
+                                    <a href="{% url 'comunidadApp:editar_afiliacion' afi.id_afiliacion %}?next={{ request.path|urlencode }}" class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6" title="Editar cargo o fecha">
+                                        Editar
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger px-2 shadow-sm redondeado-6"
+                                        onclick="confirmarCambioAfiliacionOrg('{{ afi.id_afiliacion }}', '{{ afi.vecino.nombres|escapejs }} {{ afi.vecino.apellido_paterno|escapejs }}', true)">
+                                        Desvincular
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                Esta organización aún no registra vecinos afiliados activos.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% if afiliaciones_inactivas %}
+    <h5 class="fw-bold mb-3 text-muted">Historial de Afiliaciones Inactivas</h5>
+    <div class="card shadow-sm border-0 redondeado-15 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>Cargo</th>
+                            <th>Vecino</th>
+                            <th>Teléfono</th>
+                            <th class="text-center">Fecha Ingreso</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for afi in afiliaciones_inactivas %}
+                        <tr class="text-muted">
+                            <td>{{ afi.cargo_organizacion }}</td>
+                            <td>{{ afi.vecino.nombres }} {{ afi.vecino.apellido_paterno }} ({{ afi.vecino.rut|default:"Sin RUT" }})</td>
+                            <td>{{ afi.vecino.telefono|default:"Sin teléfono" }}</td>
+                            <td class="text-center">{{ afi.fecha_ingreso|date:"d/m/Y"|default:"Sin registro" }}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-success px-3 rounded-pill"
+                                    onclick="confirmarCambioAfiliacionOrg('{{ afi.id_afiliacion }}', '{{ afi.vecino.nombres|escapejs }} {{ afi.vecino.apellido_paterno|escapejs }}', false)">
+                                    Reactivar
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Modal Estado Afiliación desde Organización -->
+<div class="modal fade" id="modalEstadoAfiOrg" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderAfiOrg">
+                <h5 class="modal-title fw-bold" id="modalTituloAfiOrg">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeAfiOrg"></p>
+                <strong class="fs-4 text-dark" id="modalNombreAfiOrg"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstadoAfiOrg" method="POST" action="">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarAfiOrg">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambioAfiliacionOrg(id, nombreVecino, estaActivo) {
+    const actionUrl = "{% url 'comunidadApp:cambiar_estado_afiliacion' 0 %}".replace('0', id);
+    const header = document.getElementById('modalHeaderAfiOrg');
+    const titulo = document.getElementById('modalTituloAfiOrg');
+    const mensaje = document.getElementById('modalMensajeAfiOrg');
+    const nombreStr = document.getElementById('modalNombreAfiOrg');
+    const btn = document.getElementById('btnConfirmarAfiOrg');
+    const form = document.getElementById('formCambiarEstadoAfiOrg');
+
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Desvincular Vecino';
+        mensaje.innerText = '¿Estás segura de inhabilitar la afiliación de';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desvincular';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Reactivar Afiliación';
+        mensaje.innerText = '¿Deseas reactivar la afiliación de';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+
+    nombreStr.innerText = nombreVecino + '?';
+    form.action = actionUrl;
+
+    new bootstrap.Modal(document.getElementById('modalEstadoAfiOrg')).show();
+}
+</script>
+{% endblock %}

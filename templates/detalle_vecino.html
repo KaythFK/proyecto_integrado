@@ -3,12 +3,12 @@
 
 {% block title %}Historial del Vecino - Sistema Municipal{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0">Ficha e Historial del Vecino</h3>
 {% endblock %}
 
 {% block contenido %}
+{% include 'parciales/mensajes.html' %}
 <div class="container mt-4 mb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="fw-bold m-0 texto-guinda">Detalle del Ciudadano</h4>
@@ -18,7 +18,7 @@
     </div>
 
     <!-- Tarjeta de Información del Vecino -->
-    <div class="card shadow-sm border-0 mb-4 p-4" style="border-radius: 12px; background-color: #f8f9fa;">
+    <div class="card shadow-sm border-0 mb-4 p-4 redondeado-12 caja-gris">
         <div class="row">
             <div class="col-md-6">
                 <h4 class="fw-bold text-dark mb-3">{{ vecino.nombres }} {{ vecino.apellido_paterno }} {{ vecino.apellido_materno|default:"" }}</h4>
@@ -28,6 +28,79 @@
             <div class="col-md-6">
                 <p class="mb-1"><strong>Correo Electrónico:</strong> {{ vecino.correo|default:"Sin registro" }}</p>
                 <p class="mb-1"><strong>Dirección:</strong> {{ vecino.direccion|default:"Sin registro" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organizaciones Comunitarias Afiliadas (HU-38 / CA1 - CA2 - CA3) -->
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-3 gap-2">
+        <h4 class="fw-bold m-0 texto-guinda">Organizaciones Comunitarias Afiliadas</h4>
+        <a href="{% url 'comunidadApp:crear_afiliacion' %}?vecino={{ vecino.pk }}&next={{ request.path|urlencode }}" class="btn text-white fw-bold shadow-sm fondo-rojo">
+            + Afiliar a Organización
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-5 redondeado-15 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Organización</th>
+                            <th class="text-center">Tipo</th>
+                            <th>Cargo / Rol</th>
+                            <th class="text-center">Fecha Ingreso</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for afi in afiliaciones_vecino %}
+                        <tr class="{% if not afi.estado %}table-secondary text-muted opacity-75{% endif %}">
+                            <td>
+                                <strong>{{ afi.organizacion.nombre }}</strong><br>
+                                <small class="text-muted">
+                                    Delegación: {{ afi.organizacion.id_delegacion.nombre|default:"Sin delegación" }}
+                                </small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {% if afi.organizacion.tipo == 'FUNCIONAL' %}bg-info text-dark{% else %}bg-primary{% endif %}">
+                                    {{ afi.organizacion.get_tipo_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ afi.cargo_organizacion }}</span>
+                            </td>
+                            <td class="text-center">{{ afi.fecha_ingreso|date:"d/m/Y"|default:"Sin registro" }}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                                    <a href="{% url 'comunidadApp:detalle_organizacion' afi.organizacion.pk %}" class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6" title="Ver detalle de organización">
+                                        Ver Organización
+                                    </a>
+                                    <a href="{% url 'comunidadApp:editar_afiliacion' afi.id_afiliacion %}?next={{ request.path|urlencode }}" class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6" title="Editar afiliación">
+                                        Editar
+                                    </a>
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="badge mb-1 {% if afi.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                            {% if afi.estado %}Activo{% else %}Inactivo{% endif %}
+                                        </span>
+                                        <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                            <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
+                                                {% if afi.estado %}checked{% endif %}
+                                                onclick="confirmarCambioAfiliacion(event, '{{ afi.id_afiliacion }}', '{{ afi.organizacion.nombre|escapejs }}', '{{ afi.estado }}')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                Este vecino no registra afiliaciones a organizaciones comunitarias.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -80,4 +153,62 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Estado Afiliación -->
+<div class="modal fade" id="modalEstadoAfiliacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderAfi">
+                <h5 class="modal-title fw-bold" id="modalTituloAfi">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeAfi"></p>
+                <strong class="fs-4 text-dark" id="modalNombreAfi"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstadoAfi" method="POST" action="">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarAfi">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambioAfiliacion(event, id, nombreOrg, estadoActualStr) {
+    event.preventDefault();
+    const estaActivo = estadoActualStr === 'True';
+    const actionUrl = "{% url 'comunidadApp:cambiar_estado_afiliacion' 0 %}".replace('0', id);
+
+    const header = document.getElementById('modalHeaderAfi');
+    const titulo = document.getElementById('modalTituloAfi');
+    const mensaje = document.getElementById('modalMensajeAfi');
+    const nombreStr = document.getElementById('modalNombreAfi');
+    const btn = document.getElementById('btnConfirmarAfi');
+    const form = document.getElementById('formCambiarEstadoAfi');
+
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Desactivar Afiliación';
+        mensaje.innerText = '¿Estás segura de inhabilitar la afiliación con';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Reactivar Afiliación';
+        mensaje.innerText = '¿Deseas restaurar la afiliación con';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+
+    nombreStr.innerText = nombreOrg + '?';
+    form.action = actionUrl;
+
+    new bootstrap.Modal(document.getElementById('modalEstadoAfiliacion')).show();
+}
+</script>
 {% endblock %}
