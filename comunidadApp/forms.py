@@ -1,6 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError as CoreValidationError
-from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar, CelebracionDelegacion
+from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar, CelebracionDelegacion, BeneficiarioCelebracion
 from config.utils import (
     validar_y_formatear_rut,
     validar_texto_no_vacio,
@@ -18,6 +18,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from .models import CatalogoCelebracion, Celebracion
 from django.db.models import Q
+
 
 
 class OrganizacionComunitariaForm(forms.ModelForm):
@@ -557,4 +558,62 @@ class CelebracionDelegacionForm(forms.ModelForm):
         if activa and not lugar:
             self.add_error('lugar', 'Debes indicar el lugar o recinto donde se realizará el evento.')
 
+        return cleaned_data
+
+
+
+
+class InscribirBeneficiariosForm(forms.Form):
+    vecinos = forms.ModelMultipleChoiceField(
+        queryset=Vecino.objects.none(),
+        required=False,
+        label='Vecinos a Inscribir',
+        widget=forms.SelectMultiple(attrs={
+            'class': 'form-select borde-guinda',
+            'size': '7',
+        }),
+    )
+    cargas_familiares = forms.ModelMultipleChoiceField(
+        queryset=CargaFamiliar.objects.none(),
+        required=False,
+        label='Cargas Familiares a Inscribir',
+        widget=forms.SelectMultiple(attrs={
+            'class': 'form-select borde-guinda',
+            'size': '7',
+        }),
+    )
+    observacion = forms.CharField(
+        required=False,
+        max_length=255,
+        label='Observación General de Inscripción',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control borde-guinda',
+            'placeholder': 'Ej: Inscrito para entrega de regalo navideño...',
+        }),
+    )
+
+    def __init__(self, *args, celebracion_delegacion=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.celebracion_delegacion = celebracion_delegacion
+
+        vecinos_qs = Vecino.objects.filter(estado=True).order_by('nombres', 'apellido_paterno')
+        cargas_qs = CargaFamiliar.objects.filter(estado=True).order_by('nombres', 'apellido_paterno')
+
+        self.fields['vecinos'].queryset = vecinos_qs
+        self.fields['cargas_familiares'].queryset = cargas_qs
+        self.fields['vecinos'].label_from_instance = lambda v: (
+            f"{v.nombres} {v.apellido_paterno} {v.apellido_materno or ''} — RUT: {v.rut or 'S/R'}".strip()
+        )
+        self.fields['cargas_familiares'].label_from_instance = lambda c: (
+            f"{c.nombres} {c.apellido_paterno} {c.apellido_materno or ''} — RUT: {c.rut}".strip()
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        vecinos = cleaned_data.get('vecinos')
+        cargas = cleaned_data.get('cargas_familiares')
+        if not vecinos and not cargas:
+            raise ValidationError(
+                'Debes seleccionar al menos un vecino o una carga familiar para inscribir.'
+            )
         return cleaned_data

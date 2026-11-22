@@ -41,4 +41,10 @@ urlpatterns = [
     path('celebraciones/delegacion/', views.panel_celebraciones_delegacion, name='panel_celebraciones_delegacion'),
     path('celebraciones/delegacion/<int:id_celebracion>/toggle/', views.toggle_celebracion_delegacion, name='toggle_celebracion_delegacion'),
     path('celebraciones/delegacion/<int:id_celebracion>/configurar/', views.configurar_celebracion_delegacion, name='configurar_celebracion_delegacion'),
+
+    #Beneficiarios y auditoría de entregas
+    path('celebraciones/beneficiarios/', views.panel_beneficiarios_celebracion, name='panel_beneficiarios_celebracion'),
+    path('celebraciones/evento/<int:id_cel_delegacion>/beneficiarios/inscribir/', views.inscribir_beneficiarios_celebracion, name='inscribir_beneficiarios_celebracion'),
+    path('celebraciones/beneficiarios/<int:id_beneficiario_cel>/entrega/', views.auditar_entrega_beneficiario, name='auditar_entrega_beneficiario'),
+    path('celebraciones/beneficios-admin/', views.gestion_beneficios_admin, name='gestion_beneficios_admin'),
 ]

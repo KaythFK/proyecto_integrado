@@ -16,8 +16,12 @@ from django.core.exceptions import ValidationError
 from administracionApp.models import Delegacion
 from config.utils import delegacion_del_delegado
 from .forms import CelebracionDelegacionForm
-
-
+from django.utils import timezone
+from .models import BeneficiarioCelebracion, CelebracionDelegacion, CargaFamiliar
+from .forms import InscribirBeneficiariosForm
+from django.urls import reverse
+import json
+from django.db.models import Count, Q
 
 
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
@@ -825,6 +829,8 @@ def panel_profesional(request):
     })
 
 #Vistas Celebraciones
+# --- VISTAS CELEBRACIONES ---
+
 @login_required
 @role_required('Administrador', 'Coordinador', 'Delegado', 'Profesional')
 def lista_celebraciones(request):
@@ -928,33 +934,12 @@ def cambiar_estado_celebracion(request, id_celebracion):
             celebracion.estado = nuevo_estado
             celebracion.save()
             registrar_auditoria(request, "CAMBIO_ESTADO", "Celebracion", celebracion, datos_antiguos)
-def _obtener_delegacion_activa_sesion(request):
-    """
-    [KAN-406] Obtiene la delegación del delegado y sincroniza su ID en sesión.
-    Para Administrador/Coordinador permite seleccionar o consultar una delegación.
-    """
-    delegacion_usuario = delegacion_del_delegado(request.user)
-    if delegacion_usuario is not None:
-        request.session['delegacion_id'] = delegacion_usuario.pk
-        return delegacion_usuario
 
-    del_param = (request.GET.get('delegacion') or request.POST.get('delegacion') or '').strip()
-    if del_param.isdigit():
-        del_obj = Delegacion.objects.filter(pk=int(del_param), estado=True).first()
-        if del_obj:
-            request.session['delegacion_id'] = del_obj.pk
-            return del_obj
+        accion = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'La celebración "{celebracion.nombre}" fue {accion}.')
 
-    sesion_id = request.session.get('delegacion_id')
-    if sesion_id:
-        return Delegacion.objects.filter(pk=sesion_id, estado=True).first()
+    return redirect('comunidadApp:lista_celebraciones')
 
-    return None
-
-
-# ==========================================
-# HU-41: CELEBRACIONES POR DELEGACIÓN (CA1 - CA3)
-# ==========================================
 
 def _obtener_delegacion_activa_sesion(request):
     """
@@ -1113,8 +1098,6 @@ def configurar_celebracion_delegacion(request, id_celebracion):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # Solo se guarda el registro local de esta delegación;
-                    # la celebración global y otras delegaciones no se modifican (KAN-407).
                     local_guardado = form.save()
                     registrar_auditoria(request, "EDICION", "CelebracionDelegacion", local_guardado, datos_antiguos)
 
@@ -1136,3 +1119,375 @@ def configurar_celebracion_delegacion(request, id_celebracion):
         'delegacion': delegacion,
         'titulo': f'Configurar Evento Local — {celebracion.nombre}',
     })
+
+
+def _obtener_delegacion_operativa(request):
+    """Obtiene la delegación activa para Delegado, Profesional o gestores globales."""
+    delegacion = _obtener_delegacion_activa_sesion(request)
+    if delegacion:
+        return delegacion
+
+    if request.user.groups.filter(name='Profesional').exists():
+        prof = getattr(request.user, 'profesional', None)
+        if prof and prof.id_delegacion:
+            request.session['delegacion_id'] = prof.id_delegacion.pk
+            return prof.id_delegacion
+
+    return None
+
+
+# ==========================================
+# HU-42: BENEFICIARIOS Y AUDITORÍA DE ENTREGAS (CA1 - CA3)
+# ==========================================
+
+@login_required
+@role_required('Profesional', 'Delegado', 'Administrador', 'Coordinador')
+def panel_beneficiarios_celebracion(request):
+    es_gestor_global = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+    delegacion = _obtener_delegacion_operativa(request)
+
+    if not delegacion and not es_gestor_global:
+        messages.error(request, 'No tienes una delegación asignada para gestionar beneficiarios de celebraciones.')
+        return redirect('comunidadApp:lista_celebraciones')
+
+    eventos_qs = (
+        CelebracionDelegacion.objects.filter(activa=True, celebracion__estado=True)
+        .select_related('celebracion', 'celebracion__tipo', 'delegacion')
+        .order_by('-fecha_ejecucion', '-id_cel_delegacion')
+    )
+    if delegacion:
+        eventos_qs = eventos_qs.filter(delegacion=delegacion)
+
+    eventos = list(eventos_qs)
+
+    evento_param = (request.GET.get('evento') or '').strip()
+    evento_seleccionado = None
+    if evento_param.isdigit():
+        evento_seleccionado = next((e for e in eventos if e.pk == int(evento_param)), None)
+    if not evento_seleccionado and eventos:
+        evento_seleccionado = eventos[0]
+
+    estado_entrega = (request.GET.get('estado_entrega') or 'todos').strip().lower()
+    if estado_entrega not in ('todos', 'pendiente', 'entregado'):
+        estado_entrega = 'todos'
+
+    query = (request.GET.get('q') or '').strip()
+
+    beneficiarios_qs = BeneficiarioCelebracion.objects.none()
+    total_inscritos = 0
+    total_entregados = 0
+    total_pendientes = 0
+    vecinos_entregados = 0
+    vecinos_pendientes = 0
+    cargas_entregadas = 0
+    cargas_pendientes = 0
+
+    if evento_seleccionado:
+        base_qs = (
+            BeneficiarioCelebracion.objects.filter(celebracion_delegacion=evento_seleccionado)
+            .select_related('vecino', 'carga_familiar', 'celebracion_delegacion__delegacion')
+            .order_by('beneficio_entregado', '-id_beneficiario_cel')
+        )
+        total_inscritos = base_qs.count()
+        total_entregados = base_qs.filter(beneficio_entregado=True).count()
+        total_pendientes = total_inscritos - total_entregados
+
+        vecinos_entregados = base_qs.filter(vecino__isnull=False, beneficio_entregado=True).count()
+        vecinos_pendientes = base_qs.filter(vecino__isnull=False, beneficio_entregado=False).count()
+        cargas_entregadas = base_qs.filter(carga_familiar__isnull=False, beneficio_entregado=True).count()
+        cargas_pendientes = base_qs.filter(carga_familiar__isnull=False, beneficio_entregado=False).count()
+
+        beneficiarios_qs = base_qs
+        if estado_entrega == 'entregado':
+            beneficiarios_qs = beneficiarios_qs.filter(beneficio_entregado=True)
+        elif estado_entrega == 'pendiente':
+            beneficiarios_qs = beneficiarios_qs.filter(beneficio_entregado=False)
+
+        if query:
+            beneficiarios_qs = beneficiarios_qs.filter(
+                Q(vecino__nombres__icontains=query) |
+                Q(vecino__apellido_paterno__icontains=query) |
+                Q(vecino__rut__icontains=query) |
+                Q(carga_familiar__nombres__icontains=query) |
+                Q(carga_familiar__apellido_paterno__icontains=query) |
+                Q(carga_familiar__rut__icontains=query) |
+                Q(observacion__icontains=query)
+            ).distinct()
+
+    resumen_eventos_qs = (
+        CelebracionDelegacion.objects.filter(pk__in=[e.pk for e in eventos])
+        .select_related('celebracion', 'delegacion')
+        .annotate(
+            inscritos=Count('beneficiariocelebracion'),
+            entregados=Count(
+                'beneficiariocelebracion',
+                filter=Q(beneficiariocelebracion__beneficio_entregado=True),
+            ),
+        )
+        .order_by('-fecha_ejecucion', '-id_cel_delegacion')
+    )
+
+    datos_grafica_eventos = []
+    for ev in resumen_eventos_qs:
+        datos_grafica_eventos.append({
+            'nombre': f"{ev.celebracion.nombre} ({ev.delegacion.nombre})" if not delegacion else ev.celebracion.nombre,
+            'entregados': ev.entregados,
+            'pendientes': ev.inscritos - ev.entregados,
+        })
+
+    delegaciones_disponibles = (
+        Delegacion.objects.filter(estado=True).order_by('nombre')
+        if es_gestor_global else Delegacion.objects.none()
+    )
+
+    return render(request, 'profesional/panel_beneficiarios.html', {
+        'eventos': eventos,
+        'evento_seleccionado': evento_seleccionado,
+        'beneficiarios': beneficiarios_qs,
+        'total_inscritos': total_inscritos,
+        'total_entregados': total_entregados,
+        'total_pendientes': total_pendientes,
+        'porcentaje_entrega': round((total_entregados / total_inscritos) * 100, 1) if total_inscritos else 0,
+        'vecinos_entregados': vecinos_entregados,
+        'vecinos_pendientes': vecinos_pendientes,
+        'cargas_entregadas': cargas_entregadas,
+        'cargas_pendientes': cargas_pendientes,
+        'datos_grafica_eventos_json': json.dumps(datos_grafica_eventos),
+        'estado_entrega': estado_entrega,
+        'query': query,
+        'delegacion': delegacion,
+        'delegaciones_disponibles': delegaciones_disponibles,
+        'es_gestor_global': es_gestor_global,
+    })
+
+
+@login_required
+@role_required('Profesional', 'Delegado', 'Administrador', 'Coordinador')
+def inscribir_beneficiarios_celebracion(request, id_cel_delegacion):
+    es_gestor_global = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+    delegacion = _obtener_delegacion_operativa(request)
+
+    qs_evento = CelebracionDelegacion.objects.filter(pk=id_cel_delegacion).select_related(
+        'celebracion',
+        'delegacion',
+    )
+    if delegacion and not es_gestor_global:
+        qs_evento = qs_evento.filter(delegacion=delegacion)
+
+    evento = get_object_or_404(qs_evento)
+
+    if request.method == 'POST':
+        form = InscribirBeneficiariosForm(request.POST, celebracion_delegacion=evento)
+        if form.is_valid():
+            vecinos_sel = form.cleaned_data.get('vecinos') or []
+            cargas_sel = form.cleaned_data.get('cargas_familiares') or []
+            observacion = (form.cleaned_data.get('observacion') or '').strip() or None
+
+            nuevos_creados = 0
+            try:
+                with transaction.atomic():
+                    for vecino_obj in vecinos_sel:
+                        obj, created = BeneficiarioCelebracion.objects.get_or_create(
+                            celebracion_delegacion=evento,
+                            vecino=vecino_obj,
+                            carga_familiar=None,
+                            defaults={'observacion': observacion},
+                        )
+                        if created:
+                            nuevos_creados += 1
+                            registrar_auditoria(request, "CREACION", "BeneficiarioCelebracion", obj, None)
+
+                    for carga_obj in cargas_sel:
+                        vinculo = (
+                            VinculoFamiliar.objects.filter(carga=carga_obj, estado=True)
+                            .select_related('familiar')
+                            .first()
+                        )
+                        vecino_asociado = vinculo.familiar if vinculo else None
+                        obj, created = BeneficiarioCelebracion.objects.get_or_create(
+                            celebracion_delegacion=evento,
+                            vecino=vecino_asociado,
+                            carga_familiar=carga_obj,
+                            defaults={'observacion': observacion},
+                        )
+                        if created:
+                            nuevos_creados += 1
+                            registrar_auditoria(request, "CREACION", "BeneficiarioCelebracion", obj, None)
+
+                messages.success(
+                    request,
+                    f'Se inscribieron {nuevos_creados} nuevo(s) beneficiario(s) en {evento.celebracion.nombre}.',
+                )
+                base_url = reverse('comunidadApp:panel_beneficiarios_celebracion')
+                return redirect(f"{base_url}?evento={evento.pk}")
+            except Exception as e:
+                messages.error(request, f'Error al inscribir beneficiarios: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = InscribirBeneficiariosForm(celebracion_delegacion=evento)
+
+    inscritos_actuales = BeneficiarioCelebracion.objects.filter(celebracion_delegacion=evento)
+    vecinos_inscritos_ids = list(
+        inscritos_actuales.filter(vecino__isnull=False, carga_familiar__isnull=True)
+        .values_list('vecino_id', flat=True)
+    )
+    cargas_inscritas_ids = list(
+        inscritos_actuales.filter(carga_familiar__isnull=False)
+        .values_list('carga_familiar_id', flat=True)
+    )
+
+    return render(request, 'profesional/form_beneficiarios.html', {
+        'form': form,
+        'evento': evento,
+        'delegacion': evento.delegacion,
+        'vecinos_inscritos_ids': vecinos_inscritos_ids,
+        'cargas_inscritas_ids': cargas_inscritas_ids,
+    })
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def gestion_beneficios_admin(request):
+    delegacion_id = (request.GET.get('delegacion') or '').strip()
+    celebracion_id = (request.GET.get('celebracion') or '').strip()
+    estado_entrega = (request.GET.get('estado_entrega') or 'todos').strip().lower()
+    query = (request.GET.get('q') or '').strip()
+
+    if estado_entrega not in ('todos', 'pendiente', 'entregado'):
+        estado_entrega = 'todos'
+
+    beneficios_qs = (
+        BeneficiarioCelebracion.objects.all()
+        .select_related(
+            'vecino',
+            'carga_familiar',
+            'celebracion_delegacion__celebracion',
+            'celebracion_delegacion__celebracion__tipo',
+            'celebracion_delegacion__delegacion',
+        )
+        .order_by('beneficio_entregado', '-fecha_entrega', '-id_beneficiario_cel')
+    )
+
+    if delegacion_id.isdigit():
+        beneficios_qs = beneficios_qs.filter(celebracion_delegacion__delegacion_id=int(delegacion_id))
+
+    if celebracion_id.isdigit():
+        beneficios_qs = beneficios_qs.filter(celebracion_delegacion__celebracion_id=int(celebracion_id))
+
+    if query:
+        beneficios_qs = beneficios_qs.filter(
+            Q(vecino__nombres__icontains=query) |
+            Q(vecino__apellido_paterno__icontains=query) |
+            Q(vecino__rut__icontains=query) |
+            Q(carga_familiar__nombres__icontains=query) |
+            Q(carga_familiar__apellido_paterno__icontains=query) |
+            Q(carga_familiar__rut__icontains=query) |
+            Q(celebracion_delegacion__celebracion__nombre__icontains=query) |
+            Q(celebracion_delegacion__delegacion__nombre__icontains=query) |
+            Q(observacion__icontains=query)
+        ).distinct()
+
+    total_asignados = beneficios_qs.count()
+    total_entregados = beneficios_qs.filter(beneficio_entregado=True).count()
+    total_pendientes = total_asignados - total_entregados
+
+    if estado_entrega == 'entregado':
+        beneficios_qs = beneficios_qs.filter(beneficio_entregado=True)
+    elif estado_entrega == 'pendiente':
+        beneficios_qs = beneficios_qs.filter(beneficio_entregado=False)
+
+    eventos_locales = (
+        CelebracionDelegacion.objects.filter(activa=True, celebracion__estado=True)
+        .select_related('celebracion', 'delegacion')
+        .order_by('-fecha_ejecucion', '-id_cel_delegacion')
+    )
+    if delegacion_id.isdigit():
+        eventos_locales = eventos_locales.filter(delegacion_id=int(delegacion_id))
+    if celebracion_id.isdigit():
+        eventos_locales = eventos_locales.filter(celebracion_id=int(celebracion_id))
+
+    eventos_locales_list = list(eventos_locales)
+    evento_destino = eventos_locales_list[0] if eventos_locales_list else None
+
+    delegaciones = Delegacion.objects.filter(estado=True).order_by('nombre')
+    celebraciones = Celebracion.objects.filter(estado=True).order_by('nombre')
+
+    return render(request, 'administrador/beneficios/lista_beneficios.html', {
+        'beneficios': beneficios_qs,
+        'total_asignados': total_asignados,
+        'total_entregados': total_entregados,
+        'total_pendientes': total_pendientes,
+        'delegaciones': delegaciones,
+        'celebraciones': celebraciones,
+        'eventos_locales': eventos_locales_list,
+        'evento_destino': evento_destino,
+        'delegacion_id': delegacion_id,
+        'celebracion_id': celebracion_id,
+        'estado_entrega': estado_entrega,
+        'query': query,
+    })
+
+
+@login_required
+@role_required('Profesional', 'Delegado', 'Administrador', 'Coordinador')
+def auditar_entrega_beneficiario(request, id_beneficiario_cel):
+    if request.method == 'POST':
+        es_gestor_global = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+        delegacion = _obtener_delegacion_operativa(request)
+
+        qs = BeneficiarioCelebracion.objects.filter(pk=id_beneficiario_cel).select_related(
+            'celebracion_delegacion__delegacion',
+            'vecino',
+            'carga_familiar',
+        )
+        if delegacion and not es_gestor_global:
+            qs = qs.filter(celebracion_delegacion__delegacion=delegacion)
+
+        beneficiario = get_object_or_404(qs)
+        datos_antiguos = model_to_dict(beneficiario)
+
+        entregado = request.POST.get('beneficio_entregado') == 'on'
+        observacion = (request.POST.get('observacion') or '').strip()
+
+        try:
+            with transaction.atomic():
+                beneficiario.beneficio_entregado = entregado
+                if entregado:
+                    if not beneficiario.fecha_entrega:
+                        beneficiario.fecha_entrega = timezone.now()
+                else:
+                    beneficiario.fecha_entrega = None
+
+                beneficiario.observacion = observacion or None
+                beneficiario.save()
+
+                registrar_auditoria(
+                    request,
+                    "EDICION",
+                    "BeneficiarioCelebracion",
+                    beneficiario,
+                    datos_antiguos,
+                )
+
+            estado_txt = "marcada como ENTREGADA" if entregado else "marcada como PENDIENTE"
+            messages.success(request, f'La entrega del beneficio fue {estado_txt}.')
+        except Exception as e:
+            messages.error(request, f'Error al registrar la auditoría de entrega: {str(e)}')
+
+        origen = (request.POST.get('origen') or '').strip()
+        if origen == 'admin':
+            params = []
+            for campo in ('delegacion', 'celebracion', 'estado_entrega', 'q'):
+                val = (request.POST.get(campo) or '').strip()
+                if val:
+                    params.append(f"{campo}={val}")
+            base_url = reverse('comunidadApp:gestion_beneficios_admin')
+            return redirect(f"{base_url}?{'&'.join(params)}" if params else base_url)
+
+        evento_id = beneficiario.celebracion_delegacion_id
+        estado_filtro = request.POST.get('estado_entrega') or 'todos'
+        base_url = reverse('comunidadApp:panel_beneficiarios_celebracion')
+        return redirect(f"{base_url}?evento={evento_id}&estado_entrega={estado_filtro}")
+
+    return redirect('comunidadApp:panel_beneficiarios_celebracion')
