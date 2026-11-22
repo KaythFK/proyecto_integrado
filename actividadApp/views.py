@@ -14,7 +14,7 @@ from monitoreoApp.services import dias_aviso_vencimiento, registrar_incumplimien
 from .filters import ActividadFilter
 from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades, delegacion_del_delegado
 from tuboApp.models import Compromiso
-from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias, rol_usuario
+from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias, rol_usuario, validar_imagen_evidencia
 from django.db import transaction
 from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -211,12 +211,18 @@ def editar_actividad(request, id_actividad):
 # No olvides importar la función arriba:
 # from config.utils import validar_actividad_permite_evidencias
 
+def _clave_ingreso_evidencia(ev):
+    meta = ev.metadatos if isinstance(ev.metadatos, dict) else {}
+    lote = meta.get('lote_id') or ev.fecha.strftime('%Y%m%d%H%M')
+    return f"{ev.id_actividad_id}_{lote}"
+
+
 @login_required
 @role_required('Profesional', 'Delegado', 'Administrador')
 def registrar_evidencia(request, actividad_id):
     actividad = get_object_or_404(Actividad, id_actividad=actividad_id)
     validar_acceso_actividad(request.user, actividad)
-    
+
     # NUEVO: Escudo modular desde utils.py
     try:
         validar_actividad_permite_evidencias(actividad)
@@ -224,42 +230,65 @@ def registrar_evidencia(request, actividad_id):
         mensaje_error = str(e.message if hasattr(e, 'message') else e.messages[0])
         messages.warning(request, mensaje_error)
         return redirect(request.META.get('HTTP_REFERER', 'actividadApp:dashboard_profesional'))
-    
+
+    errores_archivos = []
+
     if request.method == 'POST':
-        form = EvidenciaForm(request.POST, request.FILES)
-        if form.is_valid():
+        archivos = request.FILES.getlist('archivo_foto')
+        if not archivos:
+            errores_archivos.append('Debes seleccionar al menos una fotografía o archivo de respaldo.')
+
+        archivos_validados = []
+        for archivo in archivos:
             try:
+                archivos_validados.append(validar_imagen_evidencia(archivo))
+            except ValidationError as e:
+                msg = str(e.message if hasattr(e, 'message') else e.messages[0])
+                errores_archivos.append(f"{archivo.name}: {msg}")
+
+        if not errores_archivos:
+            try:
+                lote_id = str(uuid.uuid4())[:8]
+                autor_nombre = request.user.username if request.user.is_authenticated else 'Profesional'
                 with transaction.atomic():
-                    evidencia = form.save(commit=False)
-                    evidencia.id_actividad = actividad
-                    evidencia.estado = True
-                    
-                    autor_nombre = request.user.username if request.user.is_authenticated else 'Profesional'
-                    evidencia.metadatos = {
-                        "codigo_actividad": actividad.codigo_unico,
-                        "autor": autor_nombre,
-                        "origen": "Panel Profesional"
-                    }
-                    evidencia.save()
-                    
-                    registrar_auditoria(request, "CREACION", "Evidencia", evidencia)
-                
-                messages.success(request, f'Evidencia vinculada correctamente al código {actividad.codigo_unico}.')
-                
+                    for idx, archivo_limpio in enumerate(archivos_validados, start=1):
+                        evidencia = Evidencia(
+                            id_actividad=actividad,
+                            archivo_foto=archivo_limpio,
+                            estado=True,
+                            metadatos={
+                                "codigo_actividad": actividad.codigo_unico,
+                                "autor": autor_nombre,
+                                "origen": "Panel Profesional",
+                                "lote_id": lote_id,
+                                "lote_indice": idx,
+                                "lote_total": len(archivos_validados),
+                            },
+                        )
+                        evidencia.save()
+                        registrar_auditoria(request, "CREACION", "Evidencia", evidencia)
+
+                cantidad = len(archivos_validados)
+                if cantidad == 1:
+                    messages.success(request, f'Evidencia vinculada correctamente al código {actividad.codigo_unico}.')
+                else:
+                    messages.success(request, f'{cantidad} evidencias vinculadas correctamente al código {actividad.codigo_unico}.')
+
                 if request.user.groups.filter(name='Delegado').exists():
                     return redirect(url_con_filtros(request, 'actividadApp:actividades_delegacion'))
                 return redirect('actividadApp:dashboard_profesional')
-                
+
             except Exception as e:
-                messages.error(request, f'Error al guardar la evidencia: {str(e)}')
+                messages.error(request, f'Error al guardar las evidencias: {str(e)}')
         else:
-            messages.error(request, 'Por favor corrige los errores del formulario.')
-    else:
-        form = EvidenciaForm(initial={'id_actividad': actividad})
+            messages.error(request, 'Por favor corrige los errores en los archivos seleccionados.')
+
+    form = EvidenciaForm(initial={'id_actividad': actividad})
 
     context = {
         'form': form,
         'actividad': actividad,
+        'errores_archivos': errores_archivos,
     }
     return render(request, 'profesional/registrar_evidencia.html', context)
 
@@ -790,11 +819,15 @@ def cambiar_estado_retroalimentacion(request, id_retroalimentacion):
 @login_required
 @role_required('Administrador', 'Profesional', 'Delegado')
 def lista_evidencias(request):
-    query = request.GET.get('q')
-    
+    query = (request.GET.get('q') or '').strip()
+
     # Aplicamos la regla modular de filtrado por rol
-    evidencias = filtrar_evidencias_por_rol(request.user)
-    
+    evidencias = (
+        filtrar_evidencias_por_rol(request.user)
+        .select_related('id_actividad', 'id_actividad__id_profesional')
+        .order_by('-id_evidencia')
+    )
+
     # Lógica de búsqueda por texto
     if query:
         evidencias = evidencias.filter(
@@ -803,17 +836,54 @@ def lista_evidencias(request):
             Q(id_actividad__codigo_unico__icontains=query)
         ).distinct()
 
+    evidencias_list = list(evidencias)
+    validaciones_por_evidencia = {}
+    for val in Validacion.objects.filter(id_evidencia__in=evidencias_list).select_related('id_validador').order_by('-id_validacion'):
+        if val.id_evidencia_id not in validaciones_por_evidencia:
+            validaciones_por_evidencia[val.id_evidencia_id] = val
+
+    grupos_map = {}
+    for ev in evidencias_list:
+        clave = _clave_ingreso_evidencia(ev)
+        if clave not in grupos_map:
+            grupos_map[clave] = {
+                'evidencia': ev,
+                'evidencias': [],
+                'validacion': None,
+                'estado_revision': ev.estado_revision,
+                'tiene_pendientes': False,
+                'url_evidencias': [],
+            }
+
+        grupo = grupos_map[clave]
+        grupo['evidencias'].append(ev)
+        if ev.estado_revision == 'PENDIENTE':
+            grupo['tiene_pendientes'] = True
+            grupo['url_evidencias'].append(f"evidencias={ev.pk}")
+
+        if not grupo['validacion'] and ev.pk in validaciones_por_evidencia:
+            grupo['validacion'] = validaciones_por_evidencia[ev.pk]
+
+        estados = {item.estado_revision for item in grupo['evidencias']}
+        if 'RECHAZADO' in estados:
+            grupo['estado_revision'] = 'RECHAZADO'
+        elif estados == {'APROBADO'}:
+            grupo['estado_revision'] = 'APROBADO'
+        elif 'PENDIENTE' in estados:
+            grupo['estado_revision'] = 'PENDIENTE'
+        else:
+            grupo['estado_revision'] = ev.estado_revision
+
     evidencias_con_validacion = []
-    for ev in evidencias:
-        validacion = Validacion.objects.filter(id_evidencia=ev).first()
-        evidencias_con_validacion.append({
-            'evidencia': ev,
-            'validacion': validacion
-        })
-        
+    for grupo in grupos_map.values():
+        if not grupo['url_evidencias']:
+            grupo['url_evidencias'] = [f"evidencias={ev.pk}" for ev in grupo['evidencias']]
+        grupo['query_validacion'] = "&".join(grupo['url_evidencias'])
+        evidencias_con_validacion.append(grupo)
+
     return render(request, 'administrador/evidencias/lista_evidencias.html', {
         'evidencias_con_validacion': evidencias_con_validacion,
-        'query': query
+        'query': query,
     })
 
 @login_required
@@ -900,33 +970,65 @@ def cambiar_estado_evidencia(request, id_evidencia):
 @login_required
 @role_required('Administrador', 'Delegado')
 def lista_validaciones(request):
-    query = request.GET.get('q')
-    validaciones = Validacion.objects.all().select_related('id_evidencia', 'id_validador').order_by('-id_validacion')
+    query = (request.GET.get('q') or '').strip()
+    validaciones = Validacion.objects.all().select_related(
+        'id_evidencia',
+        'id_evidencia__id_actividad',
+        'id_validador',
+    ).order_by('-id_validacion')
     delegacion = delegacion_del_delegado(request.user)
     if delegacion is not None:
         validaciones = validaciones.filter(id_evidencia__id_actividad__id_profesional__id_delegacion=delegacion)
-    
+
     if query:
         validaciones = validaciones.filter(
             Q(observacion__icontains=query) |
             Q(decision__icontains=query) |
             Q(id_validador__nombres__icontains=query) |
-            Q(id_evidencia__archivo_foto__icontains=query)
+            Q(id_evidencia__archivo_foto__icontains=query) |
+            Q(id_evidencia__id_actividad__codigo_unico__icontains=query)
         ).distinct()
-        
+
+    grupos_val = {}
+    for val in validaciones:
+        clave = _clave_ingreso_evidencia(val.id_evidencia)
+        if clave not in grupos_val:
+            grupos_val[clave] = val
+
+    validaciones_agrupadas = list(grupos_val.values())
+
     return render(request, 'administrador/validaciones/lista_validaciones.html', {
-        'validaciones': validaciones,
-        'query': query
+        'validaciones': validaciones_agrupadas,
+        'query': query,
     })
 
 @login_required
 @role_required('Administrador', 'Delegado')
 def crear_validacion(request):
     evidencia_id = request.GET.get('evidencia') or request.POST.get('id_evidencia')
-    evidencia_obj = get_object_or_404(Evidencia, pk=evidencia_id) if evidencia_id else None
+    evidencias_ids_raw = request.GET.getlist('evidencias') or request.POST.getlist('evidencias')
+
+    evidencias_objetivo = []
+    if evidencias_ids_raw:
+        ids_limpios = [int(x) for x in evidencias_ids_raw if str(x).isdigit()]
+        evidencias_objetivo = list(
+            Evidencia.objects.filter(pk__in=ids_limpios)
+            .select_related('id_actividad', 'id_actividad__id_profesional', 'id_actividad__id_meta__id_periodo')
+            .order_by('id_evidencia')
+        )
+    elif evidencia_id and str(evidencia_id).isdigit():
+        ev_base = get_object_or_404(
+            Evidencia.objects.select_related('id_actividad', 'id_actividad__id_profesional', 'id_actividad__id_meta__id_periodo'),
+            pk=int(evidencia_id),
+        )
+        clave_base = _clave_ingreso_evidencia(ev_base)
+        misma_actividad = Evidencia.objects.filter(id_actividad=ev_base.id_actividad, estado=True).order_by('id_evidencia')
+        evidencias_objetivo = [e for e in misma_actividad if _clave_ingreso_evidencia(e) == clave_base] or [ev_base]
+
+    evidencia_obj = evidencias_objetivo[0] if evidencias_objetivo else None
     if evidencia_obj is not None:
         validar_acceso_actividad(request.user, evidencia_obj.id_actividad)
-    
+
     # Obtenemos el perfil profesional del usuario actual logueado para asignarlo como validador automático
     profesional_actual = getattr(request.user, 'profesional', None)
 
@@ -935,47 +1037,63 @@ def crear_validacion(request):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    validacion = form.save(commit=False)
-                    
-                    # ASIGNACIÓN AUTOMÁTICA Y SEGURA (Evita modificaciones malintencionadas)
-                    if evidencia_obj:
-                        validacion.id_evidencia = evidencia_obj
-                    if profesional_actual:
-                        validacion.id_validador = profesional_actual
-                    
-                    evidencia = validacion.id_evidencia
-                    
-                    # [KAN-170] ESCUDO: Bloqueo de suma duplicada
-                    if validacion.decision == 'APROBADO':
-                        validar_evidencia_no_duplicada(evidencia)
-                    
-                    validacion.estado = True
-                    validacion.save()
-                    
-                    # [KAN-169] ACCIÓN: Sumar avance solo si está "Aprobada"
+                    decision = form.cleaned_data['decision']
+                    observacion = form.cleaned_data.get('observacion')
+                    version = form.cleaned_data['version']
+
+                    objetivos_a_validar = evidencias_objetivo if evidencias_objetivo else (
+                        [form.cleaned_data['id_evidencia']] if form.cleaned_data.get('id_evidencia') else []
+                    )
+                    if not objetivos_a_validar:
+                        raise ValidationError("No se encontraron evidencias para validar.")
+
+                    if decision == 'APROBADO':
+                        for ev in objetivos_a_validar:
+                            validar_evidencia_no_duplicada(ev)
+
+                    validaciones_creadas = []
+                    for ev in objetivos_a_validar:
+                        val = Validacion(
+                            decision=decision,
+                            observacion=observacion,
+                            version=version,
+                            estado=True,
+                            id_evidencia=ev,
+                            id_validador=profesional_actual,
+                        )
+                        val.save()
+                        validaciones_creadas.append(val)
+
+                        if decision == 'APROBADO':
+                            ev.estado_revision = 'APROBADO'
+                        elif decision == 'RECHAZADO':
+                            ev.estado_revision = 'RECHAZADO'
+                        else:
+                            ev.estado_revision = 'REVISADO'
+                        ev.save()
+
+                        registrar_auditoria(request, "CREACION", "Validacion", val)
+
+                    # [KAN-169] ACCIÓN: Sumar avance solo si está "Aprobada" (una vez por actividad)
                     periodo_abierto = True
-                    if validacion.decision == 'APROBADO':
-                        evidencia.estado_revision = 'APROBADO'
-                        evidencia.save()
-                        
-                        actividad = evidencia.id_actividad
+                    meta = None
+                    if decision == 'APROBADO' and evidencia_obj is not None:
+                        actividad = evidencia_obj.id_actividad
                         meta = actividad.id_meta
                         indicador = Indicador.objects.filter(meta_id_meta=meta).first()
-                        
+
                         periodo_abierto = meta is not None and meta.id_periodo.esta_abierto
                         if indicador and periodo_abierto:
-                            indicador.avance += 1 
+                            indicador.avance += 1
                             indicador.save()
                             registrar_auditoria(request, "ACTUALIZACION_AVANCE", "Indicador", indicador)
 
-                    registrar_auditoria(request, "CREACION", "Validacion", validacion)
-
-                if validacion.decision == 'APROBADO' and not periodo_abierto:
-                    messages.warning(request, f'La evidencia fue aprobada, pero no suma al indicador porque el período "{meta.id_periodo.nombre}" está cerrado.')
+                if decision == 'APROBADO' and not periodo_abierto and meta is not None:
+                    messages.warning(request, f'Las evidencias fueron aprobadas, pero no suman al indicador porque el período "{meta.id_periodo.nombre}" está cerrado.')
                 else:
-                    messages.success(request, 'La validación fue registrada con éxito y el avance ha sido actualizado.')
+                    messages.success(request, f'La validación fue registrada con éxito para {len(validaciones_creadas)} evidencia(s) y el avance ha sido actualizado.')
                 return redirect('actividadApp:lista_validaciones')
-                
+
             except ValidationError as e:
                 messages.error(request, str(e.message if hasattr(e, 'message') else e.messages[0]))
             except Exception as e:
@@ -983,19 +1101,19 @@ def crear_validacion(request):
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        # Pre-llenamos los datos iniciales para el formulario oculto
         initial_data = {}
         if evidencia_obj:
             initial_data['id_evidencia'] = evidencia_obj
         if profesional_actual:
             initial_data['id_validador'] = profesional_actual
-            
+
         form = ValidacionForm(initial=initial_data)
-        
+
     return render(request, 'administrador/validaciones/form_validacion.html', {
         'form': form,
         'titulo': 'Registrar Validación de Evidencia',
-        'evidencia': evidencia_obj
+        'evidencia': evidencia_obj,
+        'evidencias_grupo': evidencias_objetivo,
     })
 
 @login_required

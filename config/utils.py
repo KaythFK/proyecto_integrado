@@ -829,3 +829,33 @@ def validar_fecha_no_pasada(fecha, nombre_campo="La fecha"):
     if fecha and fecha < localdate():
         raise ValidationError(f"{nombre_campo} no puede ser anterior a la fecha actual ({localdate().strftime('%d/%m/%Y')}).")
     return fecha
+
+
+
+def etiqueta_funcionario_responsable(profesional):
+    """Formato claro para selector de responsable: Nombre — Delegación — Cargo."""
+    nombre_completo = f"{profesional.nombres} {profesional.apellido_paterno}".strip()
+    if getattr(profesional, 'apellido_materno', None):
+        nombre_completo = f"{nombre_completo} {profesional.apellido_materno}".strip()
+
+    delegacion = (
+        profesional.id_delegacion.nombre
+        if getattr(profesional, 'id_delegacion_id', None) and getattr(profesional, 'id_delegacion', None)
+        else 'Sin delegación'
+    )
+
+    cargo_obj = getattr(profesional, 'id_cargo', None) or getattr(profesional, 'cargo', None)
+    cargo = getattr(cargo_obj, 'nombre', None) or 'Sin cargo'
+
+    return f"{nombre_completo} — {delegacion} — {cargo}"
+
+
+def configurar_campo_responsable(campo):
+    """Aplica select_related y el formateador de etiqueta al campo de funcionario responsable."""
+    if not campo or getattr(campo, 'queryset', None) is None:
+        return
+    try:
+        campo.queryset = campo.queryset.select_related('id_delegacion', 'id_cargo')
+    except Exception:
+        campo.queryset = campo.queryset.select_related('id_delegacion')
+    campo.label_from_instance = etiqueta_funcionario_responsable

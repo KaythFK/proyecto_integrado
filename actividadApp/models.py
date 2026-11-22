@@ -7,7 +7,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 import sys
 from decimal import Decimal
 from django.core.validators import MinValueValidator, MaxValueValidator
-
+import uuid
 # Create your models here.
 
 class Actividad(models.Model):
@@ -115,7 +115,7 @@ class Evidencia(models.Model):
         """
         Sobrescribe el método save para:
         1. Comprimir y redimensionar la imagen automáticamente con Pillow.
-        2. Nombrar el archivo combinando el código de la actividad y la fecha/hora actual.
+        2. Nombrar el archivo combinando el código de la actividad, fecha/hora y un sufijo único.
         """
         if self.archivo_foto:
             try:
@@ -137,10 +137,11 @@ class Evidencia(models.Model):
                 img.save(output, format='JPEG', quality=85, optimize=True)
                 output.seek(0)
 
-                # 4. Generar el nombre estructurado: CODIGO_ACTIVIDAD_FECHA_HORA.jpg
+                # 4. Generar el nombre único: CODIGO_ACTIVIDAD_FECHA_HORA_UUID.jpg
                 codigo_actividad = self.id_actividad.codigo_unico if self.id_actividad else "general"
                 fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
-                nombre_archivo = f"{codigo_actividad}_{fecha_actual}.jpg"
+                sufijo_unico = uuid.uuid4().hex[:8]
+                nombre_archivo = f"{codigo_actividad}_{fecha_actual}_{sufijo_unico}.jpg"
 
                 # 5. Reemplazar el archivo original por la versión optimizada y renombrada
                 self.archivo_foto = InMemoryUploadedFile(
@@ -162,7 +163,6 @@ class Evidencia(models.Model):
     class Meta:
         db_table = 'evidencia'
         verbose_name_plural = 'Evidencias'
-
 class Validacion(models.Model):
 
 #Opciones para ENUM de decision

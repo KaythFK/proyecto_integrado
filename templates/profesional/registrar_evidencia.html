@@ -7,18 +7,20 @@
         <div class="col-md-8">
             <div class="card shadow border-0">
                 <div class="card-header bg-danger text-white py-3">
-                    <h4 class="mb-0 fw-bold"><i class="bi bi-upload"></i> Registrar Evidencia para Actividad</h4>
+                    <h4 class="mb-0 fw-bold"><i class="bi bi-upload"></i> Registrar Evidencias para Actividad</h4>
                 </div>
                 <div class="card-body p-4">
 
-                    <!-- BLOQUE DE ERRORES CLAROS Y VISIBLES -->
-                    {% if form.errors %}
+                    {% if errores_archivos or form.errors %}
                         <div class="alert alert-danger alert-dismissible fade show shadow-sm mb-4" role="alert">
                             <h5 class="alert-heading fw-bold">
                                 <i class="bi bi-exclamation-triangle-fill"></i> ¡Atención con los datos ingresados!
                             </h5>
-                            <p class="mb-2">Por favor corrige los siguientes detalles para poder guardar la evidencia:</p>
+                            <p class="mb-2">Por favor corrige los siguientes detalles para poder guardar las evidencias:</p>
                             <ul class="mb-0 ps-3">
+                                {% for error in errores_archivos %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
                                 {% for field in form %}
                                     {% for error in field.errors %}
                                         <li><strong>{{ field.label }}:</strong> {{ error }}</li>
@@ -32,17 +34,19 @@
                         </div>
                     {% endif %}
 
-                    <!-- FORMULARIO DE SUBIDA -->
                     <form method="POST" enctype="multipart/form-data">
                         {% csrf_token %}
 
                         <div class="mb-3">
-                            <label for="{{ form.archivo_foto.id_for_label }}" class="form-label fw-bold">Fotografía o Archivo de Respaldo</label>
-                            {{ form.archivo_foto }}
-                            <div class="form-text text-muted">Formatos permitidos: JPG, PNG, WEBP. Tamaño máximo: 10 MB.</div>
-                            {% if form.archivo_foto.errors %}
-                                <div class="text-danger small mt-1">{{ form.archivo_foto.errors.0 }}</div>
-                            {% endif %}
+                            <label for="{{ form.archivo_foto.id_for_label }}" class="form-label fw-bold">Fotografías o Archivos de Respaldo</label>
+                            <input type="file"
+                                   name="archivo_foto"
+                                   id="{{ form.archivo_foto.id_for_label }}"
+                                   class="form-control"
+                                   accept="image/jpeg,image/png,image/webp"
+                                   multiple
+                                   required>
+                            <div class="form-text text-muted">Puedes seleccionar uno o más archivos. Formatos permitidos: JPG, PNG, WEBP. Tamaño máximo: 10 MB por archivo.</div>
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center">
@@ -50,7 +54,7 @@
                                 <i class="bi bi-arrow-left"></i> Cancelar
                             </a>
                             <button type="submit" class="btn btn-danger fw-bold shadow-sm px-4">
-                                <i class="bi bi-check-lg"></i> Guardar Evidencia
+                                <i class="bi bi-check-lg"></i> Guardar Evidencias
                             </button>
                         </div>
                     </form>

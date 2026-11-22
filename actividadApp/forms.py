@@ -25,6 +25,7 @@ from datetime import timedelta
 from decimal import Decimal
 from monitoreoApp.models import Meta
 from config.utils import EtiquetaFuncionarioMixin, etiquetar_funcionarios
+from config.utils import configurar_campo_responsable
 
 def etiqueta_meta(meta):
     try:
@@ -389,6 +390,9 @@ class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
             )
             limitar_a_opciones_activas(self.fields['id_organizacion'], valor_actual_org)
 
+        if 'id_profesional' in self.fields:
+            configurar_campo_responsable(self.fields['id_profesional'])
+
     def clean_id_meta(self):
         meta = self.cleaned_data.get('id_meta')
         if meta and not meta.id_periodo.esta_vigente:
@@ -423,6 +427,7 @@ class ActividadDelegadoForm(ActividadForm):
 
             if 'id_profesional' in self.fields:
                 self.fields['id_profesional'].queryset = profesionales_equipo
+                configurar_campo_responsable(self.fields['id_profesional'])
             if 'solicitante_profesional' in self.fields:
                 self.fields['solicitante_profesional'].queryset = profesionales_equipo
 
