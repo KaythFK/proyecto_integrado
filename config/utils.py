@@ -822,3 +822,10 @@ def delegacion_del_profesional(user):
         prof = getattr(user, 'profesional', None)
         return prof.id_delegacion if prof and prof.id_delegacion else False
     return None
+
+
+def validar_fecha_no_pasada(fecha, nombre_campo="La fecha"):
+    """Valida que una fecha de evento/programación no sea anterior a hoy."""
+    if fecha and fecha < localdate():
+        raise ValidationError(f"{nombre_campo} no puede ser anterior a la fecha actual ({localdate().strftime('%d/%m/%Y')}).")
+    return fecha

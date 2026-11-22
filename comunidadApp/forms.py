@@ -8,12 +8,16 @@ from config.utils import (
     validar_campo_obligatorio_o_sin_datos,
     validar_rango_fechas_organizacion,
     validar_organizacion_matriz,
+    validar_fecha_no_pasada,
+    limitar_a_opciones_activas,
 )
 from datetime import date
 from django.core.exceptions import ValidationError
 from administracionApp.models import Vecino
 from django import forms
 from django.core.exceptions import ValidationError
+from .models import CatalogoCelebracion, Celebracion
+from django.db.models import Q
 
 
 class OrganizacionComunitariaForm(forms.ModelForm):
@@ -431,3 +435,73 @@ class VincularCargaForm(forms.ModelForm):
                     f'"{familiar}" ya tiene un vínculo activo registrado con la carga "{self.carga_existente}".'
                 )
         return cleaned_data
+
+
+class CatalogoCelebracionForm(forms.ModelForm):
+    class Meta:
+        model = CatalogoCelebracion
+        fields = ['nombre']
+        labels = {
+            'nombre': 'Nombre del Tipo de Celebración',
+        }
+        widgets = {
+            'nombre': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'placeholder': 'Ej: Navidad, Día del Niño, Fiestas Patrias...',
+            }),
+        }
+
+    def clean_nombre(self):
+        nombre = validar_texto_no_vacio(self.cleaned_data.get('nombre'), 'El nombre')
+        qs = CatalogoCelebracion.objects.filter(nombre__iexact=nombre)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise ValidationError('Ya existe un tipo de celebración con ese nombre.')
+        return nombre
+
+
+class CelebracionForm(forms.ModelForm):
+    class Meta:
+        model = Celebracion
+        fields = ['tipo', 'nombre', 'fecha_tentativa', 'descripcion']
+        labels = {
+            'tipo': 'Tipo de Celebración (Catálogo)',
+            'nombre': 'Nombre de la Celebración Global',
+            'fecha_tentativa': 'Fecha Tentativa',
+            'descripcion': 'Descripción',
+        }
+        widgets = {
+            'tipo': forms.Select(attrs={
+                'class': 'form-select borde-guinda',
+            }),
+            'nombre': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'placeholder': 'Ej: Navidad 2026',
+            }),
+            'fecha_tentativa': forms.DateInput(
+                format='%Y-%m-%d',
+                attrs={
+                    'class': 'form-control borde-guinda',
+                    'type': 'date',
+                },
+            ),
+            'descripcion': forms.Textarea(attrs={
+                'class': 'form-control borde-guinda',
+                'rows': 3,
+                'placeholder': 'Lineamientos generales o descripción de la festividad comunal...',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        valor_actual = self.instance.tipo_id if (self.instance and self.instance.pk) else None
+        limitar_a_opciones_activas(self.fields['tipo'], valor_actual=valor_actual)
+
+    def clean_fecha_tentativa(self):
+        fecha = self.cleaned_data.get('fecha_tentativa')
+        # Al crear valida siempre; al editar solo si cambiaron la fecha
+        # (para no bloquear editar la descripción de una celebración ya pasada)
+        if fecha and (not self.instance.pk or fecha != self.instance.fecha_tentativa):
+            return validar_fecha_no_pasada(fecha, 'La fecha tentativa')
+        return fecha

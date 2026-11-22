@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Celebraciones Globales Comunales{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Celebraciones Globales Comunales</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    {% include 'parciales/mensajes.html' %}
+
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-2">
+        <h4 class="fw-bold m-0 texto-guinda">Plantillas Globales Disponibles</h4>
+        {% if es_gestor %}
+        <div class="d-flex gap-2">
+            <a href="{% url 'administracionApp:panel_catalogos' %}?tab=celebracion" class="btn btn-outline-dark fw-bold shadow-sm">
+                Gestionar Catálogo
+            </a>
+            <a href="{% url 'comunidadApp:crear_celebracion' %}" class="btn text-white fw-bold shadow-sm fondo-rojo">
+                + Nueva Celebración Global
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <form method="GET" class="row g-2 mb-4">
+        <div class="col-12 col-md-6">
+            <input type="text" name="q" value="{{ query }}" class="form-control borde-guinda"
+                   placeholder="Buscar por nombre o descripción...">
+        </div>
+        <div class="col-12 col-md-4">
+            <select name="tipo" class="form-select borde-guinda">
+                <option value="">Todos los tipos de celebración</option>
+                {% for cat in catalogos %}
+                    <option value="{{ cat.pk }}" {% if tipo_id == cat.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ cat.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+            <button type="submit" class="btn text-white fw-bold fondo-guinda">Filtrar</button>
+        </div>
+    </form>
+
+    <div class="card shadow-sm border-0 redondeado-15 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Celebración</th>
+                            <th class="text-center">Tipo</th>
+                            <th class="text-center">Fecha Tentativa</th>
+                            <th class="text-center">Estado</th>
+                            {% if es_gestor %}
+                            <th class="text-center">Acciones</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cel in celebraciones %}
+                        <tr class="{% if not cel.estado %}table-secondary text-muted opacity-75{% endif %}">
+                            <td>
+                                <strong>{{ cel.nombre }}</strong><br>
+                                <small class="text-muted">{{ cel.descripcion|default:"Sin descripción" }}</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-info text-dark">{{ cel.tipo.nombre }}</span>
+                            </td>
+                            <td class="text-center fw-semibold">
+                                {{ cel.fecha_tentativa|date:"d/m/Y" }}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge {% if cel.estado %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if cel.estado %}Activa{% else %}Inactiva{% endif %}
+                                </span>
+                            </td>
+                            {% if es_gestor %}
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                                    <a href="{% url 'comunidadApp:editar_celebracion' cel.id_celebracion %}"
+                                       class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
+                                        Editar
+                                    </a>
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="badge mb-1 {% if cel.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                            {% if cel.estado %}Activo{% else %}Inactivo{% endif %}
+                                        </span>
+                                        <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                            <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
+                                                {% if cel.estado %}checked{% endif %}
+                                                onclick="confirmarCambioCelebracion(event, '{{ cel.id_celebracion }}', '{{ cel.nombre|escapejs }}', '{{ cel.estado }}')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="{% if es_gestor %}5{% else %}4{% endif %}" class="text-center py-4 text-muted">
+                                No hay celebraciones globales registradas.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Estado Celebración Global -->
+<div class="modal fade" id="modalEstadoCelebracion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderCel">
+                <h5 class="modal-title fw-bold" id="modalTituloCel">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeCel"></p>
+                <strong class="fs-4 text-dark" id="modalNombreCel"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstadoCel" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarCel">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambioCelebracion(event, id, nombreCel, estadoActualStr) {
+    event.preventDefault();
+    const estaActiva = estadoActualStr === 'True';
+    const actionUrl = "{% url 'comunidadApp:cambiar_estado_celebracion' 0 %}".replace('0', id);
+
+    const header = document.getElementById('modalHeaderCel');
+    const titulo = document.getElementById('modalTituloCel');
+    const mensaje = document.getElementById('modalMensajeCel');
+    const nombreStr = document.getElementById('modalNombreCel');
+    const btn = document.getElementById('btnConfirmarCel');
+    const form = document.getElementById('formCambiarEstadoCel');
+
+    if (estaActiva) {
+        header.style.backgroundColor = '#C41230';
+        titulo.innerText = 'Desactivar Celebración Global';
+        mensaje.innerText = '¿Estás segura de inhabilitar';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        titulo.innerText = 'Reactivar Celebración Global';
+        mensaje.innerText = '¿Deseas restaurar';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+
+    nombreStr.innerText = nombreCel + '?';
+    form.action = actionUrl;
+
+    new bootstrap.Modal(document.getElementById('modalEstadoCelebracion')).show();
+}
+</script>
+{% endblock %}

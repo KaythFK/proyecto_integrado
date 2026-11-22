@@ -6,8 +6,8 @@ from django.contrib.auth.decorators import login_required
 from django.forms.models import model_to_dict
 
 from usuariosApp.decorators import role_required
-from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar
-from .forms import OrganizacionComunitariaForm, AfiliacionVecinoForm, CargaFamiliarForm, VincularCargaForm
+from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar, Celebracion, CelebracionDelegacion, CatalogoCelebracion, BeneficiarioCelebracion
+from .forms import OrganizacionComunitariaForm, AfiliacionVecinoForm, CargaFamiliarForm, VincularCargaForm, CatalogoCelebracion, CelebracionForm
 from administracionApp.models import Profesional, Auditoria, Vecino
 from config.utils import delegacion_del_profesional
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -819,3 +819,113 @@ def panel_profesional(request):
         'total_vinculos_activos': total_vinculos_activos,
         'rol_menu': 'profesional',
     })
+
+#Vistas Celebraciones
+@login_required
+@role_required('Administrador', 'Coordinador', 'Delegado', 'Profesional')
+def lista_celebraciones(request):
+    query = (request.GET.get('q') or '').strip()
+    tipo_id = (request.GET.get('tipo') or '').strip()
+    es_gestor = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+
+    celebraciones = Celebracion.objects.select_related('tipo').order_by('-estado', '-fecha_tentativa', '-id_celebracion')
+
+    # CA3 (KAN-400): Delegaciones y profesionales visualizan solo celebraciones globales activas
+    if not es_gestor:
+        celebraciones = celebraciones.filter(estado=True, tipo__estado=True)
+
+    if tipo_id.isdigit():
+        celebraciones = celebraciones.filter(tipo_id=int(tipo_id))
+
+    if query:
+        celebraciones = celebraciones.filter(
+            Q(nombre__icontains=query) |
+            Q(descripcion__icontains=query) |
+            Q(tipo__nombre__icontains=query)
+        ).distinct()
+
+    catalogos = CatalogoCelebracion.objects.filter(estado=True).order_by('nombre')
+
+    return render(request, 'administrador/celebraciones/lista_celebraciones.html', {
+        'celebraciones': celebraciones,
+        'catalogos': catalogos,
+        'query': query,
+        'tipo_id': tipo_id,
+        'es_gestor': es_gestor,
+    })
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def crear_celebracion(request):
+    if request.method == 'POST':
+        form = CelebracionForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    celebracion = form.save(commit=False)
+                    celebracion.estado = True
+                    celebracion.save()
+                    registrar_auditoria(request, "CREACION", "Celebracion", celebracion)
+
+                messages.success(request, 'La celebración global fue creada y quedó disponible para todas las delegaciones.')
+                return redirect('comunidadApp:lista_celebraciones')
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = CelebracionForm()
+
+    return render(request, 'administrador/celebraciones/form_celebraciones.html', {
+        'form': form,
+        'titulo': 'Crear Celebración Global',
+    })
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def editar_celebracion(request, id_celebracion):
+    celebracion = get_object_or_404(Celebracion, pk=id_celebracion)
+
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(celebracion)
+        form = CelebracionForm(request.POST, instance=celebracion)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    celebracion_guardada = form.save()
+                    registrar_auditoria(request, "EDICION", "Celebracion", celebracion_guardada, datos_antiguos)
+
+                messages.success(request, 'La celebración global fue actualizada correctamente.')
+                return redirect('comunidadApp:lista_celebraciones')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = CelebracionForm(instance=celebracion)
+
+    return render(request, 'administrador/celebraciones/form_celebraciones.html', {
+        'form': form,
+        'titulo': 'Editar Celebración Global',
+    })
+
+
+@login_required
+@role_required('Administrador', 'Coordinador')
+def cambiar_estado_celebracion(request, id_celebracion):
+    if request.method == 'POST':
+        celebracion = get_object_or_404(Celebracion, pk=id_celebracion)
+
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(celebracion)
+            nuevo_estado = not celebracion.estado
+            celebracion.estado = nuevo_estado
+            celebracion.save()
+            registrar_auditoria(request, "CAMBIO_ESTADO", "Celebracion", celebracion, datos_antiguos)
+
+        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'La celebración global fue {accion_str} correctamente.')
+
+    return redirect('comunidadApp:lista_celebraciones')

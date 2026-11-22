@@ -31,7 +31,7 @@ import json
 import re
 from django.forms.models import model_to_dict
 from decimal import Decimal, InvalidOperation
-from comunidadApp.models import OrganizacionComunitaria
+from comunidadApp.models import OrganizacionComunitaria, CatalogoCelebracion
 
 
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
@@ -101,9 +101,11 @@ SECCIONES_PANEL_ADMIN = [
         ('Cargas', 'Cargas familiares', 'diagram-3', 'comunidadApp:lista_cargas'),
         ('Vínculos', 'Relaciones familiares', 'link-45deg', 'comunidadApp:lista_vinculos'),
         ('Retroalimentaciones', 'Felicitaciones y reclamos', 'chat-heart', 'actividadApp:lista_retroalimentaciones'),
+        ('Celebraciones', 'Celebraciones Territoriales', 'calendar-event', 'comunidadApp:lista_celebraciones')
     ]),
     ('Configuración', [
         ('Catálogos', 'Ítems, servicios y tipos', 'journal-text', 'administracionApp:panel_catalogos'),
+
     ]),
 ]
 
@@ -634,28 +636,43 @@ def panel_catalogos(request):
     }
     return render(request, 'administrador/catalogos/panel_catalogos.html', context)
 
+
+@role_required('Administrador', 'Coordinador')
+@login_required
+def panel_catalogos(request):
+    tab_activa = request.GET.get('tab', 'servicio')
+
+    context = {
+        'servicios': CatalagoServicio.objects.all(),
+        'items': CatalagoItem.objects.all(),
+        'areas': CatalagoAreaApoyo.objects.all(),
+        'gestiones': CatalogoTipoGestion.objects.all(),
+        'celebraciones': CatalogoCelebracion.objects.all(),
+        'tab_activa': tab_activa,
+    }
+    return render(request, 'administrador/catalogos/panel_catalogos.html', context)
+
+
 @role_required('Administrador', 'Coordinador')
 @login_required
 def gestionar_catalogo(request):
-    
     if request.method == 'POST':
         accion = request.POST.get('accion')
         tipo = request.POST.get('tipo')
         id_obj = request.POST.get('id_obj')
         nombre = request.POST.get('nombre')
-        
-        # --- NUEVO: Capturamos el correo (puede venir vacío si es otro catálogo) ---
         correo = request.POST.get('correo')
-        
+
         modelos = {
             'servicio': CatalagoServicio,
             'item': CatalagoItem,
             'area': CatalagoAreaApoyo,
-            'gestion': CatalogoTipoGestion
+            'gestion': CatalogoTipoGestion,
+            'celebracion': CatalogoCelebracion,
         }
-        
+
         ModeloActivo = modelos.get(tipo)
-        
+
         if ModeloActivo:
             try:
                 with transaction.atomic():
@@ -664,17 +681,13 @@ def gestionar_catalogo(request):
                             messages.error(request, f'Error: Ya existe un registro llamado "{nombre}".')
                         else:
                             nuevo_registro = ModeloActivo(nombre=nombre, estado=True)
-                            
-                            # Si es un área de apoyo, le asignamos el correo antes de guardar
                             if tipo == 'area' and correo is not None:
                                 nuevo_registro.correo = correo
-                                
-                            nuevo_registro.full_clean() 
+
+                            nuevo_registro.full_clean()
                             nuevo_registro.save()
-                            
-                            # AUDITORIA
+
                             registrar_auditoria(request, "CREACION", tipo.capitalize(), nuevo_registro)
-                            
                             messages.success(request, 'Registro creado con éxito.')
 
                     elif accion == 'editar':
@@ -684,17 +697,13 @@ def gestionar_catalogo(request):
                         else:
                             datos_antiguos = model_to_dict(obj)
                             obj.nombre = nombre
-                            
-                            # Si es un área de apoyo, actualizamos su correo
                             if tipo == 'area' and correo is not None:
                                 obj.correo = correo
-                                
-                            obj.full_clean() 
+
+                            obj.full_clean()
                             obj.save()
-                            
-                            # AUDITORIA
+
                             registrar_auditoria(request, "EDICION", tipo.capitalize(), obj, datos_antiguos)
-                            
                             messages.success(request, 'Registro actualizado correctamente.')
 
                     elif accion == 'estado':
@@ -702,21 +711,17 @@ def gestionar_catalogo(request):
                         datos_antiguos = model_to_dict(obj)
                         obj.estado = not obj.estado
                         obj.save()
-                        
-                        # AUDITORIA
+
                         registrar_auditoria(request, "CAMBIO_ESTADO", tipo.capitalize(), obj, datos_antiguos)
-                        
+
                         txt = "activado" if obj.estado else "desactivado"
                         messages.success(request, f'El registro fue {txt}.')
 
             except Exception as e:
                 messages.error(request, f'Error de validación: {str(e)}')
-                
+
         base_url = reverse('administracionApp:panel_catalogos')
         return redirect(f"{base_url}?tab={tipo}")
-        
-    return redirect('administracionApp:panel_catalogos')
-
 
 @role_required('Administrador', 'Coordinador')
 @login_required

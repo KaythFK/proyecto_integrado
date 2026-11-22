@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Celebraciones Globales Comunales</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    <div class="card shadow border-0 redondeado-15">
+        <div class="card-header text-white px-4 py-3 fondo-guinda redondeado-sup-15">
+            <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
+        </div>
+
+        <div class="card-body p-4 p-md-5">
+            {% include 'parciales/mensajes.html' %}
+
+            <form method="POST" novalidate>
+                {% csrf_token %}
+                <div class="row p-3 rounded mb-4 caja-gris">
+                    {% for field in form %}
+                    <div class="col-12 {% if field.name == 'descripcion' %}col-md-12{% else %}col-md-6{% endif %} mb-3">
+                        <label class="form-label fw-bold text-dark" for="{{ field.id_for_label }}">
+                            {{ field.label }} {% if field.field.required %}*{% endif %}
+                        </label>
+                        {{ field }}
+                        {% for error in field.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
+                    <a href="{% url 'comunidadApp:lista_celebraciones' %}"
+                       class="btn btn-secondary px-4 py-2 fw-bold shadow-sm">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold shadow-sm fondo-rojo">
+                        Guardar Celebración
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -30,4 +30,10 @@ urlpatterns = [
     path('vinculos/crear/', views.crear_vinculo, name='crear_vinculo'),
     path('vinculos/editar/<int:id_vinculo>/', views.editar_vinculo, name='editar_vinculo'),
     path('vinculos/estado/<int:id_vinculo>/', views.cambiar_estado_vinculo, name='cambiar_estado_vinculo'),
+
+    #Celebraciones globales
+    path('celebraciones/', views.lista_celebraciones, name='lista_celebraciones'),
+    path('celebraciones/crear/', views.crear_celebracion, name='crear_celebracion'),
+    path('celebraciones/editar/<int:id_celebracion>/', views.editar_celebracion, name='editar_celebracion'),
+    path('celebraciones/estado/<int:id_celebracion>/', views.cambiar_estado_celebracion, name='cambiar_estado_celebracion'),
 ]

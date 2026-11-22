@@ -21,6 +21,7 @@ MENU_POR_ROL = {
             ('Períodos', 'calendar-range', 'administracionApp:lista_periodos'),
             ('Cargos', 'briefcase', 'administracionApp:lista_cargos'),
             ('Catálogos', 'book', 'administracionApp:panel_catalogos'),
+            ('Celebraciones globales', 'calendar-event', 'comunidadApp:lista_celebraciones'),
         ]),
         ('Seguimiento', 'graph-up', [
             ('Metas', 'bullseye', 'monitoreoApp:tablero_metas_coordinador'),
