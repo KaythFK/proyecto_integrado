@@ -41,6 +41,7 @@ MENU_POR_ROL = {
             ('Revisar evidencias', 'camera', 'actividadApp:lista_evidencias'),
             ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),
             ('Ausencias del equipo', 'calendar-x', 'actividadApp:lista_ausencias'),
+            ('Celebraciones locales', 'calendar-check', 'comunidadApp:panel_celebraciones_delegacion'),
             ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
             ('Informe de gestión', 'file-earmark-bar-graph', 'monitoreoApp:informe_gestion'),
         ]),

@@ -13,6 +13,10 @@ from config.utils import delegacion_del_profesional
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.db.models import Case, When, Value, IntegerField
 from django.core.exceptions import ValidationError
+from administracionApp.models import Delegacion
+from config.utils import delegacion_del_delegado
+from .forms import CelebracionDelegacionForm
+
 
 
 
@@ -924,8 +928,211 @@ def cambiar_estado_celebracion(request, id_celebracion):
             celebracion.estado = nuevo_estado
             celebracion.save()
             registrar_auditoria(request, "CAMBIO_ESTADO", "Celebracion", celebracion, datos_antiguos)
+def _obtener_delegacion_activa_sesion(request):
+    """
+    [KAN-406] Obtiene la delegación del delegado y sincroniza su ID en sesión.
+    Para Administrador/Coordinador permite seleccionar o consultar una delegación.
+    """
+    delegacion_usuario = delegacion_del_delegado(request.user)
+    if delegacion_usuario is not None:
+        request.session['delegacion_id'] = delegacion_usuario.pk
+        return delegacion_usuario
 
-        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
-        messages.success(request, f'La celebración global fue {accion_str} correctamente.')
+    del_param = (request.GET.get('delegacion') or request.POST.get('delegacion') or '').strip()
+    if del_param.isdigit():
+        del_obj = Delegacion.objects.filter(pk=int(del_param), estado=True).first()
+        if del_obj:
+            request.session['delegacion_id'] = del_obj.pk
+            return del_obj
 
-    return redirect('comunidadApp:lista_celebraciones')
+    sesion_id = request.session.get('delegacion_id')
+    if sesion_id:
+        return Delegacion.objects.filter(pk=sesion_id, estado=True).first()
+
+    return None
+
+
+# ==========================================
+# HU-41: CELEBRACIONES POR DELEGACIÓN (CA1 - CA3)
+# ==========================================
+
+def _obtener_delegacion_activa_sesion(request):
+    """
+    [KAN-406] Obtiene la delegación del delegado y sincroniza su ID en sesión.
+    Para Administrador/Coordinador permite seleccionar o consultar una delegación.
+    """
+    delegacion_usuario = delegacion_del_delegado(request.user)
+    if delegacion_usuario is not None:
+        request.session['delegacion_id'] = delegacion_usuario.pk
+        return delegacion_usuario
+
+    del_param = (request.GET.get('delegacion') or request.POST.get('delegacion') or '').strip()
+    if del_param.isdigit():
+        del_obj = Delegacion.objects.filter(pk=int(del_param), estado=True).first()
+        if del_obj:
+            request.session['delegacion_id'] = del_obj.pk
+            return del_obj
+
+    sesion_id = request.session.get('delegacion_id')
+    if sesion_id:
+        return Delegacion.objects.filter(pk=sesion_id, estado=True).first()
+
+    return None
+
+
+# ==========================================
+# HU-41: CELEBRACIONES POR DELEGACIÓN (CA1 - CA3)
+# ==========================================
+
+@login_required
+@role_required('Delegado', 'Administrador', 'Coordinador')
+def panel_celebraciones_delegacion(request):
+    query = (request.GET.get('q') or '').strip()
+    es_gestor_global = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+    delegacion = _obtener_delegacion_activa_sesion(request)
+
+    if not delegacion and not es_gestor_global:
+        messages.error(request, 'No tienes una delegación asignada para administrar celebraciones locales.')
+        return redirect('comunidadApp:lista_celebraciones')
+
+    celebraciones_globales = (
+        Celebracion.objects.filter(estado=True, tipo__estado=True)
+        .select_related('tipo')
+        .order_by('fecha_tentativa', '-id_celebracion')
+    )
+
+    if query:
+        celebraciones_globales = celebraciones_globales.filter(
+            Q(nombre__icontains=query) |
+            Q(descripcion__icontains=query) |
+            Q(tipo__nombre__icontains=query)
+        ).distinct()
+
+    locales_por_celebracion = {}
+    if delegacion:
+        locales_qs = CelebracionDelegacion.objects.filter(
+            delegacion=delegacion,
+            celebracion__in=celebraciones_globales,
+        ).select_related('celebracion')
+        locales_por_celebracion = {loc.celebracion_id: loc for loc in locales_qs}
+
+    items_delegacion = []
+    for cel in celebraciones_globales:
+        loc = locales_por_celebracion.get(cel.pk)
+        items_delegacion.append({
+            'celebracion': cel,
+            'local': loc,
+            'activa': bool(loc and loc.activa),
+            'fecha_ejecucion': loc.fecha_ejecucion if loc else None,
+            'lugar': loc.lugar if loc else '',
+        })
+
+    delegaciones_disponibles = (
+        Delegacion.objects.filter(estado=True).order_by('nombre')
+        if es_gestor_global else Delegacion.objects.none()
+    )
+
+    return render(request, 'delegado/panel_celebraciones.html', {
+        'items_delegacion': items_delegacion,
+        'delegacion': delegacion,
+        'delegaciones_disponibles': delegaciones_disponibles,
+        'es_gestor_global': es_gestor_global,
+        'query': query,
+    })
+
+
+@login_required
+@role_required('Delegado', 'Administrador', 'Coordinador')
+def toggle_celebracion_delegacion(request, id_celebracion):
+    if request.method == 'POST':
+        es_gestor_global = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+        delegacion = _obtener_delegacion_activa_sesion(request)
+
+        if not delegacion and not es_gestor_global:
+            messages.error(request, 'No tienes una delegación asignada.')
+            return redirect('comunidadApp:lista_celebraciones')
+
+        if not delegacion:
+            messages.warning(request, 'Selecciona primero una delegación.')
+            return redirect('comunidadApp:panel_celebraciones_delegacion')
+
+        celebracion = get_object_or_404(Celebracion, pk=id_celebracion, estado=True)
+
+        with transaction.atomic():
+            local, _ = CelebracionDelegacion.objects.get_or_create(
+                celebracion=celebracion,
+                delegacion=delegacion,
+                defaults={'activa': False},
+            )
+            datos_antiguos = model_to_dict(local)
+            nuevo_estado = not local.activa
+
+            if nuevo_estado and not local.fecha_ejecucion:
+                local.fecha_ejecucion = celebracion.fecha_tentativa
+
+            local.activa = nuevo_estado
+            local.save()
+            registrar_auditoria(request, "CAMBIO_ESTADO", "CelebracionDelegacion", local, datos_antiguos)
+
+        estado_txt = "activada" if nuevo_estado else "desactivada"
+        messages.success(
+            request,
+            f'Celebración "{celebracion.nombre}" {estado_txt} para la delegación {delegacion.nombre}.'
+        )
+
+    return redirect('comunidadApp:panel_celebraciones_delegacion')
+
+
+@login_required
+@role_required('Delegado', 'Administrador', 'Coordinador')
+def configurar_celebracion_delegacion(request, id_celebracion):
+    es_gestor_global = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+    delegacion = _obtener_delegacion_activa_sesion(request)
+
+    if not delegacion and not es_gestor_global:
+        messages.error(request, 'No tienes una delegación asignada.')
+        return redirect('comunidadApp:lista_celebraciones')
+
+    if not delegacion:
+        messages.warning(request, 'Selecciona primero una delegación.')
+        return redirect('comunidadApp:panel_celebraciones_delegacion')
+
+    celebracion = get_object_or_404(Celebracion, pk=id_celebracion, estado=True)
+    local, _ = CelebracionDelegacion.objects.get_or_create(
+        celebracion=celebracion,
+        delegacion=delegacion,
+        defaults={
+            'activa': False,
+            'fecha_ejecucion': celebracion.fecha_tentativa,
+        },
+    )
+
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(local)
+        form = CelebracionDelegacionForm(request.POST, instance=local)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Solo se guarda el registro local de esta delegación;
+                    # la celebración global y otras delegaciones no se modifican (KAN-407).
+                    local_guardado = form.save()
+                    registrar_auditoria(request, "EDICION", "CelebracionDelegacion", local_guardado, datos_antiguos)
+
+                messages.success(
+                    request,
+                    f'Configuración local guardada para "{celebracion.nombre}" en {delegacion.nombre}.'
+                )
+                return redirect('comunidadApp:panel_celebraciones_delegacion')
+            except Exception as e:
+                messages.error(request, f'Error al guardar configuración local: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = CelebracionDelegacionForm(instance=local)
+
+    return render(request, 'delegado/form_celebracion_delegado.html', {
+        'form': form,
+        'celebracion': celebracion,
+        'delegacion': delegacion,
+        'titulo': f'Configurar Evento Local — {celebracion.nombre}',
+    })

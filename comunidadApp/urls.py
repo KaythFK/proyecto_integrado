@@ -36,4 +36,9 @@ urlpatterns = [
     path('celebraciones/crear/', views.crear_celebracion, name='crear_celebracion'),
     path('celebraciones/editar/<int:id_celebracion>/', views.editar_celebracion, name='editar_celebracion'),
     path('celebraciones/estado/<int:id_celebracion>/', views.cambiar_estado_celebracion, name='cambiar_estado_celebracion'),
+
+    #Celebraciones por delegación
+    path('celebraciones/delegacion/', views.panel_celebraciones_delegacion, name='panel_celebraciones_delegacion'),
+    path('celebraciones/delegacion/<int:id_celebracion>/toggle/', views.toggle_celebracion_delegacion, name='toggle_celebracion_delegacion'),
+    path('celebraciones/delegacion/<int:id_celebracion>/configurar/', views.configurar_celebracion_delegacion, name='configurar_celebracion_delegacion'),
 ]
