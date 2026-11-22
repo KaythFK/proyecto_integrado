@@ -1,8 +1,13 @@
 from django.db import models
 
 
+from django.db import models
+
+
 class OrganizacionComunitaria(models.Model):
-    
+
+    SIN_DATO_TEXTO = 'SIN DATOS'
+
     class TipoOrganizacion(models.TextChoices):
         TERRITORIAL = 'TERRITORIAL', 'Territorial'
         FUNCIONAL = 'FUNCIONAL', 'Funcional'
@@ -14,38 +19,82 @@ class OrganizacionComunitaria(models.Model):
         ADULTO_MAYOR = 'ADULTO_MAYOR', 'Agrupación de Adulto Mayor'
         CENTRO_MADRES = 'CENTRO_MADRES', 'Centro de Madres y Vecinales'
         CULTURAL = 'CULTURAL', 'Agrupación Cultural o Artística'
+        JUVENIL = 'JUVENIL', 'Agrupación Juvenil'
+        COMITE_SEGURIDAD = 'COMITE_SEGURIDAD', 'Comité de Seguridad'
+        COMITE_ALLEGADOS = 'COMITE_ALLEGADOS', 'Comité de Allegados'
+        COMITE_VIVIENDA = 'COMITE_VIVIENDA', 'Comité de Vivienda'
         OTRO = 'OTRO', 'Otro Subtipo'
 
     id_organizacion = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=150) 
-    
+    nombre = models.CharField(max_length=150, default=SIN_DATO_TEXTO)
+
     tipo = models.CharField(
-        max_length=50, 
+        max_length=50,
         choices=TipoOrganizacion.choices,
         default=TipoOrganizacion.TERRITORIAL
-    ) 
-    
+    )
+
     subtipo = models.CharField(
-        max_length=100, 
-        choices=SubtipoOrganizacion.choices, 
+        max_length=100,
+        choices=SubtipoOrganizacion.choices,
         default=SubtipoOrganizacion.JUNTA_VECINOS
-    ) 
-    
-    # Campos obligatorios reales
-    direccion = models.CharField(max_length=200) 
-    territorio = models.CharField(max_length=45) 
-    socios_activos = models.IntegerField()
-    fecha_formacion = models.DateField()
-    fecha_inscripcion_reg_date = models.DateField()
-    n_reg_pj = models.IntegerField()
-    n_reg_dir = models.IntegerField()
-    
-    id_delegacion = models.ForeignKey('administracionApp.Delegacion', models.DO_NOTHING, db_column='id_delegacion') 
-    organizacion_matriz = models.ForeignKey('self', models.DO_NOTHING, db_column='id_organizacion_matriz', blank=True, null=True) 
+    )
+
+    direccion = models.CharField(max_length=200, default=SIN_DATO_TEXTO)
+    territorio = models.CharField(max_length=45, default=SIN_DATO_TEXTO)
+    socios_activos = models.IntegerField(default=0)
+    fecha_formacion = models.DateField(blank=True, null=True)
+    fecha_inscripcion_reg_date = models.DateField(blank=True, null=True)
+    n_reg_pj = models.CharField(max_length=50, default=SIN_DATO_TEXTO)
+    n_reg_dir = models.CharField(max_length=50, default=SIN_DATO_TEXTO)
+
+    id_delegacion = models.ForeignKey(
+        'administracionApp.Delegacion',
+        models.DO_NOTHING,
+        db_column='id_delegacion',
+        blank=True,
+        null=True
+    )
+    # Único campo opcional real: un comité puede o no depender de una JJ.VV. matriz (CA2 / KAN-342)
+    organizacion_matriz = models.ForeignKey(
+        'self',
+        models.DO_NOTHING,
+        db_column='id_organizacion_matriz',
+        blank=True,
+        null=True
+    )
     estado = models.BooleanField(default=True)
 
     def __str__(self):
         return str(self.nombre)
+
+    def campos_sin_datos(self):
+        """Retorna las etiquetas de campos que siguen en 'SIN DATOS' o sin completar."""
+        faltantes = []
+        campos_texto = [
+            ('nombre', 'Nombre de la Organización'),
+            ('direccion', 'Domicilio'),
+            ('territorio', 'Territorio'),
+            ('n_reg_pj', 'N° Registro Personalidad Jurídica'),
+            ('n_reg_dir', 'N° Registro Directorio'),
+        ]
+        for attr, etiqueta in campos_texto:
+            valor = (getattr(self, attr, '') or '').strip().upper()
+            if not valor or valor in ('SIN DATOS', 'S/INF.', 'S/INF', 'SIN INF.'):
+                faltantes.append(etiqueta)
+
+        if self.fecha_formacion is None:
+            faltantes.append('Fecha de Formación')
+        if self.fecha_inscripcion_reg_date is None:
+            faltantes.append('Fecha de Inscripción Registro')
+        if self.id_delegacion_id is None:
+            faltantes.append('Delegación Municipal')
+
+        return faltantes
+
+    @property
+    def tiene_datos_incompletos(self):
+        return bool(self.campos_sin_datos())
         
         
 class AfiliacionVecino(models.Model):

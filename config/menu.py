@@ -44,6 +44,7 @@ MENU_POR_ROL = {
             ('Mis actividades', 'clipboard-check', 'actividadApp:listar_actividades'),
             ('Mis gestiones', 'list-task', 'actividadApp:mis_gestiones'),
             ('Mis evidencias', 'camera', 'actividadApp:lista_evidencias'),
+            ('Organizaciones Comunitarias', 'diagram-3', 'comunidadApp:lista_organizaciones')
         ]),
     ],
 }

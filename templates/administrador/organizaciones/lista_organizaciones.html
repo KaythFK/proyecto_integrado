@@ -25,7 +25,7 @@
             <form method="GET" action="">
                 <div class="input-group shadow-sm">
                     <input type="text" name="q" class="form-control borde-guinda" 
-                        placeholder="Buscar por nombre, RUT o territorio..." 
+                        placeholder="Buscar por nombre o territorio..." 
                         value="{{ query|default_if_none:'' }}">
                     <button class="btn text-white fw-bold fondo-guinda" type="submit">Buscar</button>
                     {% if query %}
@@ -52,7 +52,6 @@
                 <tr class="{% if not org.estado %}table-secondary text-muted opacity-75{% endif %}">
                     <td>
                         <strong class="text-dark">{{ org.nombre }}</strong><br>
-                        <small class="text-muted">RUT: {{ org.rut_pj|default:"Sin registro" }}</small>
                     </td>
                     <td>
                         <span class="badge bg-secondary">{{ org.get_tipo_marco_display }}</span><br>

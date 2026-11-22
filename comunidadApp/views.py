@@ -3,13 +3,14 @@ from django.db.models import Q
 from django.db import transaction
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.forms.models import model_to_dict
+
 from usuariosApp.decorators import role_required
 from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar
 from .forms import OrganizacionComunitariaForm, AfiliacionVecinoForm, CargaFamiliarForm, VinculoFamiliarForm
-from administracionApp.models import Profesional, Auditoria # Añadido Auditoria
+from administracionApp.models import Profesional, Auditoria
+from config.utils import delegacion_del_profesional
 
-import json
-from django.forms.models import model_to_dict
 
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
 def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
@@ -48,34 +49,53 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
 @role_required('Administrador', 'Profesional')
 def lista_organizaciones(request):
     query = request.GET.get('q')
-    organizaciones = OrganizacionComunitaria.objects.all().order_by('nombre')
-    
+    delegacion_prof = delegacion_del_profesional(request.user)
+
+    if delegacion_prof is False:
+        organizaciones = OrganizacionComunitaria.objects.none()
+    elif delegacion_prof is not None:
+        organizaciones = OrganizacionComunitaria.objects.filter(id_delegacion=delegacion_prof)
+    else:
+        organizaciones = OrganizacionComunitaria.objects.all()
+
+    organizaciones = organizaciones.order_by('nombre')
+
     if query:
         organizaciones = organizaciones.filter(
             Q(nombre__icontains=query) |
             Q(territorio__icontains=query) |
-            Q(rut_pj__icontains=query)
+            Q(n_reg_pj__icontains=query) |
+            Q(subtipo__icontains=query)
         ).distinct()
-        
+
     return render(request, 'administrador/organizaciones/lista_organizaciones.html', {
         'organizaciones': organizaciones,
-        'query': query
+        'query': query,
+        'delegacion_profesional': delegacion_prof if delegacion_prof else None,
     })
+
 
 @login_required
 @role_required('Administrador', 'Profesional')
 def crear_organizacion(request):
+    delegacion_prof = delegacion_del_profesional(request.user)
+    if delegacion_prof is False:
+        messages.error(request, 'Tu usuario Profesional no tiene una delegación asignada.')
+        return redirect('comunidadApp:lista_organizaciones')
+
     if request.method == 'POST':
-        form = OrganizacionComunitariaForm(request.POST)
+        form = OrganizacionComunitariaForm(request.POST, delegacion=delegacion_prof)
         if form.is_valid():
             try:
-                organizacion = form.save(commit=False)
-                organizacion.estado = True
-                organizacion.save()
-                
-                # AUDITORIA
-                registrar_auditoria(request, "CREACION", "OrganizacionComunitaria", organizacion)
-                
+                with transaction.atomic():
+                    organizacion = form.save(commit=False)
+                    if delegacion_prof is not None:
+                        organizacion.id_delegacion = delegacion_prof
+                    organizacion.estado = True
+                    organizacion.save()
+
+                    registrar_auditoria(request, "CREACION", "OrganizacionComunitaria", organizacion)
+
                 messages.success(request, f'La organización "{organizacion.nombre}" fue registrada con éxito.')
                 return redirect('comunidadApp:lista_organizaciones')
             except Exception as e:
@@ -83,58 +103,78 @@ def crear_organizacion(request):
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        form = OrganizacionComunitariaForm()
-        
+        form = OrganizacionComunitariaForm(delegacion=delegacion_prof)
+
     return render(request, 'administrador/organizaciones/form_organizaciones.html', {
         'form': form,
         'titulo': 'Registrar Nueva Organización Comunitaria'
     })
 
+
 @login_required
 @role_required('Administrador', 'Profesional')
 def editar_organizacion(request, id_organizacion):
-    organizacion = get_object_or_404(OrganizacionComunitaria, id_organizacion=id_organizacion)
-    
+    delegacion_prof = delegacion_del_profesional(request.user)
+    qs_base = OrganizacionComunitaria.objects.all()
+    if delegacion_prof is False:
+        qs_base = OrganizacionComunitaria.objects.none()
+    elif delegacion_prof is not None:
+        qs_base = qs_base.filter(id_delegacion=delegacion_prof)
+
+    organizacion = get_object_or_404(qs_base, id_organizacion=id_organizacion)
+
     if request.method == 'POST':
         datos_antiguos = model_to_dict(organizacion)
-        form = OrganizacionComunitariaForm(request.POST, instance=organizacion)
+        form = OrganizacionComunitariaForm(request.POST, instance=organizacion, delegacion=delegacion_prof)
         if form.is_valid():
             try:
-                org_guardada = form.save()
-                
-                # AUDITORIA
-                registrar_auditoria(request, "EDICION", "OrganizacionComunitaria", org_guardada, datos_antiguos)
-                
-                messages.success(request, f'La organización "{organizacion.nombre}" fue actualizada.')
+                with transaction.atomic():
+                    org_guardada = form.save(commit=False)
+                    if delegacion_prof is not None:
+                        org_guardada.id_delegacion = delegacion_prof
+                    org_guardada.save()
+
+                    registrar_auditoria(request, "EDICION", "OrganizacionComunitaria", org_guardada, datos_antiguos)
+
+                messages.success(request, f'La organización "{org_guardada.nombre}" fue actualizada.')
                 return redirect('comunidadApp:lista_organizaciones')
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        form = OrganizacionComunitariaForm(instance=organizacion)
-        
+        form = OrganizacionComunitariaForm(instance=organizacion, delegacion=delegacion_prof)
+
     return render(request, 'administrador/organizaciones/form_organizaciones.html', {
         'form': form,
         'titulo': 'Editar Organización Comunitaria'
     })
 
+
 @login_required
 @role_required('Administrador', 'Profesional')
 def cambiar_estado_organizacion(request, id_organizacion):
     if request.method == 'POST':
-        organizacion = get_object_or_404(OrganizacionComunitaria, id_organizacion=id_organizacion)
-        
+        delegacion_prof = delegacion_del_profesional(request.user)
+        qs_base = OrganizacionComunitaria.objects.all()
+        if delegacion_prof is False:
+            qs_base = OrganizacionComunitaria.objects.none()
+        elif delegacion_prof is not None:
+            qs_base = qs_base.filter(id_delegacion=delegacion_prof)
+
+        organizacion = get_object_or_404(qs_base, id_organizacion=id_organizacion)
+
         with transaction.atomic():
             datos_antiguos = model_to_dict(organizacion)
             nuevo_estado = not organizacion.estado
             organizacion.estado = nuevo_estado
             organizacion.save()
-            
-            # AUDITORIA
+
             registrar_auditoria(request, "CAMBIO_ESTADO", "OrganizacionComunitaria", organizacion, datos_antiguos)
-                
+
         accion = "habilitada" if nuevo_estado else "inhabilitada"
         messages.success(request, f'La organización "{organizacion.nombre}" fue {accion}.')
-        
+
     return redirect('comunidadApp:lista_organizaciones')
 
 

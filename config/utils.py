@@ -692,3 +692,79 @@ def validar_acceso_observaciones(user, actividad):
         return
 
     raise PermissionDenied('No tienes permiso para acceder a las observaciones de esta actividad.')
+
+
+def validar_campo_obligatorio_o_sin_datos(valor, etiqueta, texto_sin_datos='SIN DATOS'):
+    """
+    Reutiliza validar_texto_no_vacio y, si el texto coincide con 'SIN DATOS',
+    lo normaliza en mayúsculas.
+    """
+    limpio = validar_texto_no_vacio(valor, etiqueta)
+    if limpio.upper() == texto_sin_datos.upper():
+        return texto_sin_datos.upper()
+    return limpio
+
+
+def validar_rango_fechas_organizacion(fecha_formacion, fecha_inscripcion):
+    """
+    Reutiliza validar_fecha_no_futura y validar_rango_fechas para comprobar
+    que formación e inscripción no sean futuras y que inscripción no sea
+    anterior a formación. Retorna {campo: mensaje_error}.
+    """
+    errores = {}
+
+    if fecha_formacion:
+        try:
+            validar_fecha_no_futura(fecha_formacion)
+        except ValidationError as e:
+            errores['fecha_formacion'] = e.message
+
+    if fecha_inscripcion:
+        try:
+            validar_fecha_no_futura(fecha_inscripcion)
+        except ValidationError as e:
+            errores['fecha_inscripcion_reg_date'] = e.message
+
+    if fecha_formacion and fecha_inscripcion:
+        try:
+            validar_rango_fechas(fecha_formacion, fecha_inscripcion)
+        except ValidationError:
+            errores['fecha_inscripcion_reg_date'] = (
+                "La fecha de inscripción no puede ser anterior a la fecha de formación."
+            )
+
+    return errores
+
+
+def validar_organizacion_matriz(organizacion_actual, matriz):
+    """
+    Valida que la organización matriz no sea la misma organización
+    y corresponda a una Junta de Vecinos activa.
+    """
+    if not matriz:
+        return matriz
+
+    if organizacion_actual and organizacion_actual.pk and matriz.pk == organizacion_actual.pk:
+        raise ValidationError("Una organización no puede ser matriz de sí misma.")
+
+    if matriz.subtipo != 'JUNTA_VECINOS':
+        raise ValidationError("La organización matriz debe ser una Junta de Vecinos.")
+
+    if not matriz.estado:
+        raise ValidationError("La Junta de Vecinos matriz seleccionada se encuentra inactiva.")
+
+    return matriz
+
+
+def delegacion_del_profesional(user):
+    """
+    Delegación del usuario si actúa como Profesional (sin rol Administrador).
+    Retorna None si es Administrador o superusuario (alcance global).
+    Retorna False si es Profesional pero no tiene delegación asignada.
+    """
+    if user.groups.filter(name='Administrador').exists() or user.is_superuser:
+        return None
+    if user.groups.filter(name='Profesional').exists():
+        prof = getattr(user, 'profesional', None)
+        return prof.id_delegacion if prof and prof.id_delegacion else False
+    return None
