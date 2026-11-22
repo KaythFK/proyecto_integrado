@@ -9,6 +9,7 @@ MENU_POR_ROL = {
             ('Auditoría', 'journal-text', 'administracionApp:lista_auditoria'),
             ('Reglas de alerta', 'bell', 'monitoreoApp:lista_reglas_alerta'),
             ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
+            ('Informe de gestión', 'file-earmark-bar-graph', 'monitoreoApp:informe_gestion'),
         ]),
     ],
     'coordinador': [
@@ -25,6 +26,7 @@ MENU_POR_ROL = {
             ('Gestión de indicadores', 'bar-chart-line', 'monitoreoApp:tablero_indicadores_coordinador'),
             ('Tendencias por cargo', 'graph-up-arrow', 'monitoreoApp:tendencias_cargo'),
             ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
+            ('Informe de gestión', 'file-earmark-bar-graph', 'monitoreoApp:informe_gestion'),
             ('Todas las actividades', 'list-check', 'tuboApp:listar_todas'),
         ]),
     ],
@@ -37,6 +39,7 @@ MENU_POR_ROL = {
             ('Revisar evidencias', 'camera', 'actividadApp:lista_evidencias'),
             ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),
             ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
+            ('Informe de gestión', 'file-earmark-bar-graph', 'monitoreoApp:informe_gestion'),
         ]),
     ],
     'profesional': [
