@@ -37,22 +37,31 @@
             <form method="POST" novalidate>
                 {% csrf_token %}
                 
-                <!-- Campos ocultos de seguridad para que la evidencia y el validador viajen solos por detrás -->
+                <!-- Campos ocultos de seguridad para que las evidencias y el validador viajen solos por detrás -->
                 {{ form.id_evidencia }}
                 {{ form.id_validador }}
+                {% for ev_item in evidencias_grupo %}
+                    <input type="hidden" name="evidencias" value="{{ ev_item.pk }}">
+                {% endfor %}
 
-                <!-- TARJETA CON INFORMACIÓN Y FOTO EN GRANDE -->
+                <!-- TARJETA CON INFORMACIÓN Y FOTOS EN GRANDE -->
                 {% if evidencia %}
                 <div class="card mb-4 shadow-sm border bg-light">
                     <div class="card-body p-4 text-center">
-                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-info-circle"></i> Información y Evidencia de la Actividad</h5>
+                        <h5 class="fw-bold text-dark mb-3"><i class="bi bi-info-circle"></i> Información y Evidencias de la Actividad</h5>
                         
-                        <!-- FOTO EN GRANDE -->
-                        {% if evidencia.archivo_foto %}
-                            <div class="mb-3 bg-white p-2 rounded border d-inline-block shadow-sm">
-                                <img src="{{ evidencia.archivo_foto.url }}" alt="Fotografía de Evidencia" class="img-fluid rounded" style="max-height: 500px; width: auto; object-fit: contain;">
-                            </div>
-                        {% endif %}
+                        <div class="d-flex flex-wrap justify-content-center gap-3 mb-3">
+                            {% for ev_item in evidencias_grupo %}
+                                {% if ev_item.archivo_foto %}
+                                    <div class="bg-white p-2 rounded border shadow-sm">
+                                        <a href="{{ ev_item.archivo_foto.url }}" target="_blank">
+                                            <img src="{{ ev_item.archivo_foto.url }}" alt="Fotografía de Evidencia {{ forloop.counter }}" class="img-fluid rounded" style="max-height: 360px; width: auto; object-fit: contain;">
+                                        </a>
+                                        <div class="small text-muted mt-1">Foto {{ forloop.counter }} (ID {{ ev_item.pk }})</div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
                         
                         <!-- DATOS DE LA ACTIVIDAD -->
                         <div class="row text-start mt-2 px-md-4">

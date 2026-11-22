@@ -101,7 +101,8 @@ SECCIONES_PANEL_ADMIN = [
         ('Cargas', 'Cargas familiares', 'diagram-3', 'comunidadApp:lista_cargas'),
         ('Vínculos', 'Relaciones familiares', 'link-45deg', 'comunidadApp:lista_vinculos'),
         ('Retroalimentaciones', 'Felicitaciones y reclamos', 'chat-heart', 'actividadApp:lista_retroalimentaciones'),
-        ('Celebraciones', 'Celebraciones Territoriales', 'calendar-event', 'comunidadApp:lista_celebraciones')
+        ('Celebraciones', 'Celebraciones Territoriales', 'calendar-event', 'comunidadApp:lista_celebraciones'),
+        ('Gestión de beneficios', 'A vecinos y cargas', 'gift', 'comunidadApp:gestion_beneficios_admin'),
     ]),
     ('Configuración', [
         ('Catálogos', 'Ítems, servicios y tipos', 'journal-text', 'administracionApp:panel_catalogos'),

@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Beneficiarios y Entrega de Beneficios{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Nómina de Beneficiarios y Auditoría de Entregas</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    {% include 'parciales/mensajes.html' %}
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h4 class="fw-bold m-0 texto-guinda">
+                Control de Beneficiarios
+                {% if delegacion %}
+                    <span class="badge bg-dark ms-2">{{ delegacion.nombre }}</span>
+                {% endif %}
+            </h4>
+            <small class="text-muted">Inscribe vecinos o cargas familiares, audita entregas con fecha/hora y revisa el avance visual de la nómina.</small>
+        </div>
+        {% if evento_seleccionado %}
+            <a href="{% url 'comunidadApp:inscribir_beneficiarios_celebracion' evento_seleccionado.pk %}"
+               class="btn text-white fw-bold shadow-sm fondo-rojo">
+                + Inscribir Beneficiarios
+            </a>
+        {% endif %}
+    </div>
+
+    {% if es_gestor_global and delegaciones_disponibles %}
+        <form method="GET" class="row g-2 mb-3">
+            <div class="col-12 col-md-5">
+                <select name="delegacion" class="form-select borde-guinda" onchange="this.form.submit()">
+                    <option value="">-- Todas las delegaciones --</option>
+                    {% for d in delegaciones_disponibles %}
+                        <option value="{{ d.pk }}" {% if delegacion and delegacion.pk == d.pk %}selected{% endif %}>
+                            {{ d.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    {% endif %}
+
+    <form method="GET" class="row g-2 mb-4">
+        {% if delegacion and es_gestor_global %}
+            <input type="hidden" name="delegacion" value="{{ delegacion.pk }}">
+        {% endif %}
+        <div class="col-12 col-md-5">
+            <label class="form-label fw-bold small text-dark mb-1" for="selectEventoLocal">Celebración Local Activa</label>
+            <select id="selectEventoLocal" name="evento" class="form-select borde-guinda" onchange="this.form.submit()">
+                {% for ev in eventos %}
+                    <option value="{{ ev.pk }}" {% if evento_seleccionado and evento_seleccionado.pk == ev.pk %}selected{% endif %}>
+                        {{ ev.celebracion.nombre }} — {{ ev.delegacion.nombre }} ({{ ev.fecha_ejecucion|date:"d/m/Y"|default:"Sin fecha" }})
+                    </option>
+                {% empty %}
+                    <option value="">Sin eventos activos en esta delegación</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-3">
+            <label class="form-label fw-bold small text-dark mb-1" for="selectEstadoEntrega">Estado de Entrega</label>
+            <select id="selectEstadoEntrega" name="estado_entrega" class="form-select borde-guinda" onchange="this.form.submit()">
+                <option value="todos" {% if estado_entrega == 'todos' %}selected{% endif %}>Todos (Entregados y Pendientes)</option>
+                <option value="pendiente" {% if estado_entrega == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                <option value="entregado" {% if estado_entrega == 'entregado' %}selected{% endif %}>Entregado</option>
+            </select>
+        </div>
+        <div class="col-12 col-md-4">
+            <label class="form-label fw-bold small text-dark mb-1" for="inputBuscarBeneficiario">Buscar</label>
+            <div class="input-group">
+                <input id="inputBuscarBeneficiario" type="text" name="q" value="{{ query }}" class="form-control borde-guinda"
+                       placeholder="Nombre, RUT u observación...">
+                <button type="submit" class="btn text-white fw-bold fondo-guinda">Filtrar</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 p-3 redondeado-12 caja-gris h-100">
+                <small class="text-muted fw-bold">Total Inscritos</small>
+                <h3 class="fw-bold m-0 texto-guinda">{{ total_inscritos }}</h3>
+                <small class="text-muted mt-1">Beneficiarios registrados en este evento</small>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 p-3 redondeado-12 caja-gris h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted fw-bold">Beneficios Entregados</small>
+                    <span class="badge fondo-rojo text-white">{{ porcentaje_entrega }}%</span>
+                </div>
+                <h3 class="fw-bold m-0 texto-guinda">{{ total_entregados }}</h3>
+                <div class="progress mt-2">
+                    <div id="barraProgresoEntrega"
+                         class="progress-bar fondo-rojo"
+                         role="progressbar"
+                         aria-valuemin="0"
+                         aria-valuemax="100"
+                         data-porcentaje="{{ porcentaje_entrega|floatformat:0 }}"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 p-3 redondeado-12 caja-gris h-100">
+                <small class="text-muted fw-bold">Pendientes de Entrega</small>
+                <h3 class="fw-bold m-0 text-dark">{{ total_pendientes }}</h3>
+                <small class="text-muted mt-1">Por entregar o confirmar</small>
+            </div>
+        </div>
+    </div>
+
+    {% if evento_seleccionado %}
+    <div class="row g-3 mb-4"
+         id="contenedorGraficasBeneficiarios"
+         data-entregados="{{ total_entregados|default:0 }}"
+         data-pendientes="{{ total_pendientes|default:0 }}"
+         data-vecinos-entregados="{{ vecinos_entregados|default:0 }}"
+         data-vecinos-pendientes="{{ vecinos_pendientes|default:0 }}"
+         data-cargas-entregadas="{{ cargas_entregadas|default:0 }}"
+         data-cargas-pendientes="{{ cargas_pendientes|default:0 }}">
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0 redondeado-15 h-100">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0 texto-guinda">Estado General</h6>
+                        <span class="badge fondo-rojo text-white">{{ porcentaje_entrega }}%</span>
+                    </div>
+                    <div class="mx-auto my-2">
+                        <canvas id="graficaDonaEvento" height="200"></canvas>
+                    </div>
+                    <small class="text-muted text-center">
+                        {{ total_entregados }} entregados de {{ total_inscritos }} inscritos
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0 redondeado-15 h-100">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0 texto-guinda">Por Tipo de Beneficiario</h6>
+                        <small class="text-muted">Vecinos vs. Cargas</small>
+                    </div>
+                    <div class="my-2">
+                        <canvas id="graficaTipoBeneficiario" height="200"></canvas>
+                    </div>
+                    <small class="text-muted text-center">
+                        Desglose de entregas según grupo familiar
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0 redondeado-15 h-100">
+                <div class="card-body p-4 d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0 texto-guinda">Avance por Celebración</h6>
+                        <small class="text-muted">Eventos activos</small>
+                    </div>
+                    <div class="my-2">
+                        <canvas id="graficaBarrasEventos" height="200"></canvas>
+                    </div>
+                    <small class="text-muted text-center">
+                        Comparativa de entregas en la delegación
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{ datos_grafica_eventos_json|json_script:"datos-eventos-json" }}
+    {% endif %}
+
+    <div class="alert alert-light border-start border-4 border-secondary small text-muted mb-3">
+        <i class="bi bi-info-circle-fill me-1 texto-guinda"></i>
+        <strong>¿Cómo registrar una entrega?</strong> Activa el interruptor <strong>Entregado</strong> en la fila del beneficiario, agrega una observación si corresponde y presiona <strong>Guardar</strong> para registrar automáticamente la fecha y hora exacta.
+    </div>
+
+    <div class="card shadow-sm border-0 redondeado-15 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Beneficiario</th>
+                            <th class="text-center">Tipo</th>
+                            <th class="text-center">Estado Actual</th>
+                            <th>Fecha / Hora Entrega</th>
+                            <th>Registrar / Auditar Entrega</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ben in beneficiarios %}
+                        <tr>
+                            <td>
+                                {% if ben.carga_familiar %}
+                                    <strong>{{ ben.carga_familiar.nombres }} {{ ben.carga_familiar.apellido_paterno }} {{ ben.carga_familiar.apellido_materno|default:"" }}</strong><br>
+                                    <small class="text-muted">RUT: {{ ben.carga_familiar.rut }}</small>
+                                {% elif ben.vecino %}
+                                    <strong>{{ ben.vecino.nombres }} {{ ben.vecino.apellido_paterno }} {{ ben.vecino.apellido_materno|default:"" }}</strong><br>
+                                    <small class="text-muted">RUT: {{ ben.vecino.rut|default:"Sin registro" }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if ben.carga_familiar %}
+                                    <span class="badge bg-info text-dark">Carga Familiar</span>
+                                {% else %}
+                                    <span class="badge bg-primary">Vecino</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if ben.beneficio_entregado %}
+                                    <span class="badge bg-success">Entregado</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if ben.fecha_entrega %}
+                                    <span class="small fw-semibold">{{ ben.fecha_entrega|date:"d/m/Y H:i" }}</span>
+                                {% else %}
+                                    <span class="text-muted small">Sin entrega registrada</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <form method="POST" action="{% url 'comunidadApp:auditar_entrega_beneficiario' ben.pk %}"
+                                      class="d-flex flex-column flex-xl-row align-items-xl-center gap-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="estado_entrega" value="{{ estado_entrega }}">
+                                    <div class="form-check form-switch m-0 d-flex align-items-center gap-2 text-nowrap">
+                                        <input class="form-check-input switch-estado-sgr m-0 switch-entrega"
+                                               type="checkbox"
+                                               role="switch"
+                                               id="switchEntrega{{ ben.pk }}"
+                                               name="beneficio_entregado"
+                                               {% if ben.beneficio_entregado %}checked{% endif %}>
+                                        <label class="form-check-label small fw-bold {% if ben.beneficio_entregado %}text-success{% else %}text-muted{% endif %}"
+                                               for="switchEntrega{{ ben.pk }}">
+                                            {% if ben.beneficio_entregado %}Entregado{% else %}Pendiente{% endif %}
+                                        </label>
+                                    </div>
+                                    <input type="text" name="observacion" value="{{ ben.observacion|default:'' }}"
+                                           class="form-control form-control-sm borde-guinda"
+                                           placeholder="Observación de entrega...">
+                                    <button type="submit" class="btn btn-sm text-white fw-bold fondo-guinda px-3 text-nowrap">
+                                        Guardar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                {% if evento_seleccionado %}
+                                    No hay beneficiarios que coincidan con el filtro seleccionado.
+                                {% else %}
+                                    No hay celebraciones activas en esta delegación. Activa una celebración primero en "Celebraciones locales".
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const barra = document.getElementById('barraProgresoEntrega');
+    if (barra) {
+        const pct = Math.max(0, Math.min(100, Number(barra.dataset.porcentaje || 0)));
+        barra.style.width = pct + '%';
+        barra.setAttribute('aria-valuenow', String(pct));
+    }
+
+    document.querySelectorAll('.switch-entrega').forEach(function (sw) {
+        sw.addEventListener('change', function () {
+            const label = sw.parentElement.querySelector('label');
+            if (!label) return;
+            if (sw.checked) {
+                label.textContent = 'Entregado';
+                label.classList.remove('text-muted');
+                label.classList.add('text-success');
+            } else {
+                label.textContent = 'Pendiente';
+                label.classList.remove('text-success');
+                label.classList.add('text-muted');
+            }
+        });
+    });
+
+    const contenedor = document.getElementById('contenedorGraficasBeneficiarios');
+    if (!contenedor || typeof Chart === 'undefined') return;
+
+    const entregadosActual = Number(contenedor.dataset.entregados || 0);
+    const pendientesActual = Number(contenedor.dataset.pendientes || 0);
+    const vecinosEntregados = Number(contenedor.dataset.vecinosEntregados || 0);
+    const vecinosPendientes = Number(contenedor.dataset.vecinosPendientes || 0);
+    const cargasEntregadas = Number(contenedor.dataset.cargasEntregadas || 0);
+    const cargasPendientes = Number(contenedor.dataset.cargasPendientes || 0);
+
+    const ROJO_ENTREGADO = '#B81D24';
+    const ROJO_PENDIENTE = '#E57373';
+    const GRIS_VACIO = '#E2E6EA';
+
+    let datosEventos = [];
+    const scriptEventos = document.getElementById('datos-eventos-json');
+    if (scriptEventos) {
+        try {
+            const raw = JSON.parse(scriptEventos.textContent);
+            datosEventos = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch (e) {
+            datosEventos = [];
+        }
+    }
+
+    const ctxDona = document.getElementById('graficaDonaEvento');
+    if (ctxDona) {
+        const sinDatos = (entregadosActual + pendientesActual) === 0;
+        new Chart(ctxDona, {
+            type: 'doughnut',
+            data: {
+                labels: sinDatos ? ['Sin inscritos'] : ['Entregados', 'Pendientes'],
+                datasets: [{
+                    data: sinDatos ? [1] : [entregadosActual, pendientesActual],
+                    backgroundColor: sinDatos ? [GRIS_VACIO] : [ROJO_ENTREGADO, ROJO_PENDIENTE],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '64%',
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+
+    const ctxTipo = document.getElementById('graficaTipoBeneficiario');
+    if (ctxTipo) {
+        new Chart(ctxTipo, {
+            type: 'bar',
+            data: {
+                labels: ['Vecinos', 'Cargas Familiares'],
+                datasets: [
+                    {
+                        label: 'Entregados',
+                        data: [vecinosEntregados, cargasEntregadas],
+                        backgroundColor: ROJO_ENTREGADO,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Pendientes',
+                        data: [vecinosPendientes, cargasPendientes],
+                        backgroundColor: ROJO_PENDIENTE,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    x: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    },
+                    y: { stacked: true }
+                },
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+
+    const ctxBarras = document.getElementById('graficaBarrasEventos');
+    if (ctxBarras && Array.isArray(datosEventos) && datosEventos.length > 0) {
+        new Chart(ctxBarras, {
+            type: 'bar',
+            data: {
+                labels: datosEventos.map(function (e) { return e.nombre; }),
+                datasets: [
+                    {
+                        label: 'Entregados',
+                        data: datosEventos.map(function (e) { return e.entregados; }),
+                        backgroundColor: ROJO_ENTREGADO,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Pendientes',
+                        data: datosEventos.map(function (e) { return e.pendientes; }),
+                        backgroundColor: ROJO_PENDIENTE,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    x: { stacked: true },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

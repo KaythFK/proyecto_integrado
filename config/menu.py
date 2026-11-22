@@ -58,6 +58,7 @@ MENU_POR_ROL = {
             ('Organizaciones Comunitarias', 'diagram-3', 'comunidadApp:lista_organizaciones'),
             ('Vecinos', 'person', 'administracionApp:lista_vecinos'),
             ('Vínculos y Cargas', 'person-hearts', 'comunidadApp:panel_profesional'),
+            ('Beneficiarios celebraciones', 'gift', 'comunidadApp:panel_beneficiarios_celebracion'),
         ]),
     ],
 }

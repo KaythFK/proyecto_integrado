@@ -58,39 +58,45 @@
                     <tbody>
                         {% for item in evidencias_con_validacion %}
                         <tr>
-                            <td><span class="badge bg-dark fs-6">{{ item.evidencia.id_actividad.codigo_unico }}</span></td>
-                            
-                            <!-- Botón para ver la foto real en el servidor -->
                             <td>
-                                {% if item.evidencia.archivo_foto %}
-                                    <a href="{{ item.evidencia.archivo_foto.url }}" target="_blank" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6">
-                                        <i class="bi bi-image"></i> Ver foto
-                                    </a>
-                                {% else %}
-                                    <span class="text-muted small">Sin archivo</span>
-                                {% endif %}
+                                <span class="badge bg-dark fs-6">{{ item.evidencia.id_actividad.codigo_unico }}</span>
+                                <div class="small text-muted mt-1">{{ item.evidencias|length }} foto(s)</div>
+                            </td>
+                            
+                            <!-- Botones para ver las fotos del mismo ingreso -->
+                            <td>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for ev in item.evidencias %}
+                                        {% if ev.archivo_foto %}
+                                            <a href="{{ ev.archivo_foto.url }}" target="_blank" class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6">
+                                                <i class="bi bi-image"></i> Foto {{ forloop.counter }}
+                                            </a>
+                                        {% endif %}
+                                    {% empty %}
+                                        <span class="text-muted small">Sin archivo</span>
+                                    {% endfor %}
+                                </div>
                             </td>
                             
                             <td>
-                                {% if item.evidencia.estado_revision == 'APROBADO' %}
+                                {% if item.estado_revision == 'APROBADO' %}
                                     <span class="badge bg-success">Aprobada</span>
-                                {% elif item.evidencia.estado_revision == 'RECHAZADO' %}
+                                {% elif item.estado_revision == 'RECHAZADO' %}
                                     <span class="badge bg-danger">Rechazada</span>
                                 {% else %}
                                     <span class="badge bg-warning text-dark">Pendiente</span>
                                 {% endif %}
 
-                                {% if item.validacion %}
+                                {% if item.validacion and item.validacion.observacion %}
                                     <div class="mt-1"><small class="text-muted">Obs: {{ item.validacion.observacion }}</small></div>
                                 {% endif %}
                             </td>
                             
                             <td class="text-center">
                                 <div class="d-flex justify-content-center gap-2">
-                                    {% if item.evidencia.estado_revision == 'PENDIENTE' %}
-                                        <!-- Aquí evaluamos la variable global 'puede_validar' -->
+                                    {% if item.tiene_pendientes %}
                                         {% if puede_validar %}
-                                            <a href="{% url 'actividadApp:crear_validacion' %}?evidencia={{ item.evidencia.id_evidencia }}" class="btn btn-sm text-white fw-bold shadow-sm fondo-guinda redondeado-6" title="Revisar y Validar">
+                                            <a href="{% url 'actividadApp:crear_validacion' %}?{{ item.query_validacion }}" class="btn btn-sm text-white fw-bold shadow-sm fondo-guinda redondeado-6" title="Revisar y Validar">
                                                 <i class="bi bi-check-circle"></i> Validar
                                             </a>
                                         {% else %}

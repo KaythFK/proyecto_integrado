@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Beneficios en Celebraciones{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Beneficios en Celebraciones</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container mt-4 mb-5">
+    {% include 'parciales/mensajes.html' %}
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+        <div>
+            <h4 class="fw-bold m-0 texto-guinda">Consulta General de Beneficios</h4>
+            <small class="text-muted">Revisa el estado de beneficios asignados y entregados por delegación y celebración.</small>
+        </div>
+        <a href="{% url 'comunidadApp:lista_celebraciones' %}" class="btn btn-outline-dark fw-bold shadow-sm">
+            Volver a Celebraciones
+        </a>
+    </div>
+
+    <form method="GET" class="row g-2 mb-4">
+        <div class="col-12 col-md-3">
+            <label class="form-label fw-bold small text-dark mb-1" for="filtroDelegacionConsulta">Delegación</label>
+            <select id="filtroDelegacionConsulta" name="delegacion" class="form-select borde-guinda" onchange="this.form.submit()">
+                <option value="">Todas las delegaciones</option>
+                {% for d in delegaciones %}
+                    <option value="{{ d.pk }}" {% if delegacion_id == d.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ d.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <label class="form-label fw-bold small text-dark mb-1" for="filtroCelebracionConsulta">Celebración</label>
+            <select id="filtroCelebracionConsulta" name="celebracion" class="form-select borde-guinda" onchange="this.form.submit()">
+                <option value="">Todas las celebraciones</option>
+                {% for cel in celebraciones %}
+                    <option value="{{ cel.pk }}" {% if celebracion_id == cel.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ cel.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-12 col-md-2">
+            <label class="form-label fw-bold small text-dark mb-1" for="filtroEstadoConsulta">Estado</label>
+            <select id="filtroEstadoConsulta" name="estado_entrega" class="form-select borde-guinda" onchange="this.form.submit()">
+                <option value="todos" {% if estado_entrega == 'todos' %}selected{% endif %}>Todos</option>
+                <option value="pendiente" {% if estado_entrega == 'pendiente' %}selected{% endif %}>Pendientes</option>
+                <option value="entregado" {% if estado_entrega == 'entregado' %}selected{% endif %}>Entregados</option>
+            </select>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <label class="form-label fw-bold small text-dark mb-1" for="buscarBeneficiosConsulta">Buscar</label>
+            <div class="input-group">
+                <input id="buscarBeneficiosConsulta"
+                       type="text"
+                       name="q"
+                       value="{{ query }}"
+                       class="form-control borde-guinda"
+                       placeholder="Beneficiario, RUT, delegación...">
+                <button type="submit" class="btn text-white fw-bold fondo-guinda">Filtrar</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 p-3 redondeado-12 caja-gris h-100">
+                <small class="text-muted fw-bold">Total Asignados</small>
+                <h3 class="fw-bold m-0 texto-guinda">{{ total_asignados }}</h3>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 p-3 redondeado-12 caja-gris h-100">
+                <small class="text-muted fw-bold">Entregados</small>
+                <h3 class="fw-bold m-0 text-success">{{ total_entregados }}</h3>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 p-3 redondeado-12 caja-gris h-100">
+                <small class="text-muted fw-bold">Pendientes</small>
+                <h3 class="fw-bold m-0 text-dark">{{ total_pendientes }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 redondeado-15 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Beneficiario</th>
+                            <th class="text-center">Tipo</th>
+                            <th>Celebración</th>
+                            <th>Delegación</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center">Fecha / Hora Entrega</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in beneficios %}
+                        <tr>
+                            <td>
+                                {% if item.carga_familiar %}
+                                    <strong>{{ item.carga_familiar.nombres }} {{ item.carga_familiar.apellido_paterno }} {{ item.carga_familiar.apellido_materno|default:"" }}</strong><br>
+                                    <small class="text-muted">RUT: {{ item.carga_familiar.rut }}</small>
+                                {% elif item.vecino %}
+                                    <strong>{{ item.vecino.nombres }} {{ item.vecino.apellido_paterno }} {{ item.vecino.apellido_materno|default:"" }}</strong><br>
+                                    <small class="text-muted">RUT: {{ item.vecino.rut|default:"Sin registro" }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.carga_familiar %}
+                                    <span class="badge bg-info text-dark">Carga Familiar</span>
+                                {% else %}
+                                    <span class="badge bg-primary">Vecino</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ item.celebracion_delegacion.celebracion.nombre }}</strong><br>
+                                <small class="text-muted">{{ item.celebracion_delegacion.celebracion.tipo.nombre }}</small>
+                            </td>
+                            <td>
+                                <span class="fw-semibold">{{ item.celebracion_delegacion.delegacion.nombre }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if item.beneficio_entregado %}
+                                    <span class="badge bg-success">Entregado</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if item.fecha_entrega %}
+                                    <span class="small fw-semibold">{{ item.fecha_entrega|date:"d/m/Y H:i" }}</span>
+                                {% else %}
+                                    <span class="text-muted small">Sin entrega registrada</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="small text-muted">{{ item.observacion|default:"Sin observación" }}</span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">
+                                No hay beneficios registrados con los filtros seleccionados.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
