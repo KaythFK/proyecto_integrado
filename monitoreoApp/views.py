@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 from tuboApp.models import Compromiso, HistorialIncumplimiento
-from tuboApp.filters import CompromisoFilter
+from tuboApp.filters import CompromisoFilter, buscar_compromisos
 from datetime import date, timedelta
 from django.core.exceptions import ValidationError
 from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador 
@@ -39,6 +39,9 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
     """
     try:
         profesional_actual = Profesional.objects.filter(usuario=request.user).first() if request.user.is_authenticated else None
+        if profesional_actual is None:
+            print(f"Auditoría omitida: {request.user} no tiene un perfil de funcionario asociado.")
+            return
         identificador = getattr(objeto_instancia, 'pk', 0)
         
         diccionario_nuevo = model_to_dict(objeto_instancia)
@@ -262,11 +265,7 @@ def tubo_delegacion(request):
     )).order_by('fecha_comprometida', 'id_compromiso')
 
     if query:
-        compromisos = compromisos.filter(
-            Q(id_actividad__codigo_unico__icontains=query) |
-            Q(id_actividad__solicitud_problema__icontains=query) |
-            Q(territorio__icontains=query)
-        ).distinct()
+        compromisos = buscar_compromisos(compromisos, query)
 
     hoy = date.today()
     registrar_incumplimientos(hoy)

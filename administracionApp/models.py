@@ -223,6 +223,8 @@ def auditar_login(sender, request, user, **kwargs):
         from .models import Auditoria, Profesional
         
         profesional_actual = Profesional.objects.filter(usuario=user).first()
+        if profesional_actual is None:
+            return
         ip_cliente = request.META.get('REMOTE_ADDR', 'Desconocida')
         
         datos_sesion = {
@@ -249,6 +251,8 @@ def auditar_logout(sender, request, user, **kwargs):
         
         if user:
             profesional_actual = Profesional.objects.filter(usuario=user).first()
+            if profesional_actual is None:
+                return
             
             datos_sesion = {
                 "descripcion_legible": f"Cierre de sesión: {user.username}"

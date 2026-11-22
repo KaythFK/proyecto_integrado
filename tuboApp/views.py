@@ -21,7 +21,7 @@ from administracionApp.models import Profesional, Auditoria
 import json
 from django.forms.models import model_to_dict
 from config.utils import puede_modificar_compromiso
-from .filters import CompromisoFilter
+from .filters import CompromisoFilter, buscar_compromisos
 from django.core.exceptions import PermissionDenied
 
 
@@ -41,6 +41,9 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
     """
     try:
         profesional_actual = Profesional.objects.filter(usuario=request.user).first() if request.user.is_authenticated else None
+        if profesional_actual is None:
+            print(f"Auditoría omitida: {request.user} no tiene un perfil de funcionario asociado.")
+            return
         identificador = getattr(objeto_instancia, 'pk', 0)
         
         diccionario_nuevo = model_to_dict(objeto_instancia)
@@ -126,11 +129,7 @@ def agenda(request):
     observaciones = ObservacionCompromiso.objects.all().order_by('-fecha')
     
     if query:
-        compromisos = compromisos.filter(
-            Q(id_actividad__codigo_unico__icontains=query) |
-            Q(id_actividad__solicitud_problema__icontains=query) |
-            Q(territorio__icontains=query)
-        ).distinct()
+        compromisos = buscar_compromisos(compromisos, query)
 
     filtro = CompromisoFilter(request.GET, queryset=compromisos)
 

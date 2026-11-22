@@ -1,7 +1,10 @@
+import re
 from datetime import date, timedelta
 
 import django_filters
 from django import forms
+from django.db.models import F, Q, Value
+from django.db.models.functions import Replace, Upper
 
 from administracionApp.models import Profesional
 from .models import Compromiso
@@ -46,3 +49,29 @@ class CompromisoFilter(django_filters.FilterSet):
     def __init__(self, *args, responsables=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.filters['responsable'].queryset = responsables if responsables is not None else Profesional.objects.order_by('nombres')
+
+
+def _rut_limpio(campo):
+    return Upper(Replace(Replace(F(campo), Value('.'), Value('')), Value('-'), Value('')))
+
+
+def buscar_compromisos(queryset, texto):
+    """Busca por código, problema, territorio, RUT (con o sin puntos y guion) o nombre del solicitante."""
+    texto = (texto or '').strip()
+    if not texto:
+        return queryset
+    filtro = (Q(id_actividad__codigo_unico__icontains=texto) | Q(id_actividad__solicitud_problema__icontains=texto)
+              | Q(territorio__icontains=texto))
+    rut = re.sub(r'[^0-9kK]', '', texto).upper()
+    if len(rut) >= 3 and any(c.isdigit() for c in rut):
+        queryset = queryset.annotate(rut_vecino=_rut_limpio('id_actividad__solicitante_vecino__rut'),
+                                     rut_profesional=_rut_limpio('id_actividad__solicitante_profesional__rut'))
+        filtro |= Q(rut_vecino__contains=rut) | Q(rut_profesional__contains=rut)
+    nombre = Q()
+    for palabra in texto.split():
+        coincide = Q()
+        for solicitante in ('solicitante_vecino', 'solicitante_profesional'):
+            for campo in ('nombres', 'apellido_paterno', 'apellido_materno'):
+                coincide |= Q(**{f'id_actividad__{solicitante}__{campo}__icontains': palabra})
+        nombre &= coincide
+    return queryset.filter(filtro | nombre).distinct()

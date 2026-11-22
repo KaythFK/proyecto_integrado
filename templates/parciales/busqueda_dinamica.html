@@ -1,0 +1,20 @@
+<script>
+    document.querySelectorAll('input[data-busqueda-dinamica]').forEach(function (campo) {
+        let espera;
+        let ultimo = campo.value.trim();
+        campo.addEventListener('input', function () {
+            clearTimeout(espera);
+            espera = setTimeout(function () {
+                const texto = campo.value.trim();
+                if (texto === ultimo || (texto.length > 0 && texto.length < 2)) return;
+                sessionStorage.setItem('busquedaDinamicaFoco', campo.form.action);
+                campo.form.submit();
+            }, 400);
+        });
+        if (sessionStorage.getItem('busquedaDinamicaFoco') === campo.form.action) {
+            sessionStorage.removeItem('busquedaDinamicaFoco');
+            campo.focus();
+            campo.setSelectionRange(campo.value.length, campo.value.length);
+        }
+    });
+</script>

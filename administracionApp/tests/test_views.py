@@ -59,7 +59,7 @@ class TestVistaCrearProfesional(TestCase):
         self.client.login(username='admin', password='123')
 
         # Foráneas necesarias
-        self.cargo = Cargo.objects.create(nombre="Asistente")
+        self.cargo = Cargo.objects.create(nombre="Asistente", fecha_inicio=datetime.date(2026, 1, 1), fecha_termino=datetime.date(2026, 12, 31))
         self.delegacion = Delegacion.objects.create(nombre="Delegación Sur", territorio="Sur")
 
     # --- CASO 1: TRANSACCIÓN EXITOSA (CP-CREAR-PROF-001) ---
@@ -125,7 +125,7 @@ class TestVistaEditarProfesional(TestCase):
         self.client.login(username='admin', password='123')
 
         # 2. Foráneas necesarias
-        self.cargo = Cargo.objects.create(nombre="Asistente")
+        self.cargo = Cargo.objects.create(nombre="Asistente", fecha_inicio=datetime.date(2026, 1, 1), fecha_termino=datetime.date(2026, 12, 31))
         self.delegacion = Delegacion.objects.create(nombre="Delegación Centro", territorio="Centro")
 
         # 3. Precondición: Crear un usuario y profesional existente para editar
@@ -194,7 +194,7 @@ class TestVistaCambiarEstadoProfesional(TestCase):
         self.client.login(username='admin', password='123')
 
         # 2. Foráneas
-        self.cargo = Cargo.objects.create(nombre="Asistente")
+        self.cargo = Cargo.objects.create(nombre="Asistente", fecha_inicio=datetime.date(2026, 1, 1), fecha_termino=datetime.date(2026, 12, 31))
         self.delegacion = Delegacion.objects.create(nombre="Norte", territorio="Norte")
         
         # 3. Registro objetivo (Inicialmente Activo)
@@ -420,7 +420,9 @@ class TestVistaCrearCargo(TestCase):
         
         # Enviamos un POST con el campo obligatorio correctamente llenado
         response = self.client.post(url, {
-            'nombre': 'Jefe de Finanzas'
+            'nombre': 'Jefe de Finanzas',
+            'fecha_inicio': '2026-01-01',
+            'fecha_termino': '2026-12-31'
         })
         
         # 1. Verificamos redirección de éxito (HTTP 302)
@@ -464,7 +466,8 @@ class TestVistaEditarCargo(TestCase):
 
         # 2. Precondición: Crear un cargo en la base de datos
         self.cargo_test = Cargo.objects.create(
-            nombre="Asistente Social"
+            nombre="Asistente Social",
+            fecha_inicio=datetime.date(2026, 1, 1), fecha_termino=datetime.date(2026, 12, 31)
         )
 
     # --- CASO 1: EDICIÓN EXITOSA (CP-EDIT-CARGO-001) ---
@@ -473,7 +476,9 @@ class TestVistaEditarCargo(TestCase):
         
         # Enviamos un POST modificando el nombre
         response = self.client.post(url, {
-            'nombre': 'Jefe de Asistencia Social'
+            'nombre': 'Jefe de Asistencia Social',
+            'fecha_inicio': '2026-01-01',
+            'fecha_termino': '2026-12-31'
         })
         
         # 1. Verificamos redirección a la lista general (HTTP 302)
@@ -511,6 +516,7 @@ class TestVistaCambiarEstadoCargo(TestCase):
         # 2. Precondición: Crear un cargo inicializado en estado Activo (True)
         self.cargo_test = Cargo.objects.create(
             nombre="Asistente Social",
+            fecha_inicio=datetime.date(2026, 1, 1), fecha_termino=datetime.date(2026, 12, 31),
             estado=True
         )
 

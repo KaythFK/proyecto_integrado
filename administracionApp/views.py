@@ -41,6 +41,9 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
     """
     try:
         profesional_actual = Profesional.objects.filter(usuario=request.user).first()
+        if profesional_actual is None:
+            print(f"Auditoría omitida: {request.user} no tiene un perfil de funcionario asociado.")
+            return
         identificador = getattr(objeto_instancia, 'pk', 0)
         
         # Extraemos los datos nuevos

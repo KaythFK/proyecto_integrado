@@ -53,7 +53,7 @@ class TestValidacionPeriodo(TestCase):
         
         # 4. Verificamos que detectó el error y lo asignó al campo correcto
         self.assertIn('fecha_termino', form.errors)
-        self.assertEqual(form.errors['fecha_termino'][0], "La fecha de término debe ser posterior a la fecha de inicio.")
+        self.assertEqual(form.errors['fecha_termino'][0], "La fecha de término debe ser igual o posterior a la fecha de inicio.")
 
     # --- CASO 2: RECHAZO POR UMBRALES INCOHERENTES (CP-PER-003) ---
     def test_clean_rechaza_umbral_regular_mayor(self):
@@ -105,21 +105,20 @@ class TestValidacionDelegacion(TestCase):
 class TestValidacionCargo(TestCase):
 
     # --- CASO 1: RECHAZO POR VIGENCIA INVÁLIDA (CP-CAR-002) ---
-    def test_clean_rechaza_vigencia_cero_o_negativa(self):
-        # 1. Instanciamos formulario vacío
-        form = CargoForm()
-        
-        # 2. Inyectamos un número inválido (0 meses)
-        form.cleaned_data = {'vigencia': 0}
-        
-        # 3. Ejecutamos la unidad aislada y capturamos la excepción
-        with self.assertRaisesMessage(forms.ValidationError, "La vigencia (en meses) debe ser mayor a cero."):
-            form.clean_vigencia()
+    def test_clean_rechaza_vigencia_con_fechas_invertidas(self):
+        form = CargoForm(data={
+            'nombre': 'Supervisor de Terreno',
+            'fecha_inicio': '2026-12-31',
+            'fecha_termino': '2026-01-01',
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('La fecha de término de vigencia debe ser igual o posterior a la fecha de inicio.', form.errors['fecha_termino'])
 
     # --- CASO 2: RECHAZO POR NOMBRE DUPLICADO (CP-CAR-003) ---
     def test_clean_rechaza_nombre_duplicado(self):
         # 1. Precondición: Creamos el cargo real en la BD
-        Cargo.objects.create(nombre="Supervisor de Obras")
+        Cargo.objects.create(nombre="Supervisor de Obras", fecha_inicio=datetime.date(2026, 1, 1), fecha_termino=datetime.date(2026, 12, 31))
         
         # 2. Instanciamos formulario e inyectamos el mismo nombre
         form = CargoForm()
