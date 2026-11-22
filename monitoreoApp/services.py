@@ -49,7 +49,7 @@ def calcular_indicadores_meta(avance_real, meta):
 
 # --- ALERTAS (HU-31) ---
 SEGUNDOS_ENTRE_REVISIONES = 300
-PREFIJO_POR_TIPO = {'VENCIMIENTO': 'Compromiso', 'EVIDENCIA_PENDIENTE': 'Evidencia', 'AVANCE_BAJO': 'Avance', 'RETROALIMENTACION': 'Recibiste un',}
+PREFIJO_POR_TIPO = {'VENCIMIENTO': 'Compromiso', 'EVIDENCIA_PENDIENTE': 'Evidencia', 'AVANCE_BAJO': 'Avance', 'SIN_REGISTROS': 'Sin registros', 'RETROALIMENTACION': 'Recibiste un',}
 
 
 def tipo_de_alerta(alerta):
@@ -91,6 +91,99 @@ def emitir_alerta(regla, motivo, responsable, enlaces):
         )
         creadas += creada
     return creadas
+
+
+# --- FRECUENCIA DE REGISTROS ---
+DIAS_SIN_REGISTROS_POR_DEFECTO = 3
+
+
+def dias_umbral_sin_registros(hoy=None):
+    """Días hábiles sin registros que tolera la regla vigente."""
+    from .models import ReglaAlerta
+    regla = ReglaAlerta.vigente(ReglaAlerta.SIN_REGISTROS, hoy or date.today())
+    return int(regla.umbral) if regla else DIAS_SIN_REGISTROS_POR_DEFECTO
+
+
+def dias_habiles(desde, hasta, ausencias=()):
+    """Días de lunes a viernes entre desde y hasta (ambos incluidos), sin contar los días de ausencia."""
+    dias = 0
+    dia = desde
+    while dia <= hasta:
+        if dia.weekday() < 5 and not any(inicio <= dia <= termino for inicio, termino in ausencias):
+            dias += 1
+        dia += timedelta(days=1)
+    return dias
+
+
+def funcionarios_a_monitorear(delegacion=None):
+    from administracionApp.models import Profesional
+    profesionales = (Profesional.objects
+                     .filter(estado=True, usuario__is_active=True, usuario__groups__name='Profesional')
+                     .select_related('id_delegacion').distinct().order_by('nombres', 'apellido_paterno'))
+    if delegacion is not None:
+        profesionales = profesionales.filter(id_delegacion=delegacion)
+    return profesionales
+
+
+def uso_de_funcionarios(profesionales, periodo, umbral, hoy=None):
+    """
+    Por funcionario: último registro válido, registros del período, promedio diario y días hábiles sin registrar.
+    Un registro válido es una actividad o una gestión activa. Se mide hasta ayer, o hasta el cierre si el período ya terminó,
+    y los días con ausencia registrada no cuentan.
+    """
+    from django.db.models import Count, F, Max, Q
+    from actividadApp.models import Actividad, Ausencia, GestionActividad
+    from config.utils import inicio_del_dia
+    hoy = hoy or date.today()
+    profesionales = list(profesionales)
+    if periodo is None or not profesionales:
+        return []
+
+    ultimo_dia = min(hoy - timedelta(days=1), periodo.fecha_termino)
+    corte = inicio_del_dia(ultimo_dia + timedelta(days=1))
+    del_periodo = Q(fecha_registro__gte=inicio_del_dia(periodo.fecha_inicio), fecha_registro__lt=corte)
+    ids = [p.pk for p in profesionales]
+    consultas = (
+        Actividad.objects.filter(id_profesional__in=ids, estado=True).values(funcionario=F('id_profesional')),
+        GestionActividad.objects.filter(profesional__in=ids, estado=True).values(funcionario=F('profesional')),
+    )
+    ultimos, totales = {}, {}
+    for consulta in consultas:
+        for fila in consulta.order_by().annotate(ultimo=Max('fecha_registro', filter=Q(fecha_registro__lt=corte)),
+                                                  total=Count('pk', filter=del_periodo)):
+            pk = fila['funcionario']
+            if fila['ultimo'] and (pk not in ultimos or fila['ultimo'] > ultimos[pk]):
+                ultimos[pk] = fila['ultimo']
+            totales[pk] = totales.get(pk, 0) + fila['total']
+
+    ausencias = {}
+    for pk, inicio, termino in (Ausencia.objects
+                                .filter(profesional_ausente__in=ids, estado=True,
+                                        fecha_inicio__lte=ultimo_dia, fecha_termino__gte=periodo.fecha_inicio)
+                                .values_list('profesional_ausente_id', 'fecha_inicio', 'fecha_termino')):
+        ausencias.setdefault(pk, []).append((inicio, termino))
+
+    filas = []
+    for profesional in profesionales:
+        ultimo = ultimos.get(profesional.pk)
+        if ultimo is not None and timezone.is_aware(ultimo):
+            ultimo = timezone.localtime(ultimo)
+        dias_ausente = ausencias.get(profesional.pk, [])
+        dias_transcurridos = dias_habiles(periodo.fecha_inicio, ultimo_dia, dias_ausente)
+        total = totales.get(profesional.pk, 0)
+        desde = max(ultimo.date() + timedelta(days=1), periodo.fecha_inicio) if ultimo else periodo.fecha_inicio
+        sin_registros = dias_habiles(desde, ultimo_dia, dias_ausente)
+        filas.append({
+            'funcionario': profesional,
+            'ultimo_registro': ultimo,
+            'total': total,
+            'dias_transcurridos': dias_transcurridos,
+            'promedio': round(total / dias_transcurridos, 2) if dias_transcurridos else None,
+            'dias_sin_registros': sin_registros,
+            'supera_umbral': sin_registros > umbral,
+        })
+    filas.sort(key=lambda f: (not f['supera_umbral'], -f['dias_sin_registros'], f['funcionario'].nombres))
+    return filas
 
 
 def alertas_de_vencimiento(regla, hoy):
@@ -151,10 +244,28 @@ def alertas_de_avance_bajo(regla, hoy):
     return creadas
 
 
+def alertas_sin_registros(regla, hoy):
+    from administracionApp.models import Periodo
+    periodo = next((p for p in Periodo.objects.filter(estado=True).order_by('-fecha_inicio') if p.esta_vigente), None)
+    url = reverse('monitoreoApp:frecuencia_registros')
+    creadas = 0
+    for fila in uso_de_funcionarios(funcionarios_a_monitorear(), periodo, int(regla.umbral), hoy):
+        if not fila['supera_umbral']:
+            continue
+        profesional = fila['funcionario']
+        desde = f"desde el {fila['ultimo_registro']:%d/%m/%Y}" if fila['ultimo_registro'] else f'en el período {periodo.nombre}'
+        motivo = (f'Sin registros de {profesional.nombres} {profesional.apellido_paterno} {desde}: '
+                  f'supera los {numero(regla.umbral)} días hábiles')
+        enlaces = {'Delegado': url, 'Coordinador': f'{url}?delegacion={profesional.id_delegacion_id}'}
+        creadas += emitir_alerta(regla, motivo, profesional, enlaces)
+    return creadas
+
+
 GENERADORES_ALERTA = {
     'VENCIMIENTO': alertas_de_vencimiento,
     'EVIDENCIA_PENDIENTE': alertas_de_evidencia_pendiente,
     'AVANCE_BAJO': alertas_de_avance_bajo,
+    'SIN_REGISTROS': alertas_sin_registros,
 }
 
 

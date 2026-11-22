@@ -35,6 +35,7 @@
                 {% if alerta.tipo == 'VENCIMIENTO' %}<i class="bi bi-calendar-x" aria-hidden="true"></i>
                 {% elif alerta.tipo == 'EVIDENCIA_PENDIENTE' %}<i class="bi bi-camera" aria-hidden="true"></i>
                 {% elif alerta.tipo == 'RETROALIMENTACION' %}<i class="bi bi-award" aria-hidden="true"></i>
+                {% elif alerta.tipo == 'SIN_REGISTROS' %}<i class="bi bi-person-x" aria-hidden="true"></i>
                 {% else %}<i class="bi bi-graph-down-arrow" aria-hidden="true"></i>{% endif %}
             </span>
             <div class="flex-grow-1">

@@ -8,6 +8,7 @@ MENU_POR_ROL = {
         ('Supervisión', 'shield-check', [
             ('Auditoría', 'journal-text', 'administracionApp:lista_auditoria'),
             ('Reglas de alerta', 'bell', 'monitoreoApp:lista_reglas_alerta'),
+            ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
         ]),
     ],
     'coordinador': [
@@ -23,6 +24,7 @@ MENU_POR_ROL = {
             ('Metas', 'bullseye', 'monitoreoApp:tablero_metas_coordinador'),
             ('Gestión de indicadores', 'bar-chart-line', 'monitoreoApp:tablero_indicadores_coordinador'),
             ('Tendencias por cargo', 'graph-up-arrow', 'monitoreoApp:tendencias_cargo'),
+            ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
             ('Todas las actividades', 'list-check', 'tuboApp:listar_todas'),
         ]),
     ],
@@ -34,6 +36,7 @@ MENU_POR_ROL = {
             ('Tubo de compromisos', 'kanban', 'monitoreoApp:tubo_delegacion'),
             ('Revisar evidencias', 'camera', 'actividadApp:lista_evidencias'),
             ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),
+            ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
         ]),
     ],
     'profesional': [
