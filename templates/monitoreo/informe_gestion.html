@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}Informe de gestión - SGR{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Informe de Gestión</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4 mb-5 px-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h4 class="fw-bold texto-guinda m-0">Información consolidada de la gestión{% if es_delegado %}: {{ delegacion.nombre }}{% endif %}</h4>
+            {% if periodo %}<small class="text-muted">{{ periodo.nombre }}: {{ periodo.fecha_inicio|date:"d/m/Y" }} al {{ periodo.fecha_termino|date:"d/m/Y" }}</small>{% endif %}
+        </div>
+        {% if periodo %}
+        <a href="{{ url_excel }}" class="btn text-white fw-bold fondo-guinda shadow-sm redondeado-6">
+            <i class="bi bi-file-earmark-excel"></i> Descargar Excel
+        </a>
+        {% endif %}
+    </div>
+
+    <form method="GET" class="card shadow-sm border-0 p-3 mb-3 redondeado-10">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1" for="filtroPeriodo">Período</label>
+                <select name="periodo" id="filtroPeriodo" class="form-select borde-guinda">
+                    {% for p in periodos %}<option value="{{ p.pk }}" {% if periodo and periodo.pk == p.pk %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            {% if not es_delegado %}
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1" for="filtroDelegacion">Delegación</label>
+                <select name="delegacion" id="filtroDelegacion" class="form-select borde-guinda">
+                    <option value="">Todas</option>
+                    {% for d in delegaciones %}<option value="{{ d.pk }}" {% if delegacion and delegacion.pk == d.pk %}selected{% endif %}>{{ d.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-12 col-sm-6 col-lg-2">
+                <label class="form-label small fw-bold mb-1" for="filtroCargo">Cargo</label>
+                <select name="cargo" id="filtroCargo" class="form-select borde-guinda">
+                    <option value="">Todos</option>
+                    {% for c in cargos %}<option value="{{ c.pk }}" {% if cargo and cargo.pk == c.pk %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <label class="form-label small fw-bold mb-1" for="filtroFuncionario">Funcionario</label>
+                <select name="funcionario" id="filtroFuncionario" class="form-select borde-guinda">
+                    <option value="">Todos</option>
+                    {% for f in funcionarios %}<option value="{{ f.pk }}" {% if funcionario and funcionario.pk == f.pk %}selected{% endif %}>{{ f.nombres }} {{ f.apellido_paterno }}{% if not es_delegado %} · {{ f.id_delegacion.nombre }}{% endif %}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3 d-flex gap-2">
+                <button type="submit" class="btn text-white fw-bold fondo-guinda w-100">Generar informe</button>
+                {% if request.GET %}<a href="{{ request.path }}" class="btn btn-outline-secondary fw-bold w-100">Limpiar</a>{% endif %}
+            </div>
+        </div>
+    </form>
+
+    <div class="card shadow-sm border-0 p-3 mb-3 redondeado-10 small">
+        <div class="d-flex flex-wrap gap-3">
+            <span class="fw-bold texto-guinda">Filtros aplicados:</span>
+            {% for nombre, valor in filtros %}<span><strong>{{ nombre }}:</strong> {{ valor }}</span>{% endfor %}
+        </div>
+    </div>
+    <div class="alert alert-secondary py-2 small mb-4" role="note">
+        <i class="bi bi-info-circle"></i> {{ aviso }}
+        Solo se consideran registros activos: actividades y evidencias de las metas del período, compromisos con fecha comprometida en el período y retroalimentaciones del período.
+    </div>
+
+    {% if periodo %}
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #8B1D19 !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Actividades</h6>
+                <h1 class="display-5 fw-bold m-0 text-dark">{{ informe.totales.act_total }}</h1>
+                <small class="text-muted">{{ informe.totales.act_finalizadas }} finalizadas</small>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #198754 !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Evidencias aprobadas</h6>
+                <h1 class="display-5 fw-bold m-0 text-dark">{{ informe.totales.ev_aprobadas }}</h1>
+                <small class="text-muted">{{ informe.totales.ev_por_revisar }} por revisar · {{ informe.totales.ev_rechazadas }} rechazadas</small>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #C41230 !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Compromisos vencidos</h6>
+                <h1 class="display-5 fw-bold m-0 {% if informe.totales.comp_vencidos %}text-danger{% else %}text-dark{% endif %}">{{ informe.totales.comp_vencidos }}</h1>
+                <small class="text-muted">de {{ informe.totales.comp_total }} · {{ informe.totales.comp_realizados }} realizados</small>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid {% if informe.semaforo == 'VERDE' %}#198754{% elif informe.semaforo == 'AMARILLO' %}#ffc107{% elif informe.semaforo == 'ROJO' %}#C41230{% else %}#6c757d{% endif %} !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Cumplimiento</h6>
+                <h1 class="display-5 fw-bold m-0 {% if informe.semaforo == 'VERDE' %}text-success{% elif informe.semaforo == 'AMARILLO' %}text-warning{% elif informe.semaforo == 'ROJO' %}text-danger{% else %}text-muted{% endif %}">
+                    {% if informe.cumplimiento is not None %}{{ informe.cumplimiento }}%{% else %}—{% endif %}
+                </h1>
+                <small class="text-muted">ponderado por meta</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm border-0 mb-4 redondeado-15 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0 small">
+                <thead class="table-dark">
+                    <tr class="text-center">
+                        <th rowspan="2" class="text-start px-3 align-middle">Funcionario</th>
+                        {% if not es_delegado %}<th rowspan="2" class="text-start align-middle">Delegación</th>{% endif %}
+                        <th rowspan="2" class="text-start align-middle">Cargo</th>
+                        <th colspan="4">Actividades</th>
+                        <th colspan="3">Evidencias</th>
+                        <th colspan="4">Compromisos</th>
+                        <th colspan="2">Retroalimentación</th>
+                        <th rowspan="2" class="align-middle">Cumplimiento</th>
+                    </tr>
+                    <tr class="text-center">
+                        <th>Total</th><th>Pendientes</th><th>En proceso</th><th>Finalizadas</th>
+                        <th>Aprobadas</th><th>Rechazadas</th><th>Por revisar</th>
+                        <th>Total</th><th>Realizados</th><th>Vencidos</th><th>Por vencer</th>
+                        <th>Felicitaciones</th><th>Reclamos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in informe.filas %}
+                    <tr class="text-center">
+                        <td class="text-start px-3 fw-bold">{{ fila.funcionario.nombres }} {{ fila.funcionario.apellido_paterno }}</td>
+                        {% if not es_delegado %}<td class="text-start">{{ fila.funcionario.id_delegacion.nombre }}</td>{% endif %}
+                        <td class="text-start">{{ fila.funcionario.id_cargo.nombre }}</td>
+                        {% for valor in fila.valores %}<td>{{ valor }}</td>{% endfor %}
+                        <td>
+                            {% if fila.cumplimiento is not None %}
+                            <span class="badge {% if fila.semaforo == 'VERDE' %}bg-success{% elif fila.semaforo == 'AMARILLO' %}bg-warning text-dark{% else %}bg-danger{% endif %}">{{ fila.cumplimiento }}%</span>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if es_delegado %}16{% else %}17{% endif %}" class="text-center text-muted py-4">
+                            {% if periodo %}No hay información que cumpla los filtros seleccionados.{% else %}No hay períodos registrados.{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% if informe.filas %}
+                <tfoot>
+                    <tr class="text-center fw-bold table-light">
+                        <td class="text-start px-3" colspan="{% if es_delegado %}2{% else %}3{% endif %}">Total</td>
+                        {% for valor in totales %}<td>{{ valor }}</td>{% endfor %}
+                        <td>{% if informe.cumplimiento is not None %}{{ informe.cumplimiento }}%{% else %}—{% endif %}</td>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
