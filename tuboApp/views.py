@@ -11,8 +11,8 @@ from django.urls import reverse
 from datetime import date
 from actividadApp.models import Actividad
 from .forms import ObservacionRegistroForm
-from monitoreoApp.views import elegir_periodo, resumen_indicadores
-from monitoreoApp.services import registrar_incumplimiento
+from monitoreoApp.views import datos_graficos_panel, elegir_periodo, resumen_indicadores
+from monitoreoApp.services import registrar_incumplimiento, resumen_compromisos
 from actividadApp.filters import ActividadFilter
 from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades, validar_acceso_observaciones
 
@@ -25,6 +25,10 @@ from .filters import CompromisoFilter, buscar_compromisos
 from django.core.exceptions import PermissionDenied
 
 
+def solo_profesional(user):
+    return not user.groups.filter(name__in=['Administrador', 'Coordinador', 'Delegado']).exists()
+
+
 def url_tubo_segun_rol(user):
     if user.groups.filter(name='Administrador').exists():
         return 'tuboApp:tubo'
@@ -32,6 +36,8 @@ def url_tubo_segun_rol(user):
         return 'monitoreoApp:tubo_delegacion'
     if user.groups.filter(name='Coordinador').exists():
         return 'tuboApp:dashboard_coordinador'
+    if user.groups.filter(name='Profesional').exists():
+        return 'monitoreoApp:tubo_delegacion'
     return 'tuboApp:tubo'
 
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
@@ -143,13 +149,16 @@ def agenda(request):
 
 
 @login_required
-@role_required('Administrador', 'Coordinador', 'Delegado')
+@role_required('Administrador', 'Coordinador', 'Delegado', 'Profesional')
 def actualizar_progreso_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
 
         if not puede_modificar_compromiso(request.user, compromiso):
             raise PermissionDenied('No tienes permiso para modificar este compromiso: pertenece a otro funcionario o delegación.')
+        if solo_profesional(request.user) and compromiso.estado_progreso == 'REALIZADO':
+            messages.error(request, 'El compromiso ya está realizado; solo el Delegado puede modificarlo.')
+            return redirect(url_tubo_segun_rol(request.user))
 
         nuevo_estado = request.POST.get('nuevo_estado')
         registrar_incumplimiento(compromiso)
@@ -235,6 +244,10 @@ def dashboard_coordinador(request):
     periodos, periodo = elegir_periodo(request)
     filas = resumen_indicadores(None, periodo)[0]
     filas.sort(key=lambda f: f['diferencia'])
+    actividades_periodo = Actividad.objects.filter(estado=True, id_meta__id_periodo=periodo) if periodo else Actividad.objects.none()
+    compromisos_periodo = Compromiso.objects.filter(estado=True)
+    if periodo:
+        compromisos_periodo = compromisos_periodo.filter(fecha_comprometida__range=(periodo.fecha_inicio, periodo.fecha_termino))
 
     context = {
         'total': total_actividades,
@@ -246,6 +259,8 @@ def dashboard_coordinador(request):
         'filas': filas,
         'esperado': periodo.porcentaje_esperado() if periodo else None,
         'desviaciones_criticas': [f for f in filas if f['desviacion'] == 'ROJO'],
+        'graficos': datos_graficos_panel(sorted(filas, key=lambda f: f['nombre']), resumen_compromisos(compromisos_periodo),
+                                         actividades_periodo, agrupar_por_delegacion=True),
     }
     return render(request, 'coordinador/dashboard_coordinador.html', context)
 

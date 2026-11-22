@@ -42,7 +42,7 @@
                 
                 <div class="row p-3 rounded mb-4 caja-gris">
                     {% for field in form %}
-                        {% if field.name != 'en_tubo' %}
+                        {% if field.name != 'en_tubo' and field.name != 'es_coordinacion_preparatoria' %}
                             <div class="col-12 {% if field.name == 'solicitud_problema' or field.name == 'accion' %}col-md-12{% else %}col-md-6{% endif %} mb-3">
                                 <label class="form-label fw-bold text-dark">
                                     {{ field.label }} {% if field.field.required %}*{% endif %}
@@ -54,6 +54,18 @@
                             </div>
                         {% endif %}
                     {% endfor %}
+
+                    {% if form.es_coordinacion_preparatoria %}
+                    <div class="col-12 mb-3">
+                        <div class="border rounded p-3 d-flex justify-content-between align-items-center bg-white shadow-sm">
+                            <div>
+                                <label class="form-check-label fw-bold text-dark mb-0" for="{{ form.es_coordinacion_preparatoria.id_for_label }}">{{ form.es_coordinacion_preparatoria.label }}</label>
+                                <div class="small text-muted">{{ form.es_coordinacion_preparatoria.help_text }}</div>
+                            </div>
+                            <div class="form-check form-switch m-0">{{ form.es_coordinacion_preparatoria }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <!-- Switch moderno y estilizado para el Tubo -->
                     <div class="col-12 mb-3">

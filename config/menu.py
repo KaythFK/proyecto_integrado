@@ -52,6 +52,7 @@ MENU_POR_ROL = {
             ('Mis actividades', 'clipboard-check', 'actividadApp:listar_actividades'),
             ('Mis gestiones', 'list-task', 'actividadApp:mis_gestiones'),
             ('Mis evidencias', 'camera', 'actividadApp:lista_evidencias'),
+            ('Tubo de la delegación', 'kanban', 'monitoreoApp:tubo_delegacion'),
             ('Organizaciones Comunitarias', 'diagram-3', 'comunidadApp:lista_organizaciones'),
             ('Vecinos', 'person', 'administracionApp:lista_vecinos'),
             ('Vínculos y Cargas', 'person-hearts', 'comunidadApp:panel_profesional'),

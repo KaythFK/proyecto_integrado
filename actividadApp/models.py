@@ -25,11 +25,10 @@ class Actividad(models.Model):
     fecha_finalizacion = models.DateField(null=True, blank=True)
     solicitud_problema = models.TextField()
     accion = models.TextField()
-    porcentaje_impacto = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        validators=[MinValueValidator(Decimal('0.01')), MaxValueValidator(Decimal('30.00'))]
+    es_coordinacion_preparatoria = models.BooleanField(
+        default=False,
+        verbose_name='¿Es una coordinación preparatoria?',
+        help_text='Se registra, pero no suma al avance de la meta.',
     )
     codigo_unico = models.CharField(max_length=100, unique=True)
     solicitante_profesional = models.ForeignKey('administracionApp.Profesional', blank=True, null=True, on_delete=models.DO_NOTHING, db_column='id_solicitante_profesional', related_name='solicitante_interno')

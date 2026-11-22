@@ -18,7 +18,7 @@ from tuboApp.models import Compromiso, HistorialIncumplimiento
 from tuboApp.filters import CompromisoFilter, buscar_compromisos
 from datetime import date, timedelta
 from django.core.exceptions import ValidationError
-from config.utils import etiqueta_funcionario, validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador 
+from config.utils import actividades_que_ponderan, etiqueta_funcionario, validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador 
 from django.core.exceptions import PermissionDenied
 from .filters import MetaFilter
 from config.utils import procesar_resumen_dashboard
@@ -115,6 +115,7 @@ def dashboard_delegado(request):
         'dias_aviso': dias_aviso_vencimiento(hoy),
         'sin_registros': sin_registros,
         'umbral_sin_registros': umbral_sin_registros,
+        'graficos': datos_graficos_panel(filas, resumen_compromisos(compromisos_equipo, hoy), actividades_equipo),
     }
     return render(request, 'delegado/dashboard_delegado.html', context)
 
@@ -195,9 +196,9 @@ def cumplimiento_de(indicador):
 
 def registros_de_origen(meta, funcionario):
     """Actividades activas con evidencia aprobada que forman el avance de un funcionario en una meta."""
-    return (Actividad.objects
+    return (actividades_que_ponderan(Actividad.objects
             .filter(id_meta=meta, id_profesional=funcionario, estado=True,
-                    evidencia__estado=True, evidencia__estado_revision='APROBADO')
+                    evidencia__estado=True, evidencia__estado_revision='APROBADO'))
             .distinct().order_by('-fecha_registro'))
 
 
@@ -257,7 +258,7 @@ def actividades_delegacion(request):
     return render(request, 'delegado/lista_actividades.html', context)
 
 @login_required
-@role_required('Delegado')
+@role_required('Delegado', 'Profesional')
 def tubo_delegacion(request):
     """ UML: monitorearCompromisos(filtros) """
     query = request.GET.get('q')
@@ -291,8 +292,45 @@ def tubo_delegacion(request):
         'ausentes_hoy': ausentes_hoy,
         'hoy': hoy,
         'limite_aviso': hoy + timedelta(days=dias_aviso_vencimiento(hoy)),
+        'es_delegado': request.user.groups.filter(name='Delegado').exists(),
+        'mi_profesional_id': request.user.profesional.pk,
     }
     return render(request, 'delegado/lista_tubo_delegado.html', context)
+
+
+COLOR_SEMAFORO = {'VERDE': '#198754', 'AMARILLO': '#ffc107', 'ROJO': '#C41230'}
+
+
+def datos_graficos_panel(filas, tubo, actividades, agrupar_por_delegacion=False):
+    """Datos de los gráficos de los paneles: cumplimiento con su semáforo, estado de compromisos y carga de trabajo."""
+    from django.db.models import Count
+    campo = 'id_profesional__id_delegacion__nombre' if agrupar_por_delegacion else 'id_profesional'
+    carga, nombres = {}, {}
+    for fila in actividades.values(campo, 'id_profesional__nombres', 'id_profesional__apellido_paterno', 'estado_progreso').order_by().annotate(n=Count('pk')):
+        clave = fila[campo]
+        nombres[clave] = clave if agrupar_por_delegacion else f"{fila['id_profesional__nombres']} {fila['id_profesional__apellido_paterno']}"
+        grupo = carga.setdefault(clave, {'PENDIENTE': 0, 'EN_PROCESO': 0, 'FINALIZADA': 0})
+        if fila['estado_progreso'] in grupo:
+            grupo[fila['estado_progreso']] += fila['n']
+    claves = sorted(carga, key=lambda c: str(nombres[c]))
+    return {
+        'cumplimiento': {
+            'etiquetas': [f['nombre'] for f in filas],
+            'valores': [f['cumplimiento'] for f in filas],
+            'colores': [COLOR_SEMAFORO.get(f['semaforo'], '#6c757d') for f in filas],
+        },
+        'compromisos': {
+            'etiquetas': ['Realizados', 'Vencidos', 'Por vencer', 'Pendientes'],
+            'valores': [tubo['realizados'], tubo['vencidos'], tubo['proximos'], tubo['pendientes']],
+        },
+        'carga': {
+            'etiquetas': [str(nombres[c]) for c in claves],
+            'pendientes': [carga[c]['PENDIENTE'] for c in claves],
+            'en_proceso': [carga[c]['EN_PROCESO'] for c in claves],
+            'finalizadas': [carga[c]['FINALIZADA'] for c in claves],
+        },
+        'por_delegacion': agrupar_por_delegacion,
+    }
 
 
 # --- NUEVAS VISTAS DE GESTIÓN DE METAS ---

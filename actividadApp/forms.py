@@ -43,6 +43,11 @@ class ActividadProfesionalForm(EtiquetaFuncionarioMixin, forms.ModelForm):
             'fecha_comprometida': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}),
             'solicitud_problema': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Detalle la solicitud o problema...'}),
             'accion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Detalle la acción realizada...'}),
+            'es_coordinacion_preparatoria': forms.CheckboxInput(attrs={
+                'class': 'form-check-input',
+                'role': 'switch',
+                'style': 'width: 3em; height: 1.5em; cursor: pointer;'
+            }),
             'en_tubo': forms.CheckboxInput(attrs={
                 'class': 'form-check-input',
                 'role': 'switch',
@@ -193,6 +198,7 @@ class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
             'solicitante_profesional': forms.Select(attrs={'class': 'form-select'}),
             'solicitante_vecino': forms.Select(attrs={'class': 'form-select'}),
             'estado_progreso': forms.Select(attrs={'class': 'form-select'}),
+            'es_coordinacion_preparatoria': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             'en_tubo': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             'id_profesional': forms.Select(attrs={'class': 'form-select'}),
             'id_meta': forms.Select(attrs={'class': 'form-select'}),
@@ -344,6 +350,7 @@ class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
             'solicitante_profesional': forms.Select(attrs={'class': 'form-select'}),
             'solicitante_vecino': forms.Select(attrs={'class': 'form-select'}),
             'estado_progreso': forms.Select(attrs={'class': 'form-select'}),
+            'es_coordinacion_preparatoria': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             'en_tubo': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
             'id_profesional': forms.Select(attrs={'class': 'form-select'}),
             'id_meta': forms.Select(attrs={'class': 'form-select'}),

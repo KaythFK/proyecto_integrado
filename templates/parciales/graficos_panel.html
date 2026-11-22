@@ -1,0 +1,173 @@
+<h6 class="fw-bold text-muted mb-3"><i class="bi bi-bar-chart-line"></i> Gráficos del período{% if periodo %} · {{ periodo.nombre }}{% endif %}</h6>
+<div class="row g-4 mb-5">
+    <div class="col-12 col-lg-7">
+        <div class="card shadow-sm border-0 redondeado-15 p-3 h-100">
+            <h6 class="fw-bold texto-guinda mb-1">Cumplimiento por {% if graficos.por_delegacion %}delegación{% else %}funcionario{% endif %}</h6>
+            <small class="text-muted mb-2">El color indica el semáforo según los umbrales del período.</small>
+            {% if graficos.cumplimiento.etiquetas %}
+            <div style="position: relative; height: 260px;"><canvas id="graficoCumplimiento" role="img" aria-label="Cumplimiento por {% if graficos.por_delegacion %}delegación{% else %}funcionario{% endif %}"></canvas></div>
+            {% else %}<p class="text-muted text-center my-5">No hay metas con indicadores en este período.</p>{% endif %}
+        </div>
+    </div>
+    <div class="col-12 col-lg-5">
+        <div class="card shadow-sm border-0 redondeado-15 p-3 h-100">
+            <h6 class="fw-bold texto-guinda mb-1">Estado de los compromisos</h6>
+            <small class="text-muted mb-2">Compromisos con fecha comprometida en el período.</small>
+            <div style="position: relative; height: 260px;"><canvas id="graficoCompromisos" role="img" aria-label="Estado de los compromisos"></canvas></div>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card shadow-sm border-0 redondeado-15 p-3">
+            <h6 class="fw-bold texto-guinda mb-1">Carga de trabajo por {% if graficos.por_delegacion %}delegación{% else %}funcionario{% endif %}</h6>
+            <small class="text-muted mb-2">Cuántas actividades tiene registradas cada {% if graficos.por_delegacion %}delegación{% else %}funcionario{% endif %} en el período y en qué estado están. El número al final de cada barra es el total.</small>
+            {% if graficos.carga.etiquetas %}
+            <div style="position: relative; height: 260px;"><canvas id="graficoCarga" role="img" aria-label="Carga de trabajo"></canvas></div>
+            {% else %}<p class="text-muted text-center my-5">No hay actividades registradas en este período.</p>{% endif %}
+        </div>
+    </div>
+</div>
+
+{{ graficos|json_script:"datosGraficosPanel" }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function () {
+    const datos = JSON.parse(document.getElementById('datosGraficosPanel').textContent);
+    if (typeof Chart === 'undefined') return;
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    Chart.defaults.font.size = 13;
+    Chart.defaults.color = '#343a40';
+    Chart.defaults.devicePixelRatio = Math.max(window.devicePixelRatio || 1, 2);
+
+    const cumplimiento = document.getElementById('graficoCumplimiento');
+    if (cumplimiento) {
+        const porcentajes = {
+            id: 'porcentajesCumplimiento',
+            afterDatasetsDraw(grafico) {
+                const ctx = grafico.ctx;
+                ctx.save();
+                ctx.font = `bold 13px ${Chart.defaults.font.family}`;
+                ctx.textBaseline = 'middle';
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#212529';
+                grafico.getDatasetMeta(0).data.forEach((barra, i) => {
+                    ctx.fillText(`${datos.cumplimiento.valores[i]}%`, barra.x + 8, barra.y);
+                });
+                ctx.restore();
+            }
+        };
+        cumplimiento.parentElement.style.height = Math.max(160, datos.cumplimiento.etiquetas.length * 56 + 60) + 'px';
+        new Chart(cumplimiento, {
+            type: 'bar',
+            plugins: [porcentajes],
+            data: { labels: datos.cumplimiento.etiquetas, datasets: [{ label: 'Cumplimiento (%)', data: datos.cumplimiento.valores, backgroundColor: datos.cumplimiento.colores, borderRadius: 6, minBarLength: 4 }] },
+            options: {
+                indexAxis: 'y', maintainAspectRatio: false, maxBarThickness: 34,
+                layout: { padding: { right: 50 } },
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` ${c.parsed.x}%` } } },
+                scales: { x: { min: 0, max: 120, ticks: { callback: (v) => v + '%' } } }
+            }
+        });
+    }
+
+    const totalCompromisos = datos.compromisos.valores.reduce((a, b) => a + b, 0);
+    const totalCentro = {
+        id: 'totalCentro',
+        afterDraw(grafico) {
+            const area = grafico.getDatasetMeta(0).data[0];
+            if (!area) return;
+            const ctx = grafico.ctx;
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#212529';
+            ctx.font = `bold 26px ${Chart.defaults.font.family}`;
+            ctx.fillText(totalCompromisos, area.x, area.y - 9);
+            ctx.font = `12px ${Chart.defaults.font.family}`;
+            ctx.fillStyle = '#6c757d';
+            ctx.fillText('compromisos', area.x, area.y + 14);
+            ctx.restore();
+        }
+    };
+    new Chart(document.getElementById('graficoCompromisos'), {
+        type: 'doughnut',
+        plugins: [totalCentro],
+        data: { labels: datos.compromisos.etiquetas, datasets: [{ data: datos.compromisos.valores, backgroundColor: ['#198754', '#C41230', '#ffc107', '#6c757d'], borderWidth: 2 }] },
+        options: {
+            maintainAspectRatio: false, cutout: '62%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 14, padding: 14,
+                        generateLabels(grafico) {
+                            const base = Chart.overrides.doughnut.plugins.legend.labels.generateLabels(grafico);
+                            return base.map((item, i) => {
+                                const valor = datos.compromisos.valores[i];
+                                const pct = totalCompromisos ? Math.round(valor * 100 / totalCompromisos) : 0;
+                                return { ...item, text: `${item.text}: ${valor} (${pct}%)` };
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    const carga = document.getElementById('graficoCarga');
+    if (carga) {
+        const totales = datos.carga.etiquetas.map((_, i) => datos.carga.pendientes[i] + datos.carga.en_proceso[i] + datos.carga.finalizadas[i]);
+        const numeros = {
+            id: 'numerosCarga',
+            afterDatasetsDraw(grafico) {
+                const ctx = grafico.ctx;
+                ctx.save();
+                ctx.font = `bold 13px ${Chart.defaults.font.family}`;
+                ctx.textBaseline = 'middle';
+                grafico.data.datasets.forEach((serie, s) => {
+                    grafico.getDatasetMeta(s).data.forEach((barra, i) => {
+                        const valor = serie.data[i];
+                        if (!valor || Math.abs(barra.x - barra.base) < 18) return;
+                        ctx.fillStyle = s === 1 ? '#212529' : '#ffffff';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(valor, (barra.x + barra.base) / 2, barra.y);
+                    });
+                });
+                const ultima = grafico.getDatasetMeta(grafico.data.datasets.length - 1).data;
+                ultima.forEach((barra, i) => {
+                    ctx.fillStyle = '#212529';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`${totales[i]} en total`, barra.x + 8, barra.y);
+                });
+                ctx.restore();
+            }
+        };
+        carga.parentElement.style.height = Math.max(140, datos.carga.etiquetas.length * 56 + 70) + 'px';
+        new Chart(carga, {
+            type: 'bar',
+            data: {
+                labels: datos.carga.etiquetas,
+                datasets: [
+                    { label: 'Pendientes', data: datos.carga.pendientes, backgroundColor: '#6c757d' },
+                    { label: 'En proceso', data: datos.carga.en_proceso, backgroundColor: '#ffc107' },
+                    { label: 'Finalizadas', data: datos.carga.finalizadas, backgroundColor: '#198754' }
+                ]
+            },
+            plugins: [numeros],
+            options: {
+                indexAxis: 'y',
+                maintainAspectRatio: false,
+                maxBarThickness: 34,
+                layout: { padding: { right: 90 } },
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: { callbacks: { footer: (items) => `Total: ${totales[items[0].dataIndex]} actividades` } }
+                },
+                scales: {
+                    x: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Número de actividades' } },
+                    y: { stacked: true, grid: { display: false } }
+                }
+            }
+        });
+    }
+})();
+</script>
