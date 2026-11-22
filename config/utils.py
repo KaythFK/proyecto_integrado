@@ -584,6 +584,16 @@ def validar_fechas_meta_en_periodo(fecha_inicio, fecha_termino, periodo):
 
 
 
+def actividades_que_ponderan(actividades, prefijo=''):
+    """
+    Reglas del cliente: no suman al avance las coordinaciones preparatorias ni las solicitudes cuyo
+    solicitante es un delegado. prefijo permite aplicarlo desde otro modelo (por ejemplo 'id_actividad__').
+    """
+    return (actividades
+            .exclude(**{f'{prefijo}es_coordinacion_preparatoria': True})
+            .exclude(**{f'{prefijo}solicitante_profesional__usuario__groups__name': 'Delegado'}))
+
+
 def calcular_avance_actividades_aprobadas(meta, profesional=None):
     """
     Contabiliza las actividades activas asociadas a la meta que tengan
@@ -602,7 +612,7 @@ def calcular_avance_actividades_aprobadas(meta, profesional=None):
     if profesional is not None:
         qs = qs.filter(id_profesional=profesional)
 
-    total = qs.distinct().count()
+    total = actividades_que_ponderan(qs).distinct().count()
     return Decimal(str(total)).quantize(Decimal('0.01'))
 
 

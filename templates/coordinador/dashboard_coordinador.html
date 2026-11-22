@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Dashboard General - SGR Coordinación{% endblock %}
+{% block title %}Panel de Coordinador - SGR{% endblock %}
 
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0 text-center">Coordinación General SGR</h3>
+<h3 class="text-white fw-bold m-0 text-center">Bienvenido {% if request.user.profesional %}{{ request.user.profesional.nombres }} {{ request.user.profesional.apellido_paterno }}{% else %}{{ request.user.get_full_name|default:request.user.username }}{% endif %} a su panel de control</h3>
 {% endblock %}
 
 {% block contenido %}
@@ -16,6 +16,16 @@
             <h4 class="fw-bold m-0 texto-guinda">Resumen Municipal (Todas las delegaciones)</h4>
             <p class="text-muted m-0 mt-1">Panel de control y métricas globales de La Serena.</p>
         </div>
+        {% if periodos %}
+        <form method="GET" class="d-flex gap-2 align-items-center">
+            <label for="periodo" class="fw-bold small text-nowrap">Período</label>
+            <select name="periodo" id="periodo" class="form-select borde-guinda" onchange="this.form.submit()">
+                {% for p in periodos %}
+                <option value="{{ p.pk }}" {% if periodo and p.pk == periodo.pk %}selected{% endif %}>{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
     </div>
 
     <!-- Tarjetas de Resumen Responsivas -->
@@ -49,6 +59,8 @@
         </div>
     </div>
 
-    {% include 'parciales/avance_esperado.html' with mostrar_delegacion=True %}
+    {% include 'parciales/graficos_panel.html' %}
+
+    {% include 'parciales/avance_esperado.html' with mostrar_delegacion=True periodos=None %}
 </div>
 {% endblock %}

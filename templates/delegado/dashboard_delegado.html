@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Panel de control - SGR{% endblock %}
+{% block title %}Panel de delegado - SGR{% endblock %}
 
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0 text-center">Panel de Control: Delegado</h3>
+<h3 class="text-white fw-bold m-0 text-center">Bienvenido {{ request.user.profesional.nombres }} {{ request.user.profesional.apellido_paterno }} a su panel de control</h3>
 {% endblock %}
 
 {% block contenido %}
@@ -125,6 +125,8 @@
             </table>
         </div>
     </div>
+
+    {% include 'parciales/graficos_panel.html' %}
 
     <h6 class="fw-bold text-muted mb-3"><i class="bi bi-exclamation-octagon-fill text-danger"></i> Resultados bajo el umbral <span class="fw-normal">· {{ rezagados|length }} en rojo</span></h6>
     <div class="card shadow-sm border-0 mb-5 redondeado-15 overflow-hidden">

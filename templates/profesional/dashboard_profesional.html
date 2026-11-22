@@ -1,15 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Panel Profesional - SGR{% endblock %}
+{% block title %}Panel de Profesional - SGR{% endblock %}
 
 
 {% block cabecera %}
 <div class="w-100 text-center">
     <h3 class="text-white fw-bold m-0">
-        Bienvenid{% if profesional_actual.genero == 'F' %}a{% else %}o{% endif %} 
-        {{ profesional_actual.nombres }} {{ profesional_actual.apellido_paterno }}
-        a tu panel operativo
+        Bienvenido {{ profesional_actual.nombres }} {{ profesional_actual.apellido_paterno }} a su panel de control
     </h3>
 </div>
 {% endblock %}
@@ -119,8 +117,8 @@
 
     <!-- NIVEL 2: AGENDA COLECTIVA / TUBO (RF-016) -->
     <div class="card shadow-sm border-0 mb-4" style="border-radius: 12px; overflow: hidden;">
-        <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold m-0 texto-oscuro"><i class="bi bi-calendar-event me-2"></i>Mis Compromisos (Tubo)</h6>
+        <div class="card-header fondo-guinda text-white border-0 py-3 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold m-0 text-white"><i class="bi bi-calendar-event me-2"></i>Mis Compromisos (Tubo)</h6>
             {% if total_proximos_vencer > 0 %}
                 <span class="badge bg-danger rounded-pill">{{ total_proximos_vencer }} Próximo(s) a vencer</span>
             {% endif %}
@@ -171,13 +169,13 @@
 
 
     <div class="card shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
-        <div class="card-header bg-white border-bottom py-3">
-            <h6 class="fw-bold m-0 texto-oscuro"><i class="bi bi-list-task me-2"></i>Historial de Actividades Registradas</h6>
+        <div class="card-header fondo-guinda text-white border-0 py-3">
+            <h6 class="fw-bold m-0 text-white"><i class="bi bi-list-task me-2"></i>Historial de Actividades Registradas</h6>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover table-striped align-middle m-0" style="font-size: 0.95rem;">
-                    <thead class="table-dark" style="background-color: #1a202c;">
+                <table class="table table-hover align-middle m-0 texto-090">
+                    <thead class="table-light">
                         <tr>
                             <th class="px-4">Código Único</th>
                             <th>Solicitud / Problema</th>

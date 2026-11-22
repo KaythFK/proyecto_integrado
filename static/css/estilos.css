@@ -269,8 +269,9 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
 .menu-contador { margin-left: 6px; font-size: 0.7rem; vertical-align: 1px; }
 @media (max-width: 576px) { .alerta-item { flex-wrap: wrap; } }
 
-/* Tablas: borde para distinguirlas del fondo blanco */
+/* Tablas y tarjetas de formulario: borde para distinguirlas del fondo blanco */
 .card:has(.table-responsive),
+.card:has(> .card-header.fondo-guinda),
 .table-responsive.shadow-sm {
     border: 1px solid #CED4DA !important;
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.10) !important;

@@ -358,13 +358,14 @@ def sincronizar_indicador(indicador, guardar=True):
     if not meta or not funcionario:
         return indicador
 
-    avance_real = Evidencia.objects.filter(
+    from config.utils import actividades_que_ponderan
+    avance_real = actividades_que_ponderan(Evidencia.objects.filter(
         estado=True,
         estado_revision='APROBADO',
         id_actividad__estado=True,
         id_actividad__id_meta=meta,
         id_actividad__id_profesional=funcionario,
-    ).count()
+    ), prefijo='id_actividad__').count()
 
     calculo = calcular_indicadores_meta(avance_real, meta)
 
@@ -630,13 +631,14 @@ def sincronizar_indicador(indicador, guardar=True):
     if not meta or not funcionario:
         return indicador
 
-    avance_real = Evidencia.objects.filter(
+    from config.utils import actividades_que_ponderan
+    avance_real = actividades_que_ponderan(Evidencia.objects.filter(
         estado=True,
         estado_revision='APROBADO',
         id_actividad__estado=True,
         id_actividad__id_meta=meta,
         id_actividad__id_profesional=funcionario,
-    ).count()
+    ), prefijo='id_actividad__').count()
 
     calculo = calcular_indicadores_meta(avance_real, meta)
     ajuste = ajuste_del_indicador(meta, funcionario, calculo['cumplimiento'])

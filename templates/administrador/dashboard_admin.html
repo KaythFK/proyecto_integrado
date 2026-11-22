@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Delegaciones Municipales{% endblock %}
+{% block title %}Panel de Administrador - SGR{% endblock %}
 
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0">¡Bienvenido al sistema de gestión de delegaciones municipales!</h3>
+<h3 class="text-white fw-bold m-0 text-center">Bienvenido {% if request.user.profesional %}{{ request.user.profesional.nombres }} {{ request.user.profesional.apellido_paterno }}{% else %}{{ request.user.get_full_name|default:request.user.username }}{% endif %} a su panel de control</h3>
 {% endblock %}
 
 {% block contenido %}
