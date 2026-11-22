@@ -10,6 +10,33 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 import uuid
 # Create your models here.
 
+
+def tiene_transparencia(img):
+    if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+        return img.convert('RGBA').getchannel('A').getextrema()[0] < 255
+    return False
+
+
+def optimizar_imagen(archivo, nombre_base, max_ancho=1280):
+    """
+    Achica la imagen a max_ancho y la comprime. Si tiene zonas transparentes se guarda como PNG para conservarlas;
+    si no, como JPEG al 85 %, que pesa mucho menos. Devuelve el archivo listo para asignar al campo.
+    """
+    img = Image.open(archivo)
+    transparente = tiene_transparencia(img)
+    img = img.convert('RGBA' if transparente else 'RGB')
+    if img.width > max_ancho:
+        img = img.resize((max_ancho, int(max_ancho / img.width * img.height)), Image.Resampling.LANCZOS)
+    salida = BytesIO()
+    if transparente:
+        img.save(salida, format='PNG', optimize=True)
+        extension, tipo = 'png', 'image/png'
+    else:
+        img.save(salida, format='JPEG', quality=85, optimize=True)
+        extension, tipo = 'jpg', 'image/jpeg'
+    salida.seek(0)
+    return InMemoryUploadedFile(salida, 'ImageField', f'{nombre_base}.{extension}', tipo, salida.getbuffer().nbytes, None)
+
 class Actividad(models.Model):
 
 #Opciones para ENUM de estado_progreso
@@ -117,41 +144,11 @@ class Evidencia(models.Model):
         1. Comprimir y redimensionar la imagen automáticamente con Pillow.
         2. Nombrar el archivo combinando el código de la actividad, fecha/hora y un sufijo único.
         """
-        if self.archivo_foto:
+        if self.archivo_foto and not self.archivo_foto._committed:
             try:
-                # 1. Abrir la imagen con Pillow
-                img = Image.open(self.archivo_foto)
-                
-                # Si la imagen tiene transparencia (como PNG), convertirla a RGB para evitar errores en JPG
-                if img.mode in ('RGBA', 'P'):
-                    img = img.convert('RGB')
-
-                # 2. Redimensionar si es muy ancha (máximo 1280px para mantener excelente calidad y bajo peso)
-                max_ancho = 1280
-                if img.width > max_ancho:
-                    output_alto = int((max_ancho / img.width) * img.height)
-                    img = img.resize((max_ancho, output_alto), Image.Resampling.LANCZOS)
-
-                # 3. Guardar en memoria RAM optimizando la calidad al 85%
-                output = BytesIO()
-                img.save(output, format='JPEG', quality=85, optimize=True)
-                output.seek(0)
-
-                # 4. Generar el nombre único: CODIGO_ACTIVIDAD_FECHA_HORA_UUID.jpg
-                codigo_actividad = self.id_actividad.codigo_unico if self.id_actividad else "general"
-                fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
-                sufijo_unico = uuid.uuid4().hex[:8]
-                nombre_archivo = f"{codigo_actividad}_{fecha_actual}_{sufijo_unico}.jpg"
-
-                # 5. Reemplazar el archivo original por la versión optimizada y renombrada
-                self.archivo_foto = InMemoryUploadedFile(
-                    output,
-                    'ImageField',
-                    nombre_archivo,
-                    'image/jpeg',
-                    sys.getsizeof(output),
-                    None
-                )
+                codigo_actividad = self.id_actividad.codigo_unico if self.id_actividad_id else "general"
+                nombre_base = f"{codigo_actividad}_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:8]}"
+                self.archivo_foto = optimizar_imagen(self.archivo_foto, nombre_base)
             except Exception as e:
                 print(f"No se pudo optimizar la imagen: {e}")
 
@@ -214,34 +211,10 @@ class Retroalimentacion(models.Model):
     meta = models.ForeignKey('monitoreoApp.Meta', models.DO_NOTHING, db_column='id_meta', blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        if self.archivo_respaldo and hasattr(self.archivo_respaldo, 'file'):
+        if self.archivo_respaldo and not self.archivo_respaldo._committed:
             try:
-                img = Image.open(self.archivo_respaldo)
-
-                if img.mode in ('RGBA', 'P'):
-                    img = img.convert('RGB')
-
-                max_ancho = 1280
-                if img.width > max_ancho:
-                    output_alto = int((max_ancho / img.width) * img.height)
-                    img = img.resize((max_ancho, output_alto), Image.Resampling.LANCZOS)
-
-                output = BytesIO()
-                img.save(output, format='JPEG', quality=85, optimize=True)
-                output.seek(0)
-
-                fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
                 tipo_slug = (self.tipo or 'retro').lower()
-                nombre_archivo = f"{tipo_slug}_{fecha_actual}.jpg"
-
-                self.archivo_respaldo = InMemoryUploadedFile(
-                    output,
-                    'ImageField',
-                    nombre_archivo,
-                    'image/jpeg',
-                    output.getbuffer().nbytes,
-                    None
-                )
+                self.archivo_respaldo = optimizar_imagen(self.archivo_respaldo, f"{tipo_slug}_{datetime.now():%Y%m%d_%H%M%S}")
             except Exception as e:
                 print(f"No se pudo optimizar la imagen de respaldo: {e}")
 

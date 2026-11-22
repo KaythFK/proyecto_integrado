@@ -38,7 +38,7 @@ def destino_segun_rol(user):
         return 'tuboApp:dashboard_coordinador'
     if 'Profesional' in roles:
         return 'actividadApp:dashboard_profesional'
-    return 'lista_actividades'
+    return 'usuariosApp:mi_perfil'
 
 
 @login_required
