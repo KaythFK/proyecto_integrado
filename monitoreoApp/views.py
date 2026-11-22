@@ -7,7 +7,7 @@ from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad, Ausencia
 from actividadApp.forms import etiqueta_meta
 from .models import Alerta, HistorialMeta, Meta, Indicador, ReglaAlerta
-from .services import dias_aviso_vencimiento, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta, asegurar_indicadores_para_tablero, sincronizar_indicador
+from .services import dias_aviso_vencimiento, dias_umbral_sin_registros, funcionarios_a_monitorear, uso_de_funcionarios, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta, asegurar_indicadores_para_tablero, sincronizar_indicador
 from .forms import MetaForm, IndicadorForm, ReglaAlertaForm
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import Http404, HttpResponse, request
@@ -93,6 +93,9 @@ def dashboard_delegado(request):
 
     filas, cumplimiento_delegacion, semaforo_delegacion, metas_en_rojo = resumen_indicadores(delegacion_actual, periodo)
     rezagados = resultados_bajo_umbral(delegacion_actual, periodo)
+    umbral_sin_registros = dias_umbral_sin_registros(hoy)
+    sin_registros = [f for f in uso_de_funcionarios(funcionarios_a_monitorear(delegacion_actual), periodo, umbral_sin_registros, hoy)
+                     if f['supera_umbral']]
 
     context = {
         'delegacion_nombre': delegacion_actual.nombre,
@@ -110,6 +113,8 @@ def dashboard_delegado(request):
         'finalizadas': actividades_equipo.filter(estado_progreso='FINALIZADA').count(),
         'tubo': resumen_compromisos(compromisos_equipo, hoy),
         'dias_aviso': dias_aviso_vencimiento(hoy),
+        'sin_registros': sin_registros,
+        'umbral_sin_registros': umbral_sin_registros,
     }
     return render(request, 'delegado/dashboard_delegado.html', context)
 
@@ -972,6 +977,38 @@ def editar_regla_alerta(request, tipo):
         'form': form,
         'nombre_tipo': dict(ReglaAlerta.OPCIONES_TIPO)[tipo],
         'actual': actual,
+    })
+
+
+@login_required
+@role_required('Delegado', 'Coordinador', 'Administrador')
+def frecuencia_registros(request):
+    hoy = date.today()
+    periodos, periodo = elegir_periodo(request)
+    delegacion = delegacion_del_delegado(request.user)
+    es_delegado = delegacion is not None
+    delegaciones = Delegacion.objects.none()
+    if not es_delegado:
+        delegaciones = Delegacion.objects.filter(estado=True).order_by('nombre')
+        if (request.GET.get('delegacion') or '').isdigit():
+            delegacion = delegaciones.filter(pk=request.GET['delegacion']).first()
+
+    umbral = dias_umbral_sin_registros(hoy)
+    filas = uso_de_funcionarios(funcionarios_a_monitorear(delegacion), periodo, umbral, hoy)
+    con_promedio = [f['promedio'] for f in filas if f['promedio'] is not None]
+    return render(request, 'monitoreo/frecuencia_registros.html', {
+        'filas': filas,
+        'periodos': periodos,
+        'periodo': periodo,
+        'es_delegado': es_delegado,
+        'delegaciones': delegaciones,
+        'delegacion': delegacion,
+        'umbral': umbral,
+        'hay_regla': ReglaAlerta.vigente(ReglaAlerta.SIN_REGISTROS, hoy) is not None,
+        'medido_hasta': min(hoy - timedelta(days=1), periodo.fecha_termino) if periodo else None,
+        'total_registros': sum(f['total'] for f in filas),
+        'promedio_equipo': round(sum(con_promedio) / len(con_promedio), 2) if con_promedio else None,
+        'sin_actividad': sum(1 for f in filas if f['supera_umbral']),
     })
 
 

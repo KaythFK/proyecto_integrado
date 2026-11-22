@@ -205,6 +205,7 @@ class ReglaAlertaForm(forms.ModelForm):
         ReglaAlerta.VENCIMIENTO: (0, 60),
         ReglaAlerta.EVIDENCIA_PENDIENTE: (1, 60),
         ReglaAlerta.AVANCE_BAJO: (1, 100),
+        ReglaAlerta.SIN_REGISTROS: (1, 30),
     }
 
     class Meta:

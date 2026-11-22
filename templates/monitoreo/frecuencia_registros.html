@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}Frecuencia de registros - SGR{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0 text-center">Frecuencia de Registros</h3>
+{% endblock %}
+
+{% block contenido %}
+<div class="container-fluid mt-4 mb-5 px-4">
+    <div class="mb-4">
+        <h4 class="fw-bold texto-guinda m-0">Último registro y frecuencia de uso{% if es_delegado %}: {{ delegacion.nombre }}{% endif %}</h4>
+        {% if periodo %}
+        <small class="text-muted">{{ periodo.nombre }}: {{ periodo.fecha_inicio|date:"d/m/Y" }} al {{ periodo.fecha_termino|date:"d/m/Y" }}</small>
+        {% endif %}
+    </div>
+
+    <form method="GET" class="card shadow-sm border-0 p-3 mb-3 redondeado-10">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <label class="form-label small fw-bold mb-1" for="filtroPeriodo">Período</label>
+                <select name="periodo" id="filtroPeriodo" class="form-select borde-guinda">
+                    {% for p in periodos %}<option value="{{ p.pk }}" {% if periodo and periodo.pk == p.pk %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            {% if not es_delegado %}
+            <div class="col-12 col-sm-6 col-lg-3">
+                <label class="form-label small fw-bold mb-1" for="filtroDelegacion">Delegación</label>
+                <select name="delegacion" id="filtroDelegacion" class="form-select borde-guinda">
+                    <option value="">Todas</option>
+                    {% for d in delegaciones %}<option value="{{ d.pk }}" {% if delegacion and delegacion.pk == d.pk %}selected{% endif %}>{{ d.nombre }}</option>{% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-12 col-sm-6 col-lg-3 d-flex gap-2">
+                <button type="submit" class="btn text-white fw-bold fondo-guinda w-100">Filtrar</button>
+                {% if request.GET %}<a href="{{ request.path }}" class="btn btn-outline-secondary fw-bold w-100">Limpiar</a>{% endif %}
+            </div>
+        </div>
+    </form>
+
+    <div class="alert alert-secondary py-2 small mb-4" role="note">
+        <i class="bi bi-info-circle"></i>
+        Se cuentan las actividades y gestiones activas{% if medido_hasta %} hasta el {{ medido_hasta|date:"d/m/Y" }}{% endif %}.
+        Los días sin registros y el promedio diario consideran solo días hábiles y descuentan las ausencias registradas.
+        Se destaca a quien supera {{ umbral }} día{{ umbral|pluralize }} hábil{{ umbral|pluralize:"es" }} sin registros{% if not hay_regla %} (valor por defecto; el Administrador puede configurarlo en Reglas de alerta){% endif %}.
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #8B1D19 !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Registros del período</h6>
+                <h1 class="display-5 fw-bold m-0 text-dark">{{ total_registros }}</h1>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #1a202c !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Promedio diario por funcionario</h6>
+                <h1 class="display-5 fw-bold m-0 text-dark">{% if promedio_equipo is not None %}{{ promedio_equipo }}{% else %}—{% endif %}</h1>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 text-center py-4 h-100" style="border-bottom: 5px solid #C41230 !important; border-radius: 15px;">
+                <h6 class="text-muted fw-bold text-uppercase mb-3">Sin registros sobre el umbral</h6>
+                <h1 class="display-5 fw-bold m-0 {% if sin_actividad %}text-danger{% else %}text-dark{% endif %}">{{ sin_actividad }}</h1>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4 redondeado-15 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="px-4">Funcionario</th>
+                        {% if not es_delegado %}<th>Delegación</th>{% endif %}
+                        <th class="text-center">Último registro</th>
+                        <th class="text-center">Registros del período</th>
+                        <th class="text-center">Promedio diario</th>
+                        <th class="text-center">Días hábiles sin registros</th>
+                        <th class="text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in filas %}
+                    <tr {% if fila.supera_umbral %}class="table-danger"{% endif %}>
+                        <td class="px-4 fw-bold">{{ fila.funcionario.nombres }} {{ fila.funcionario.apellido_paterno }}</td>
+                        {% if not es_delegado %}<td>{{ fila.funcionario.id_delegacion.nombre }}</td>{% endif %}
+                        <td class="text-center">{% if fila.ultimo_registro %}{{ fila.ultimo_registro|date:"d/m/Y H:i" }}{% else %}<span class="text-muted">Sin registros</span>{% endif %}</td>
+                        <td class="text-center">{{ fila.total }}</td>
+                        <td class="text-center">{% if fila.promedio is not None %}{{ fila.promedio }}{% else %}—{% endif %}</td>
+                        <td class="text-center fw-bold">{{ fila.dias_sin_registros }}</td>
+                        <td class="text-center">
+                            {% if fila.supera_umbral %}<span class="badge bg-danger">Sin actividad</span>
+                            {% else %}<span class="badge bg-success">Con actividad</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if es_delegado %}6{% else %}7{% endif %}" class="text-center text-muted py-4">
+                            {% if periodo %}No hay funcionarios activos para mostrar.{% else %}No hay períodos registrados.{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
