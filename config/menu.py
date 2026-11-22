@@ -7,6 +7,7 @@ MENU_POR_ROL = {
         ('Inicio', 'house-door', 'administracionApp:dashboard_admin'),
         ('Supervisión', 'shield-check', [
             ('Auditoría', 'journal-text', 'administracionApp:lista_auditoria'),
+            ('Roles y permisos', 'shield-lock', 'usuariosApp:lista_roles'),
             ('Reglas de alerta', 'bell', 'monitoreoApp:lista_reglas_alerta'),
             ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
             ('Informe de gestión', 'file-earmark-bar-graph', 'monitoreoApp:informe_gestion'),
@@ -38,6 +39,7 @@ MENU_POR_ROL = {
             ('Tubo de compromisos', 'kanban', 'monitoreoApp:tubo_delegacion'),
             ('Revisar evidencias', 'camera', 'actividadApp:lista_evidencias'),
             ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),
+            ('Ausencias del equipo', 'calendar-x', 'actividadApp:lista_ausencias'),
             ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
             ('Informe de gestión', 'file-earmark-bar-graph', 'monitoreoApp:informe_gestion'),
         ]),

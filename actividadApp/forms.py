@@ -18,12 +18,13 @@ from config.utils import (
     # <-- Validador modular de imágenes
 )
 from datetime import date
-from administracionApp.models import Profesional
+from administracionApp.models import Periodo, Profesional
 from django.core.exceptions import ObjectDoesNotExist, ValidationError as CoreValidationError
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 from monitoreoApp.models import Meta
+from config.utils import EtiquetaFuncionarioMixin, etiquetar_funcionarios
 
 def etiqueta_meta(meta):
     try:
@@ -32,7 +33,7 @@ def etiqueta_meta(meta):
         item = f'Meta #{meta.pk}'
     return f"{item} — {meta.valor_objetivo} {meta.unidad} ({meta.id_periodo.nombre})"
 
-class ActividadProfesionalForm(forms.ModelForm):
+class ActividadProfesionalForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Actividad
         exclude = ['fecha_registro', 'codigo_unico', 'estado', 'id_profesional']
@@ -181,7 +182,7 @@ class ActividadProfesionalForm(forms.ModelForm):
         return instancia
 
 
-class ActividadForm(forms.ModelForm):
+class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Actividad
         exclude = ['codigo_unico', 'estado']
@@ -332,7 +333,7 @@ class ActividadDelegadoForm(ActividadForm):
         return instancia
 
     
-class ActividadForm(forms.ModelForm):
+class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Actividad
         exclude = ['codigo_unico', 'estado']
@@ -433,43 +434,84 @@ class ActividadDelegadoForm(ActividadForm):
 
 
 
-class AusenciaForm(forms.ModelForm):
+class AusenciaForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Ausencia
-        exclude = ['estado']
-        
+        fields = ['profesional_ausente', 'periodo_ausencia', 'tipo_ausencia', 'fecha_inicio', 'fecha_termino', 'dias_computables']
+
         labels = {
             'tipo_ausencia': 'Tipo de Ausencia / Permiso',
             'fecha_inicio': 'Fecha de Inicio',
             'fecha_termino': 'Fecha de Término',
-            'dias_computables': 'Días Computables',
+            'dias_computables': 'Días hábiles de ausencia',
             'profesional_ausente': 'Profesional / Funcionario Ausente',
             'periodo_ausencia': 'Periodo Asociado',
         }
-        
+
         widgets = {
-            'tipo_ausencia': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Vacaciones, Licencia Médica', 'maxlength': '50', 'required': True}),
-            'fecha_inicio': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'required': True}),
-            'fecha_termino': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'required': True}),
-            'dias_computables': forms.NumberInput(attrs={'class': 'form-control', 'min': '1', 'required': True}),
+            'tipo_ausencia': forms.Select(attrs={'class': 'form-select', 'required': True}),
+            'fecha_inicio': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date', 'required': True}),
+            'fecha_termino': forms.DateInput(format='%Y-%m-%d', attrs={'class': 'form-control', 'type': 'date', 'required': True}),
+            'dias_computables': forms.NumberInput(attrs={'class': 'form-control bg-light text-muted fw-bold', 'readonly': 'readonly', 'style': 'cursor: not-allowed;'}),
             'profesional_ausente': forms.Select(attrs={'class': 'form-select', 'required': True}),
             'periodo_ausencia': forms.Select(attrs={'class': 'form-select', 'required': True}),
         }
+
+    def __init__(self, *args, delegacion=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        profesionales = Profesional.objects.filter(estado=True)
+        if delegacion is not None:
+            profesionales = profesionales.filter(id_delegacion=delegacion)
+        self.fields['profesional_ausente'].queryset = profesionales.order_by('nombres', 'apellido_paterno')
+        etiquetar_funcionarios(self.fields)
+        abiertos = [p.pk for p in Periodo.objects.filter(estado=True) if p.esta_abierto]
+        self.fields['periodo_ausencia'].queryset = Periodo.objects.filter(pk__in=abiertos).order_by('-fecha_inicio')
+        self.fields['tipo_ausencia'].choices = [('', 'Seleccione el tipo de ausencia')] + Ausencia.OPCIONES_TIPO
+        self.fields['dias_computables'].required = False
+        self.fields['dias_computables'].disabled = True
+        self.fields['dias_computables'].help_text = 'Se calcula automáticamente con los días hábiles del rango.'
+
+    @staticmethod
+    def se_superpone(ausencia):
+        otras = Ausencia.objects.filter(
+            profesional_ausente=ausencia.profesional_ausente, estado=True,
+            fecha_inicio__lte=ausencia.fecha_termino, fecha_termino__gte=ausencia.fecha_inicio,
+        )
+        if ausencia.pk:
+            otras = otras.exclude(pk=ausencia.pk)
+        return otras.exists()
 
     def clean(self):
         cleaned_data = super().clean()
         f_inicio = cleaned_data.get('fecha_inicio')
         f_termino = cleaned_data.get('fecha_termino')
+        periodo = cleaned_data.get('periodo_ausencia')
+        profesional = cleaned_data.get('profesional_ausente')
 
-        if f_inicio and f_termino:
-            if f_termino < f_inicio:
-                self.add_error('fecha_termino', "La fecha de término no puede ser anterior a la fecha de inicio.")
-                
+        if not (f_inicio and f_termino):
+            return cleaned_data
+        if f_termino < f_inicio:
+            self.add_error('fecha_termino', "La fecha de término no puede ser anterior a la fecha de inicio.")
+            return cleaned_data
+        if periodo and (f_inicio < periodo.fecha_inicio or f_termino > periodo.fecha_termino):
+            self.add_error('fecha_termino', f"Las fechas deben estar dentro del período {periodo.nombre} "
+                                            f"({periodo.fecha_inicio:%d/%m/%Y} al {periodo.fecha_termino:%d/%m/%Y}).")
+            return cleaned_data
+        dias = Periodo.calcular_dias_computables(f_inicio, f_termino)
+        if dias == 0:
+            self.add_error('fecha_termino', "El rango seleccionado no incluye días hábiles.")
+            return cleaned_data
+        if profesional:
+            candidata = Ausencia(pk=self.instance.pk, profesional_ausente=profesional, fecha_inicio=f_inicio, fecha_termino=f_termino)
+            if self.se_superpone(candidata):
+                self.add_error('fecha_inicio', "El funcionario ya tiene otra ausencia activa que se cruza con estas fechas.")
+        cleaned_data['dias_computables'] = dias
+        self.instance.dias_computables = dias
         return cleaned_data
 
 
 
-class RetroalimentacionForm(forms.ModelForm):
+class RetroalimentacionForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Retroalimentacion
         exclude = ['estado', 'receptor']
@@ -546,6 +588,7 @@ class RetroalimentacionForm(forms.ModelForm):
                 qs_metas = qs_metas.filter(filtro_meta).distinct()
 
         self.fields['meta'].queryset = qs_metas.order_by('-id_meta')
+        etiquetar_funcionarios(self.fields)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -619,7 +662,7 @@ class EvidenciaForm(forms.ModelForm):
 
 
 
-class ValidacionForm(forms.ModelForm):
+class ValidacionForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Validacion
         exclude = ['estado', 'resultado']

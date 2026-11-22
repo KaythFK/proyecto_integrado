@@ -493,93 +493,145 @@ def actualizar_progreso_actividad(request, id_actividad):
     return redirect(request.META.get('HTTP_REFERER', '/'))
 
 
+def recalcular_indicadores(request, profesional, periodo, evento):
+    """Recalcula los indicadores del profesional en el período y deja en la auditoría los que cambiaron."""
+    from monitoreoApp.services import sincronizar_indicador
+    cambiados = 0
+    indicadores = (Indicador.objects
+                   .filter(estado=True, id_funcionario=profesional, meta_id_meta__id_periodo=periodo, meta_id_meta__estado=True)
+                   .select_related('meta_id_meta__id_periodo', 'id_funcionario'))
+    for indicador in indicadores:
+        antes = model_to_dict(indicador)
+        sincronizar_indicador(indicador, guardar=True)
+        if any(str(antes[campo]) != str(getattr(indicador, campo)) for campo in ('avance', 'ajuste', 'cumplimiento', 'semaforo')):
+            registrar_auditoria(request, evento, "Indicador", indicador, antes)
+            cambiados += 1
+    return cambiados
+
+
+def recalcular_por_retroalimentacion(request, retro):
+    if retro.meta_id and retro.retroalimentado_id and retro.meta.id_periodo.esta_abierto:
+        recalcular_indicadores(request, retro.retroalimentado, retro.meta.id_periodo, "AJUSTE_RETROALIMENTACION")
+
+
+def ausencias_visibles(user):
+    ausencias = Ausencia.objects.select_related('profesional_ausente', 'periodo_ausencia')
+    delegacion = delegacion_del_delegado(user)
+    if delegacion is not None:
+        ausencias = ausencias.filter(profesional_ausente__id_delegacion=delegacion)
+    return ausencias
+
+
+def mensaje_recalculo(cambiados):
+    if not cambiados:
+        return ''
+    return f' Se recalcularon {cambiados} indicador{"es" if cambiados != 1 else ""} del funcionario.'
+
+
 @login_required
-@role_required('Administrador', 'Coordinador')
+@role_required('Administrador', 'Coordinador', 'Delegado')
 def lista_ausencias(request):
     query = request.GET.get('q')
-    ausencias = Ausencia.objects.all().select_related('profesional_ausente', 'periodo_ausencia').order_by('-id_ausencia')
-    
+    ausencias = ausencias_visibles(request.user).order_by('-id_ausencia')
+
     if query:
+        tipos = [clave for clave, nombre in Ausencia.OPCIONES_TIPO if query.lower() in nombre.lower()]
         ausencias = ausencias.filter(
             Q(profesional_ausente__nombres__icontains=query) |
             Q(profesional_ausente__apellido_paterno__icontains=query) |
-            Q(tipo_ausencia__icontains=query)
+            Q(tipo_ausencia__in=tipos)
         ).distinct()
-        
+
     return render(request, 'administrador/ausencias/lista_ausencias.html', {
         'ausencias': ausencias,
-        'query': query
+        'query': query,
+        'delegacion': delegacion_del_delegado(request.user),
     })
 
 @login_required
-@role_required('Administrador', 'Coordinador')
+@role_required('Administrador', 'Coordinador', 'Delegado')
 def crear_ausencia(request):
+    delegacion = delegacion_del_delegado(request.user)
     if request.method == 'POST':
-        form = AusenciaForm(request.POST)
+        form = AusenciaForm(request.POST, delegacion=delegacion)
         if form.is_valid():
             try:
                 with transaction.atomic():
                     ausencia = form.save(commit=False)
                     ausencia.estado = True
                     ausencia.save()
-                    
                     registrar_auditoria(request, "CREACION", "Ausencia", ausencia)
-                    
-                messages.success(request, 'El registro de ausencia fue guardado con éxito.')
+                    cambiados = recalcular_indicadores(request, ausencia.profesional_ausente, ausencia.periodo_ausencia, "AJUSTE_AUSENCIA")
+                messages.success(request, 'El registro de ausencia fue guardado con éxito.' + mensaje_recalculo(cambiados))
                 return redirect('actividadApp:lista_ausencias')
             except Exception as e:
                 messages.error(request, f'Error al guardar: {str(e)}')
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        form = AusenciaForm()
-        
+        form = AusenciaForm(delegacion=delegacion)
+
     return render(request, 'administrador/ausencias/form_ausencia.html', {
         'form': form,
         'titulo': 'Registrar Ausencia o Permiso'
     })
 
 @login_required
-@role_required('Administrador', 'Coordinador')
+@role_required('Administrador', 'Coordinador', 'Delegado')
 def editar_ausencia(request, id_ausencia):
-    ausencia = get_object_or_404(Ausencia, pk=id_ausencia)
-    
+    ausencia = get_object_or_404(ausencias_visibles(request.user), pk=id_ausencia)
+    delegacion = delegacion_del_delegado(request.user)
+    if not ausencia.periodo_ausencia.esta_abierto:
+        messages.error(request, 'No se puede editar una ausencia de un período cerrado.')
+        return redirect('actividadApp:lista_ausencias')
+
     if request.method == 'POST':
         datos_antiguos = model_to_dict(ausencia)
-        form = AusenciaForm(request.POST, instance=ausencia)
+        profesional_anterior, periodo_anterior = ausencia.profesional_ausente, ausencia.periodo_ausencia
+        form = AusenciaForm(request.POST, instance=ausencia, delegacion=delegacion)
         if form.is_valid():
             try:
                 with transaction.atomic():
                     ausencia_guardada = form.save()
                     registrar_auditoria(request, "EDICION", "Ausencia", ausencia_guardada, datos_antiguos)
-                messages.success(request, 'La ausencia fue actualizada correctamente.')
+                    cambiados = recalcular_indicadores(request, ausencia_guardada.profesional_ausente, ausencia_guardada.periodo_ausencia, "AJUSTE_AUSENCIA")
+                    if (profesional_anterior, periodo_anterior) != (ausencia_guardada.profesional_ausente, ausencia_guardada.periodo_ausencia):
+                        cambiados += recalcular_indicadores(request, profesional_anterior, periodo_anterior, "AJUSTE_AUSENCIA")
+                messages.success(request, 'La ausencia fue actualizada correctamente.' + mensaje_recalculo(cambiados))
                 return redirect('actividadApp:lista_ausencias')
             except Exception as e:
                 messages.error(request, f'Error al actualizar: {str(e)}')
     else:
-        form = AusenciaForm(instance=ausencia)
-        
+        form = AusenciaForm(instance=ausencia, delegacion=delegacion)
+
     return render(request, 'administrador/ausencias/form_ausencia.html', {
         'form': form,
         'titulo': 'Editar Ausencia'
     })
 
 @login_required
-@role_required('Administrador', 'Coordinador')
+@role_required('Administrador', 'Coordinador', 'Delegado')
 def cambiar_estado_ausencia(request, id_ausencia):
     if request.method == 'POST':
-        ausencia = get_object_or_404(Ausencia, pk=id_ausencia)
-        
+        ausencia = get_object_or_404(ausencias_visibles(request.user), pk=id_ausencia)
+        if not ausencia.periodo_ausencia.esta_abierto:
+            messages.error(request, 'No se puede modificar una ausencia de un período cerrado.')
+            return redirect('actividadApp:lista_ausencias')
+        if not ausencia.estado and AusenciaForm.se_superpone(ausencia):
+            messages.error(request, 'No se puede reactivar: el funcionario ya tiene otra ausencia activa en esas fechas.')
+            return redirect('actividadApp:lista_ausencias')
+
         with transaction.atomic():
             datos_antiguos = model_to_dict(ausencia)
             nuevo_estado = not ausencia.estado
             ausencia.estado = nuevo_estado
             ausencia.save()
             registrar_auditoria(request, "CAMBIO_ESTADO", "Ausencia", ausencia, datos_antiguos)
-                
+            cambiados = recalcular_indicadores(request, ausencia.profesional_ausente, ausencia.periodo_ausencia, "AJUSTE_AUSENCIA")
+
         accion_str = "habilitada" if nuevo_estado else "inhabilitada"
-        messages.success(request, f'El registro de ausencia fue {accion_str} correctamente.')
-        
+        messages.success(request, f'El registro de ausencia fue {accion_str} correctamente.' + mensaje_recalculo(cambiados))
+
     return redirect('actividadApp:lista_ausencias')
 
 
@@ -639,21 +691,7 @@ def crear_retroalimentacion(request):
                     retro.delegacion = delegado_prof.id_delegacion
                     retro.save()
 
-                    indicador = None
-                    if retro.meta and retro.retroalimentado:
-                        indicador = Indicador.objects.filter(
-                            meta_id_meta=retro.meta,
-                            id_funcionario=retro.retroalimentado,
-                            estado=True
-                        ).first()
-
-                    # KAN-388: Felicitación suma al avance; Reclamo genera Alerta y actualización negativa
-                    if retro.tipo == 'FELICITACION':
-                        if indicador and retro.meta.id_periodo.esta_abierto:
-                            indicador.avance += 1
-                            indicador.save()
-                            registrar_auditoria(request, "ACTUALIZACION_AVANCE", "Indicador", indicador)
-                    elif retro.tipo == 'RECLAMO':
+                    if retro.tipo == 'RECLAMO':
                         Alerta.objects.create(
                             motivo=f"Reclamo formal registrado ({retro.retroalimentado})",
                             enlace_referencia=retro.archivo_respaldo.url if retro.archivo_respaldo else "",
@@ -661,13 +699,9 @@ def crear_retroalimentacion(request):
                             id_responsable=delegado_prof,
                             id_delegacion=retro.delegacion,
                         )
-                        if indicador and retro.meta.id_periodo.esta_abierto:
-                            indicador.ajuste = (indicador.ajuste or 0) - 1
-                            indicador.avance = max(0, indicador.avance - 1)
-                            indicador.save()
-                            registrar_auditoria(request, "AJUSTE_RECLAMO", "Indicador", indicador)
 
                     registrar_auditoria(request, "CREACION", "Retroalimentacion", retro)
+                    recalcular_por_retroalimentacion(request, retro)
 
                 messages.success(request, 'La retroalimentación formal fue registrada correctamente.')
                 return redirect('actividadApp:lista_retroalimentaciones')
@@ -708,8 +742,12 @@ def editar_retroalimentacion(request, id_retroalimentacion):
         if form.is_valid():
             try:
                 with transaction.atomic():
+                    anterior = Retroalimentacion.objects.get(pk=retro.pk)
                     retro_guardada = form.save()
                     registrar_auditoria(request, "EDICION", "Retroalimentacion", retro_guardada, datos_antiguos)
+                    recalcular_por_retroalimentacion(request, retro_guardada)
+                    if (anterior.meta_id, anterior.retroalimentado_id) != (retro_guardada.meta_id, retro_guardada.retroalimentado_id):
+                        recalcular_por_retroalimentacion(request, anterior)
                 messages.success(request, 'La retroalimentación fue actualizada correctamente.')
                 return redirect('actividadApp:lista_retroalimentaciones')
             except Exception as e:
@@ -740,6 +778,7 @@ def cambiar_estado_retroalimentacion(request, id_retroalimentacion):
             retro.estado = nuevo_estado
             retro.save()
             registrar_auditoria(request, "CAMBIO_ESTADO", "Retroalimentacion", retro, datos_antiguos)
+            recalcular_por_retroalimentacion(request, retro)
 
         accion_str = "habilitada" if nuevo_estado else "inhabilitada"
         messages.success(request, f'La retroalimentación fue {accion_str} correctamente.')

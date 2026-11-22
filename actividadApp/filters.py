@@ -7,12 +7,13 @@ from django.db.models import Q
 from administracionApp.models import CatalagoItem, Delegacion, Periodo, Profesional
 from config.utils import inicio_del_dia
 from .models import Actividad
+from config.utils import EtiquetaFuncionarioFiltroMixin
 
 SELECT = {'class': 'form-select borde-guinda'}
 FECHA = {'class': 'form-control borde-guinda', 'type': 'date'}
 
 
-class ActividadFilter(django_filters.FilterSet):
+class ActividadFilter(EtiquetaFuncionarioFiltroMixin, django_filters.FilterSet):
     q = django_filters.CharFilter(
         method='buscar_texto', label='Buscar',
         widget=forms.TextInput(attrs={'class': 'form-control borde-guinda', 'placeholder': 'Código, problema o acción'}))

@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.db.models import Q, Max
 from django.core.paginator import Paginator
 from .filters import AuditoriaFilter
-from usuariosApp.models import ClaveTemporal
+from usuariosApp.models import ClaveTemporal, asignar_rol
 from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria, CargoItem
 # --- IMPORTAMOS CatalogoTipoGestion ---
 from actividadApp.models import Actividad, CatalogoTipoGestion
@@ -76,7 +76,8 @@ def main(request):
 SECCIONES_PANEL_ADMIN = [
     ('Personas y estructura', [
         ('Profesionales', 'Usuarios, roles y delegación', 'people', 'administracionApp:directorio_profesional'),
-        ('Cargos', 'Funciones y vigencia', 'person-badge', 'administracionApp:lista_cargos'),
+        ('Roles y permisos', 'Qué puede ver y hacer cada usuario', 'shield-lock', 'usuariosApp:lista_roles'),
+        ('Cargos', 'Puesto de trabajo y sus metas', 'person-badge', 'administracionApp:lista_cargos'),
         ('Delegaciones', 'Unidades territoriales', 'building', 'administracionApp:delegaciones'),
         ('Vecinos', 'Personas atendidas', 'person-vcard', 'administracionApp:lista_vecinos'),
     ]),
@@ -292,7 +293,7 @@ def crear_profesional(request):
                         password=clave_temporal
                     )
                     
-                    nuevo_usuario.groups.add(grupo_seleccionado)
+                    asignar_rol(nuevo_usuario, grupo_seleccionado)
                     ClaveTemporal.objects.update_or_create(usuario=nuevo_usuario)
                     
                     profesional = form_profesional.save(commit=False)
@@ -360,8 +361,7 @@ def editar_profesional(request, id_profesional):
                         usuario_asociado.email = email
                         usuario_asociado.save()
                     
-                    usuario_asociado.groups.clear()
-                    usuario_asociado.groups.add(nuevo_grupo)
+                    asignar_rol(usuario_asociado, nuevo_grupo)
                     
                     prof_actualizado = form_profesional.save(commit=False)
                     prof_actualizado.correo = email

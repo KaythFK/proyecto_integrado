@@ -7,7 +7,7 @@ from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad, Ausencia
 from actividadApp.forms import etiqueta_meta
 from .models import Alerta, HistorialMeta, Meta, Indicador, ReglaAlerta
-from .services import dias_aviso_vencimiento, dias_umbral_sin_registros, funcionarios_a_monitorear, uso_de_funcionarios, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta, asegurar_indicadores_para_tablero, sincronizar_indicador
+from .services import dias_aviso_vencimiento, dias_ausencia_en_periodo,dias_umbral_sin_registros, funcionarios_a_monitorear, uso_de_funcionarios, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta, asegurar_indicadores_para_tablero, sincronizar_indicador
 from .forms import MetaForm, IndicadorForm, ReglaAlertaForm
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import Http404, HttpResponse, request
@@ -18,7 +18,7 @@ from tuboApp.models import Compromiso, HistorialIncumplimiento
 from tuboApp.filters import CompromisoFilter, buscar_compromisos
 from datetime import date, timedelta
 from django.core.exceptions import ValidationError
-from config.utils import validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador 
+from config.utils import etiqueta_funcionario, validar_periodo_abierto, recordar_filtros, url_con_filtros, delegacion_del_delegado, calcular_porcentaje_cumplimiento, procesar_resumen_dashboard, sincronizar_calculos_indicador 
 from django.core.exceptions import PermissionDenied
 from .filters import MetaFilter
 from config.utils import procesar_resumen_dashboard
@@ -230,6 +230,7 @@ def resultados_bajo_umbral(delegacion, periodo):
             'objetivo': meta.valor_objetivo,
             'avance': indicador.avance,
             'ajuste': indicador.ajuste or 0,
+            'dias_descontados': dias_ausencia_en_periodo(indicador.id_funcionario, periodo)[0],
             'cumplimiento': round(cumplimiento, 1),
             'registros': registros,
         })
@@ -286,7 +287,7 @@ def tubo_delegacion(request):
         'filtro': filtro,
         'query': query,
         'delegacion_nombre': delegacion_actual.nombre,
-        'profesionales_equipo': profesionales_equipo,
+        'profesionales_equipo': con_etiqueta(profesionales_equipo),
         'ausentes_hoy': ausentes_hoy,
         'hoy': hoy,
         'limite_aviso': hoy + timedelta(days=dias_aviso_vencimiento(hoy)),
@@ -295,6 +296,14 @@ def tubo_delegacion(request):
 
 
 # --- NUEVAS VISTAS DE GESTIÓN DE METAS ---
+def con_etiqueta(profesionales):
+    """Lista de funcionarios con su etiqueta de rol y delegación, para los select escritos en plantillas."""
+    lista = list(profesionales.select_related('id_delegacion', 'usuario').prefetch_related('usuario__groups'))
+    for profesional in lista:
+        profesional.etiqueta = etiqueta_funcionario(profesional)
+    return lista
+
+
 def equipo_de(delegacion):
     return Profesional.objects.filter(id_delegacion=delegacion, estado=True)
 
@@ -1535,7 +1544,7 @@ def informe_gestion(request):
         'es_delegado': delegacion_fija is not None,
         'cargos': Cargo.objects.order_by('nombre'),
         'cargo': cargo,
-        'funcionarios': funcionarios.filter(estado=True),
+        'funcionarios': con_etiqueta(funcionarios.filter(estado=True)),
         'funcionario': funcionario,
         'informe': informe,
         'columnas': [nombre for _, nombre in COLUMNAS_INFORME],

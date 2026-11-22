@@ -262,7 +262,7 @@
                         <select name="nuevo_responsable" id="nuevoResponsable" class="form-select" required>
                             <option value="">Selecciona un funcionario...</option>
                             {% for prof in profesionales_equipo %}
-                                <option value="{{ prof.pk }}">{{ prof.nombres }} {{ prof.apellido_paterno }}{% if prof.pk in ausentes_hoy %} (ausente hoy){% endif %}</option>
+                                <option value="{{ prof.pk }}">{{ prof.etiqueta }}{% if prof.pk in ausentes_hoy %} (ausente hoy){% endif %}</option>
                             {% endfor %}
                         </select>
                     </div>

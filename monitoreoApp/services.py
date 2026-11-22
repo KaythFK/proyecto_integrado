@@ -578,11 +578,49 @@ def calcular_ajuste_retroalimentaciones(meta, funcionario):
     return total_ajuste.quantize(Decimal('0.01'))
 
 
+def dias_ausencia_en_periodo(profesional, periodo):
+    """Días hábiles del período y cuántos de ellos cubren las ausencias activas del profesional en ese período."""
+    from actividadApp.models import Ausencia
+    rangos = [(max(inicio, periodo.fecha_inicio), min(termino, periodo.fecha_termino))
+              for inicio, termino in Ausencia.objects.filter(profesional_ausente=profesional, periodo_ausencia=periodo, estado=True)
+              .values_list('fecha_inicio', 'fecha_termino')]
+    totales = dias_habiles(periodo.fecha_inicio, periodo.fecha_termino)
+    disponibles = dias_habiles(periodo.fecha_inicio, periodo.fecha_termino, rangos)
+    return totales - disponibles, totales
+
+
+def calcular_ajuste_ausencia(cumplimiento_base, meta, funcionario):
+    """
+    Puntos que suma el prorrateo de la meta: el objetivo se reduce en la proporción de días hábiles que el
+    funcionario estuvo ausente. Si no tuvo ningún día disponible, la meta se considera cumplida (100 %).
+    Devuelve (ajuste, días descontados, días hábiles del período).
+    """
+    descontados, totales = dias_ausencia_en_periodo(funcionario, meta.id_periodo)
+    if not descontados or not totales:
+        return Decimal('0.00'), descontados, totales
+    factor = Decimal(totales - descontados) / Decimal(totales)
+    prorrateado = Decimal('100.00') if factor == 0 else min(cumplimiento_base / factor, Decimal('120.00'))
+    return (prorrateado - min(cumplimiento_base, Decimal('120.00'))).quantize(Decimal('0.01')), descontados, totales
+
+
+def ajuste_del_indicador(meta, funcionario, cumplimiento_base):
+    """Ajuste total que se guarda en Indicador.ajuste: retroalimentaciones más prorrateo por ausencias, con su detalle."""
+    ajuste_retro = calcular_ajuste_retroalimentaciones(meta, funcionario)
+    ajuste_ausencia, descontados, totales = calcular_ajuste_ausencia(Decimal(str(cumplimiento_base)), meta, funcionario)
+    return {
+        'total': (ajuste_retro + ajuste_ausencia).quantize(Decimal('0.01')),
+        'retroalimentacion': ajuste_retro,
+        'ausencia': ajuste_ausencia,
+        'dias_descontados': descontados,
+        'dias_periodo': totales,
+    }
+
+
 def sincronizar_indicador(indicador, guardar=True):
     """
     Calcula el avance desde evidencias aprobadas, topa el cumplimiento base en
-    120%, aplica el ajuste por retroalimentaciones activas y actualiza
-    cumplimiento, ajuste y semáforo.
+    120%, aplica el ajuste por retroalimentaciones activas y por días de ausencia,
+    y actualiza cumplimiento, ajuste y semáforo.
     """
     from actividadApp.models import Evidencia
 
@@ -601,12 +639,12 @@ def sincronizar_indicador(indicador, guardar=True):
     ).count()
 
     calculo = calcular_indicadores_meta(avance_real, meta)
-    ajuste_retro = calcular_ajuste_retroalimentaciones(meta, funcionario)
+    ajuste = ajuste_del_indicador(meta, funcionario, calculo['cumplimiento'])
 
     cumplimiento_base = min(Decimal(str(calculo['cumplimiento'])), Decimal('120.00'))
     cumplimiento_ajustado = max(
         Decimal('0.00'),
-        min(cumplimiento_base + ajuste_retro, Decimal('120.00'))
+        min(cumplimiento_base + ajuste['total'], Decimal('120.00'))
     )
 
     periodo = meta.id_periodo
@@ -624,7 +662,8 @@ def sincronizar_indicador(indicador, guardar=True):
         semaforo_final = 'ROJO'
 
     indicador.avance = Decimal(str(avance_real)).quantize(Decimal('0.01'))
-    indicador.ajuste = ajuste_retro
+    indicador.ajuste = ajuste['total']
+    indicador.detalle_ajuste = ajuste
     indicador.cumplimiento = cumplimiento_ajustado.quantize(Decimal('0.01'))
     indicador.semaforo = semaforo_final
     if indicador.ponderacion is None:

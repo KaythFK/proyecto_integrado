@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+
+{% block title %}Roles - SGR{% endblock %}
+
+{% block cabecera %}
+<h3 class="text-white fw-bold m-0">Gestión de Roles</h3>
+{% endblock %}
+
+{% block contenido %}
+{% include 'parciales/mensajes.html' %}
+<div class="container mt-5" style="max-width: 1450px;">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-2 gap-3">
+        <div>
+            <h4 class="fw-bold m-0 texto-guinda">Roles del Sistema</h4>
+            <small class="text-muted">El rol define qué puede ver y hacer cada usuario.</small>
+        </div>
+        <a href="{% url 'usuariosApp:crear_rol' %}" class="btn text-white fw-bold fondo-rojo">+ Nuevo Rol</a>
+    </div>
+
+    <div class="alert alert-secondary py-2 small my-4" role="note">
+        <i class="bi bi-info-circle"></i>
+        Cada rol hereda los accesos de un perfil base. Los cuatro perfiles base son fijos; los roles nuevos se pueden editar y desactivar cuando no tienen usuarios activos.
+    </div>
+
+    <div class="table-responsive shadow-sm rounded mb-5">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Rol</th>
+                    <th>Descripción</th>
+                    <th>Perfil base</th>
+                    <th>Accesos</th>
+                    <th class="text-center">Usuarios</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rol in roles %}
+                <tr class="{% if not rol.estado %}table-secondary text-muted opacity-75{% endif %}">
+                    <td class="fw-bold text-nowrap">
+                        {{ rol.nombre }}
+                        {% if rol.es_base %}<span class="badge bg-light text-dark border ms-1">Base</span>{% endif %}
+                    </td>
+                    <td class="texto-090 text-muted" style="max-width: 300px;">{{ rol.descripcion }}</td>
+                    <td class="text-nowrap">{{ rol.perfil_base }}</td>
+                    <td style="max-width: 340px;">
+                        {% for acceso in rol.accesos %}<span class="badge rounded-pill text-bg-light border me-1 mb-1 fw-normal">{{ acceso }}</span>{% endfor %}
+                    </td>
+                    <td class="text-center"><span class="badge bg-info text-dark">{{ rol.usuarios_activos }} activo{{ rol.usuarios_activos|pluralize }}</span></td>
+                    <td class="text-center">
+                        {% if rol.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                            <a href="{% url 'usuariosApp:editar_rol' rol.pk %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
+                                <i class="bi bi-pencil-square"></i> Editar
+                            </a>
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if rol.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                    {% if rol.estado %}Activo{% else %}Inactivo{% endif %}
+                                </span>
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100"
+                                     {% if rol.es_base %}title="Los perfiles base del sistema no se pueden desactivar"{% endif %}>
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
+                                        {% if rol.estado %}checked{% endif %} {% if rol.es_base %}disabled{% endif %}
+                                        aria-label="Cambiar estado del rol {{ rol.nombre }}"
+                                        onclick="confirmarCambio(event, '{{ rol.pk }}', '{{ rol.nombre|escapejs }}', '{{ rol.estado }}')">
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEstado" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" id="modalHeaderEstado">
+                <h5 class="modal-title fw-bold" id="modalTituloEstado">Confirmar Acción</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1" id="modalMensajeEstado"></p>
+                <strong class="fs-5 text-dark" id="modalNombre"></strong>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCambiarEstado" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white" id="btnConfirmarEstado">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmarCambio(event, id, nombre, estadoActualStr) {
+    event.preventDefault();
+    const estaActivo = estadoActualStr === 'True';
+    const header = document.getElementById('modalHeaderEstado');
+    const btn = document.getElementById('btnConfirmarEstado');
+    const nombreStr = document.getElementById('modalNombre');
+
+    if (estaActivo) {
+        header.style.backgroundColor = '#C41230';
+        document.getElementById('modalTituloEstado').innerText = 'Desactivar Rol';
+        document.getElementById('modalMensajeEstado').innerText = '¿Estás segura de desactivar el rol';
+        btn.style.backgroundColor = '#C41230';
+        btn.innerText = 'Sí, Desactivar';
+    } else {
+        header.style.backgroundColor = '#198754';
+        document.getElementById('modalTituloEstado').innerText = 'Reactivar Rol';
+        document.getElementById('modalMensajeEstado').innerText = '¿Deseas reactivar el rol';
+        btn.style.backgroundColor = '#198754';
+        btn.innerText = 'Sí, Reactivar';
+    }
+
+    nombreStr.innerText = nombre;
+    nombreStr.insertAdjacentHTML('beforeend', '<span class="fw-normal">?</span>');
+    document.getElementById('formCambiarEstado').action = "{% url 'usuariosApp:cambiar_estado_rol' 0 %}".replace('0', id);
+    new bootstrap.Modal(document.getElementById('modalEstado')).show();
+}
+</script>
+{% endblock %}

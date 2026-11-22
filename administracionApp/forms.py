@@ -2,6 +2,8 @@ import re
 from django import forms
 from django.contrib.auth.models import User, Group
 from .models import Profesional, Delegacion, Cargo, Periodo, Vecino
+from config.utils import EtiquetaFuncionarioMixin
+from usuariosApp.models import PERFILES_BASE, asegurar_roles_base, rol_principal
 
 class UsuarioSeguridadForm(forms.ModelForm):
     # 1. LISTA ESTRICTA DE ROLES: Solo estos aparecerán en el sistema.
@@ -9,7 +11,7 @@ class UsuarioSeguridadForm(forms.ModelForm):
 
     rol = forms.ModelChoiceField(
         # Filtramos la consulta para ignorar roles antiguos o basura
-        queryset=Group.objects.filter(name__in=ROLES_OFICIALES).order_by('name'),
+        queryset=Group.objects.none(),
         empty_label="Seleccione un rol en el sistema...",
         label="Rol / Nivel de Permisos",
         widget=forms.Select(attrs={'class': 'form-select', 'required': True})
@@ -35,12 +37,15 @@ class UsuarioSeguridadForm(forms.ModelForm):
         for nombre_rol in self.ROLES_OFICIALES:
             Group.objects.get_or_create(name=nombre_rol)
         
-        self.fields['rol'].queryset = Group.objects.filter(name__in=self.ROLES_OFICIALES).order_by('name')
-
+        asegurar_roles_base()
+        activos = Group.objects.filter(rol_sistema__estado=True)
         if self.instance and self.instance.pk:
-            grupo_actual = self.instance.groups.first()
+            grupo_actual = rol_principal(self.instance)
             if grupo_actual:
                 self.fields['rol'].initial = grupo_actual
+                activos = activos | Group.objects.filter(pk=grupo_actual.pk)
+        self.fields['rol'].queryset = activos.distinct().order_by('name')
+        self.fields['rol'].label_from_instance = lambda g: g.name if g.name in PERFILES_BASE else f'{g.name} (perfil {g.rol_sistema.perfil_base})'
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
@@ -110,7 +115,7 @@ class ProfesionalForm(forms.ModelForm):
         # 3. Retornar el RUT oficial para guardarlo en la BD
         return rut_oficial
 
-class DelegacionForm(forms.ModelForm):
+class DelegacionForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Delegacion
         exclude = ['estado']

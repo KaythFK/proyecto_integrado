@@ -50,6 +50,7 @@
                                 {{ field.label }} {% if field.field.required %}*{% endif %}
                             </label>
                             {{ field }}
+                            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
                             {% for error in field.errors %}
                                 <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                             {% endfor %}
@@ -69,4 +70,45 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const inicio = document.getElementById('id_fecha_inicio');
+    const termino = document.getElementById('id_fecha_termino');
+    const periodo = document.getElementById('id_periodo_ausencia');
+    const dias = document.getElementById('id_dias_computables');
+    if (!inicio || !termino || !dias) return;
+    const periodos = { {% for p in form.fields.periodo_ausencia.queryset %}'{{ p.pk }}': ['{{ p.fecha_inicio|date:"Y-m-d" }}', '{{ p.fecha_termino|date:"Y-m-d" }}', '{{ p.fecha_inicio|date:"d/m/Y" }}', '{{ p.fecha_termino|date:"d/m/Y" }}'],{% endfor %} };
+    const aviso = document.createElement('div');
+    aviso.className = 'text-danger small fw-bold mt-1';
+    dias.parentElement.appendChild(aviso);
+
+    function aFecha(texto) {
+        const [a, m, d] = texto.split('-').map(Number);
+        return new Date(a, m - 1, d);
+    }
+
+    function calcular() {
+        aviso.textContent = '';
+        if (!inicio.value || !termino.value) { dias.value = ''; return; }
+        const desde = aFecha(inicio.value), hasta = aFecha(termino.value);
+        if (hasta < desde) { dias.value = ''; aviso.textContent = 'La fecha de término es anterior a la de inicio.'; return; }
+        let total = 0;
+        for (const dia = new Date(desde); dia <= hasta; dia.setDate(dia.getDate() + 1)) {
+            if (dia.getDay() !== 0 && dia.getDay() !== 6) total++;
+        }
+        dias.value = total;
+        if (total === 0) aviso.textContent = 'El rango no incluye días hábiles.';
+        const rango = periodos[periodo && periodo.value];
+        if (rango && (inicio.value < rango[0] || termino.value > rango[1])) {
+            aviso.textContent = `Las fechas deben estar dentro del período (${rango[2]} al ${rango[3]}).`;
+        }
+    }
+
+    [inicio, termino, periodo].forEach(function (campo) {
+        if (campo) { campo.addEventListener('change', calcular); campo.addEventListener('input', calcular); }
+    });
+    calcular();
+})();
+</script>
 {% endblock %}

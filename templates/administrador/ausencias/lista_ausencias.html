@@ -13,7 +13,10 @@
 <div class="container mt-5">
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-        <h4 class="fw-bold m-0 texto-guinda">Listado de Inasistencias</h4>
+        <div>
+            <h4 class="fw-bold m-0 texto-guinda">Listado de Inasistencias{% if delegacion %}: {{ delegacion.nombre }}{% endif %}</h4>
+            <small class="text-muted">Los días hábiles de ausencia se descuentan de las metas del período y el semáforo se recalcula al guardar.</small>
+        </div>
         <a href="{% url 'actividadApp:crear_ausencia' %}" class="btn text-white fw-bold fondo-rojo">
             + Nueva Ausencia
         </a>
@@ -42,6 +45,7 @@
                 <tr>
                     <th>Funcionario</th>
                     <th>Tipo de Ausencia</th>
+                    <th>Período</th>
                     <th class="text-center">Desde</th>
                     <th class="text-center">Hasta</th>
                     <th class="text-center">Días Comp.</th>
@@ -55,7 +59,8 @@
                     <td>
                         <strong>{{ aus.profesional_ausente.nombres }} {{ aus.profesional_ausente.apellido_paterno }}</strong>
                     </td>
-                    <td><span class="badge bg-secondary">{{ aus.tipo_ausencia }}</span></td>
+                    <td><span class="badge bg-secondary">{{ aus.get_tipo_ausencia_display }}</span></td>
+                    <td>{{ aus.periodo_ausencia.nombre }}</td>
                     <td class="text-center">{{ aus.fecha_inicio|date:"d/m/Y" }}</td>
                     <td class="text-center">{{ aus.fecha_termino|date:"d/m/Y" }}</td>
                     <td class="text-center"><span class="badge bg-info text-dark">{{ aus.dias_computables }} días</span></td>
@@ -73,7 +78,7 @@
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
                                     <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
                                         {% if aus.estado %}checked{% endif %}
-                                        onclick="confirmarCambio(event, '{{ aus.pk }}', '{{ aus.profesional_ausente.nombres }} {{ aus.profesional_ausente.apellido_paterno }} ({{ aus.tipo_ausencia }})', '{{ aus.estado }}')">
+                                        onclick="confirmarCambio(event, '{{ aus.pk }}', '{{ aus.profesional_ausente.nombres }} {{ aus.profesional_ausente.apellido_paterno }} ({{ aus.get_tipo_ausencia_display }})', '{{ aus.estado }}')">
                                 </div>
                             </div>
                         </div>
@@ -81,7 +86,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-4">No hay registros de ausencia.</td>
+                    <td colspan="7" class="text-center text-muted py-4">No hay registros de ausencia.</td>
                 </tr>
                 {% endfor %}
             </tbody>
