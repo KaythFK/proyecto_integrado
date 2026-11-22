@@ -1,6 +1,6 @@
 from django import forms
 from django.core.exceptions import ValidationError as CoreValidationError
-from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar
+from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar, CelebracionDelegacion
 from config.utils import (
     validar_y_formatear_rut,
     validar_texto_no_vacio,
@@ -505,3 +505,56 @@ class CelebracionForm(forms.ModelForm):
         if fecha and (not self.instance.pk or fecha != self.instance.fecha_tentativa):
             return validar_fecha_no_pasada(fecha, 'La fecha tentativa')
         return fecha
+
+
+class CelebracionDelegacionForm(forms.ModelForm):
+    class Meta:
+        model = CelebracionDelegacion
+        fields = ['activa', 'fecha_ejecucion', 'lugar']
+        labels = {
+            'activa': 'Participación activa en esta delegación',
+            'fecha_ejecucion': 'Fecha de Ejecución Local',
+            'lugar': 'Lugar / Recinto del Evento',
+        }
+        widgets = {
+            'activa': forms.CheckboxInput(attrs={
+                'class': 'form-check-input switch-estado-sgr',
+                'role': 'switch',
+            }),
+            'fecha_ejecucion': forms.DateInput(
+                format='%Y-%m-%d',
+                attrs={
+                    'class': 'form-control borde-guinda',
+                    'type': 'date',
+                },
+            ),
+            'lugar': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'placeholder': 'Ej: Plaza de Armas, Sede Vecinal Sector 3...',
+            }),
+        }
+
+    def clean_lugar(self):
+        lugar = self.cleaned_data.get('lugar')
+        if lugar:
+            return validar_texto_no_vacio(lugar, 'El lugar del evento')
+        return lugar
+
+    def clean_fecha_ejecucion(self):
+        fecha = self.cleaned_data.get('fecha_ejecucion')
+        if fecha and (not self.instance.pk or fecha != self.instance.fecha_ejecucion):
+            return validar_fecha_no_pasada(fecha, 'La fecha de ejecución local')
+        return fecha
+
+    def clean(self):
+        cleaned_data = super().clean()
+        activa = cleaned_data.get('activa')
+        fecha_ejecucion = cleaned_data.get('fecha_ejecucion')
+        lugar = cleaned_data.get('lugar')
+
+        if activa and not fecha_ejecucion:
+            self.add_error('fecha_ejecucion', 'Debes indicar la fecha de ejecución local para activar el evento en la delegación.')
+        if activa and not lugar:
+            self.add_error('lugar', 'Debes indicar el lugar o recinto donde se realizará el evento.')
+
+        return cleaned_data
