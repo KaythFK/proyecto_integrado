@@ -51,7 +51,8 @@ MENU_POR_ROL = {
             ('Mis gestiones', 'list-task', 'actividadApp:mis_gestiones'),
             ('Mis evidencias', 'camera', 'actividadApp:lista_evidencias'),
             ('Organizaciones Comunitarias', 'diagram-3', 'comunidadApp:lista_organizaciones'),
-            ('Vecinos', 'person', 'administracionApp:lista_vecinos')
+            ('Vecinos', 'person', 'administracionApp:lista_vecinos'),
+            ('Vínculos y Cargas', 'person-hearts', 'comunidadApp:panel_profesional'),
         ]),
     ],
 }

@@ -359,204 +359,10 @@ def cambiar_estado_afiliacion(request, id_afiliacion):
     return redirect('comunidadApp:lista_afiliaciones')
 
 
-@login_required
-@role_required('Administrador', 'Profesional')
-def lista_cargas(request):
-    query = request.GET.get('q')
-    cargas = CargaFamiliar.objects.all().order_by('-id_carga')
-    
-    if query:
-        cargas = cargas.filter(
-            Q(nombres__icontains=query) |
-            Q(apellido_paterno__icontains=query) |
-            Q(rut__icontains=query)
-        ).distinct()
-        
-    return render(request, 'administrador/cargas/lista_cargas.html', {
-        'cargas': cargas,
-        'query': query
-    })
-
-@login_required
-@role_required('Administrador', 'Profesional')
-def crear_carga(request):
-    if request.method == 'POST':
-        form = CargaFamiliarForm(request.POST)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    carga = form.save(commit=False)
-                    carga.estado = True
-                    carga.save()
-                    
-                    # AUDITORIA
-                    registrar_auditoria(request, "CREACION", "CargaFamiliar", carga)
-                    
-                messages.success(request, 'La carga familiar fue registrada con éxito.')
-                return redirect('comunidadApp:lista_cargas')
-            except Exception as e:
-                messages.error(request, f'Error al guardar: {str(e)}')
-        else:
-            messages.error(request, 'Por favor corrige los errores en el formulario.')
-    else:
-        form = CargaFamiliarForm()
-        
-    return render(request, 'administrador/cargas/form_carga.html', {
-        'form': form,
-        'titulo': 'Registrar Carga Familiar'
-    })
-
-@login_required
-@role_required('Administrador', 'Profesional')
-def editar_carga(request, id_carga):
-    carga = get_object_or_404(CargaFamiliar, pk=id_carga)
-    
-    if request.method == 'POST':
-        datos_antiguos = model_to_dict(carga)
-        form = CargaFamiliarForm(request.POST, instance=carga)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    carga_guardada = form.save()
-                    
-                    # AUDITORIA
-                    registrar_auditoria(request, "EDICION", "CargaFamiliar", carga_guardada, datos_antiguos)
-                    
-                messages.success(request, 'La carga familiar fue actualizada correctamente.')
-                return redirect('comunidadApp:lista_cargas')
-            except Exception as e:
-                messages.error(request, f'Error al actualizar: {str(e)}')
-    else:
-        form = CargaFamiliarForm(instance=carga)
-        
-    return render(request, 'administrador/cargas/form_carga.html', {
-        'form': form,
-        'titulo': 'Editar Carga Familiar'
-    })
-
-@login_required
-@role_required('Administrador', 'Profesional')
-def cambiar_estado_carga(request, id_carga):
-    if request.method == 'POST':
-        carga = get_object_or_404(CargaFamiliar, pk=id_carga)
-        
-        with transaction.atomic():
-            datos_antiguos = model_to_dict(carga)
-            nuevo_estado = not carga.estado
-            carga.estado = nuevo_estado
-            carga.save()
-            
-            # AUDITORIA
-            registrar_auditoria(request, "CAMBIO_ESTADO", "CargaFamiliar", carga, datos_antiguos)
-                
-        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
-        messages.success(request, f'La carga familiar fue {accion_str} correctamente.')
-        
-    return redirect('comunidadApp:lista_cargas')
-
-
-
-@login_required
-@role_required('Administrador', 'Profesional')
-def lista_vinculos(request):
-    query = request.GET.get('q')
-    vinculos = VinculoFamiliar.objects.all().select_related('carga', 'familiar').order_by('-id_vinculo')
-    
-    if query:
-        vinculos = vinculos.filter(
-            Q(carga__nombres__icontains=query) |
-            Q(carga__apellido_paterno__icontains=query) |
-            Q(carga__rut__icontains=query) |
-            Q(familiar__nombres__icontains=query) |
-            Q(familiar__apellido_paterno__icontains=query) |
-            Q(parentesco__icontains=query)
-        ).distinct()
-        
-    return render(request, 'administrador/vinculos/lista_vinculos.html', {
-        'vinculos': vinculos,
-        'query': query
-    })
-
-@login_required
-@role_required('Administrador', 'Profesional')
-def crear_vinculo(request):
-    if request.method == 'POST':
-        form = VincularCargaForm(request.POST)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    vinculo = form.save(commit=False)
-                    vinculo.estado = True
-                    vinculo.save()
-                    
-                    # AUDITORIA
-                    registrar_auditoria(request, "CREACION", "VinculoFamiliar", vinculo)
-                    
-                messages.success(request, 'El vínculo familiar fue registrado con éxito.')
-                return redirect('comunidadApp:lista_vinculos')
-            except Exception as e:
-                messages.error(request, f'Error al guardar: {str(e)}')
-        else:
-            messages.error(request, 'Por favor corrige los errores en el formulario.')
-    else:
-        form = VincularCargaForm()
-        
-    return render(request, 'administrador/vinculos/form_vinculo.html', {
-        'form': form,
-        'titulo': 'Registrar Vínculo Familiar'
-    })
-
-@login_required
-@role_required('Administrador', 'Profesional')
-def editar_vinculo(request, id_vinculo):
-    vinculo = get_object_or_404(VinculoFamiliar, pk=id_vinculo)
-    
-    if request.method == 'POST':
-        datos_antiguos = model_to_dict(vinculo)
-        form = VincularCargaForm(request.POST, instance=vinculo)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    vinculo_guardado = form.save()
-                    
-                    # AUDITORIA
-                    registrar_auditoria(request, "EDICION", "VinculoFamiliar", vinculo_guardado, datos_antiguos)
-                    
-                messages.success(request, 'El vínculo familiar fue actualizado correctamente.')
-                return redirect('comunidadApp:lista_vinculos')
-            except Exception as e:
-                messages.error(request, f'Error al actualizar: {str(e)}')
-    else:
-        form = VincularCargaForm(instance=vinculo)
-        
-    return render(request, 'administrador/vinculos/form_vinculo.html', {
-        'form': form,
-        'titulo': 'Editar Vínculo Familiar'
-    })
-
-@login_required
-@role_required('Administrador', 'Profesional')
-def cambiar_estado_vinculo(request, id_vinculo):
-    if request.method == 'POST':
-        vinculo = get_object_or_404(VinculoFamiliar, pk=id_vinculo)
-        
-        with transaction.atomic():
-            datos_antiguos = model_to_dict(vinculo)
-            nuevo_estado = not vinculo.estado
-            vinculo.estado = nuevo_estado
-            vinculo.save()
-            
-            # AUDITORIA
-            registrar_auditoria(request, "CAMBIO_ESTADO", "VinculoFamiliar", vinculo, datos_antiguos)
-                
-        accion_str = "habilitado" if nuevo_estado else "inhabilitado"
-        messages.success(request, f'El vínculo familiar fue {accion_str} correctamente.')
-        
-    return redirect('comunidadApp:lista_vinculos')
-
 from django.http import JsonResponse
+from django.core.exceptions import ValidationError
 from config.utils import validar_y_formatear_rut
-from .forms import VincularCargaForm
+from .forms import OrganizacionComunitariaForm, AfiliacionVecinoForm, CargaFamiliarForm, VincularCargaForm
 
 
 @login_required
@@ -564,7 +370,7 @@ from .forms import VincularCargaForm
 def buscar_carga_por_rut(request):
     rut_raw = (request.GET.get('rut') or '').strip()
     if not rut_raw:
-        return JsonResponse({'encontrado': False, 'mensaje': 'Ingresa un RUT para buscar.'})
+        return JsonResponse({'encontrado': False, 'mensaje': ''})
 
     try:
         rut_formateado = validar_y_formatear_rut(rut_raw)
@@ -582,7 +388,7 @@ def buscar_carga_por_rut(request):
         return JsonResponse({
             'encontrado': False,
             'rut_formateado': rut_formateado,
-            'mensaje': 'No existe una carga registrada con ese RUT. Puedes crearla a continuación.',
+            'mensaje': 'RUT no registrado previamente. Completa los datos para crear la carga.',
         })
 
     vinculos_activos = [
@@ -605,7 +411,6 @@ def buscar_carga_por_rut(request):
             'fecha_nacimiento': carga.fecha_nacimiento.strftime('%Y-%m-%d') if carga.fecha_nacimiento else '',
             'genero': carga.genero,
             'padres_separados': carga.padres_separados,
-            'estado': carga.estado,
             'vinculos_activos': vinculos_activos,
         },
     })
@@ -613,84 +418,285 @@ def buscar_carga_por_rut(request):
 
 @login_required
 @role_required('Administrador', 'Profesional')
-def registrar_y_vincular_carga(request):
+def lista_cargas(request):
+    query = request.GET.get('q')
+    cargas = CargaFamiliar.objects.all().order_by('-id_carga')
+
+    if query:
+        cargas = cargas.filter(
+            Q(nombres__icontains=query) |
+            Q(apellido_paterno__icontains=query) |
+            Q(rut__icontains=query)
+        ).distinct()
+
+    return render(request, 'administrador/cargas/lista_cargas.html', {
+        'cargas': cargas,
+        'query': query,
+    })
+
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def crear_carga(request):
+    if request.method == 'POST':
+        form = CargaFamiliarForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    carga = form.save(commit=False)
+                    carga.estado = True
+                    carga.save()
+                    registrar_auditoria(request, "CREACION", "CargaFamiliar", carga)
+
+                messages.success(request, 'La carga familiar fue registrada con éxito.')
+                return redirect('comunidadApp:lista_cargas')
+            except Exception as e:
+                messages.error(request, f'Error al guardar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = CargaFamiliarForm()
+
+    return render(request, 'administrador/cargas/form_carga.html', {
+        'form': form,
+        'titulo': 'Registrar Carga Familiar',
+    })
+
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def editar_carga(request, id_carga):
+    carga = get_object_or_404(CargaFamiliar, pk=id_carga)
+
+    if request.method == 'POST':
+        datos_antiguos = model_to_dict(carga)
+        form = CargaFamiliarForm(request.POST, instance=carga, carga_existente=carga)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    carga_guardada = form.save()
+                    registrar_auditoria(request, "EDICION", "CargaFamiliar", carga_guardada, datos_antiguos)
+
+                messages.success(request, 'La carga familiar fue actualizada correctamente.')
+                return redirect('comunidadApp:lista_cargas')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        form = CargaFamiliarForm(instance=carga, carga_existente=carga)
+
+    return render(request, 'administrador/cargas/form_carga.html', {
+        'form': form,
+        'titulo': 'Editar Carga Familiar',
+    })
+
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def cambiar_estado_carga(request, id_carga):
+    if request.method == 'POST':
+        carga = get_object_or_404(CargaFamiliar, pk=id_carga)
+
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(carga)
+            nuevo_estado = not carga.estado
+            carga.estado = nuevo_estado
+            carga.save()
+            registrar_auditoria(request, "CAMBIO_ESTADO", "CargaFamiliar", carga, datos_antiguos)
+
+        accion_str = "habilitada" if nuevo_estado else "inhabilitada"
+        messages.success(request, f'La carga familiar fue {accion_str} correctamente.')
+
+    return redirect('comunidadApp:lista_cargas')
+
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def lista_vinculos(request):
+    query = request.GET.get('q')
+    vinculos = VinculoFamiliar.objects.all().select_related('carga', 'familiar').order_by('-id_vinculo')
+
+    if query:
+        vinculos = vinculos.filter(
+            Q(carga__nombres__icontains=query) |
+            Q(carga__apellido_paterno__icontains=query) |
+            Q(carga__rut__icontains=query) |
+            Q(familiar__nombres__icontains=query) |
+            Q(familiar__apellido_paterno__icontains=query) |
+            Q(parentesco__icontains=query)
+        ).distinct()
+
+    return render(request, 'administrador/vinculos/lista_vinculos.html', {
+        'vinculos': vinculos,
+        'query': query,
+    })
+
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def crear_vinculo(request):
     vecino_id = (request.GET.get('vecino') or request.POST.get('vecino') or '').strip()
     vecino_obj = get_object_or_404(Vecino, pk=int(vecino_id)) if vecino_id.isdigit() else None
 
-    carga_id_param = (request.GET.get('carga') or request.POST.get('carga_existente_id') or '').strip()
-    carga_existente = (
-        get_object_or_404(CargaFamiliar, pk=int(carga_id_param))
-        if carga_id_param.isdigit()
-        else None
-    )
-
     next_url = _resolver_next_seguro(request, '')
+    carga_existente = None
 
     if request.method == 'POST':
-        modo_reutilizar = bool(carga_existente)
-        carga_form = CargaFamiliarForm(request.POST) if not modo_reutilizar else None
-        vinculo_form = VincularCargaForm(
+        carga_existente_id = (request.POST.get('carga_existente_id') or '').strip()
+        if carga_existente_id.isdigit():
+            carga_existente = CargaFamiliar.objects.filter(pk=int(carga_existente_id)).first()
+
+        if carga_existente is None:
+            rut_post = (request.POST.get('rut') or '').strip()
+            if rut_post:
+                try:
+                    rut_limpio = validar_y_formatear_rut(rut_post)
+                except ValidationError:
+                    rut_limpio = rut_post
+                carga_existente = CargaFamiliar.objects.filter(
+                    Q(rut__iexact=rut_limpio) | Q(rut__iexact=rut_post)
+                ).first()
+
+        carga_form = CargaFamiliarForm(
+            request.POST,
+            instance=carga_existente,
+            carga_existente=carga_existente,
+        )
+        form = VincularCargaForm(
             request.POST,
             carga_existente=carga_existente,
             vecino_fijo=vecino_obj,
         )
 
-        carga_valida = True if modo_reutilizar else carga_form.is_valid()
-        if carga_valida and vinculo_form.is_valid():
+        if carga_form.is_valid() and form.is_valid():
             try:
                 with transaction.atomic():
-                    if modo_reutilizar:
+                    if carga_existente is not None:
                         carga = carga_existente
+                        if carga_form.cleaned_data.get('padres_separados') and not carga.padres_separados:
+                            datos_ant_carga = model_to_dict(carga)
+                            carga.padres_separados = True
+                            carga.save()
+                            registrar_auditoria(request, "EDICION", "CargaFamiliar", carga, datos_ant_carga)
                     else:
                         carga = carga_form.save(commit=False)
                         carga.estado = True
                         carga.save()
-                        registrar_auditoria(request, 'CREACION', 'CargaFamiliar', carga)
+                        registrar_auditoria(request, "CREACION", "CargaFamiliar", carga)
 
-                    vinculo = vinculo_form.save(commit=False)
+                    vinculo = form.save(commit=False)
                     vinculo.carga = carga
-                    if vecino_obj:
+                    if vecino_obj is not None:
                         vinculo.familiar = vecino_obj
                     vinculo.estado = True
                     vinculo.save()
-                    registrar_auditoria(request, 'CREACION', 'VinculoFamiliar', vinculo)
+                    registrar_auditoria(request, "CREACION", "VinculoFamiliar", vinculo)
 
-                if modo_reutilizar:
+                if carga_existente is not None:
                     messages.success(
                         request,
-                        f'Se reutilizó la carga "{carga}" y se vinculó con "{vinculo.familiar}" ({vinculo.parentesco}).'
+                        f'Se reutilizó la carga "{carga}" sin duplicarla y se vinculó con "{vinculo.familiar}".'
                     )
                 else:
                     messages.success(
                         request,
-                        f'Se registró la carga "{carga}" y se vinculó con "{vinculo.familiar}" ({vinculo.parentesco}).'
+                        f'Se registró la carga "{carga}" y se vinculó con "{vinculo.familiar}".'
                     )
 
                 if next_url:
                     return redirect(next_url)
                 return redirect('comunidadApp:lista_vinculos')
             except Exception as e:
-                messages.error(request, f'Error al guardar la carga y el vínculo: {str(e)}')
+                messages.error(request, f'Error al guardar: {str(e)}')
         else:
-            messages.error(request, 'Por favor corrige los errores marcados en el formulario.')
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        carga_form = CargaFamiliarForm() if not carga_existente else None
-        initial_vinculo = {'familiar': vecino_obj} if vecino_obj else {}
-        vinculo_form = VincularCargaForm(
-            initial=initial_vinculo,
+        carga_id_get = (request.GET.get('carga') or '').strip()
+        if carga_id_get.isdigit():
+            carga_existente = CargaFamiliar.objects.filter(pk=int(carga_id_get)).first()
+
+        carga_form = CargaFamiliarForm(instance=carga_existente, carga_existente=carga_existente)
+        initial_data = {'familiar': vecino_obj} if vecino_obj else {}
+        form = VincularCargaForm(
+            initial=initial_data,
             carga_existente=carga_existente,
             vecino_fijo=vecino_obj,
         )
 
-    return render(request, 'administrador/cargas/vincular_carga.html', {
-        'titulo': 'Registrar / Vincular Carga Familiar',
+    return render(request, 'administrador/vinculos/form_vinculo.html', {
+        'form': form,
         'carga_form': carga_form,
-        'vinculo_form': vinculo_form,
-        'vecino_obj': vecino_obj,
         'carga_existente': carga_existente,
+        'vecino_obj': vecino_obj,
         'next_url': next_url,
+        'titulo': 'Registrar Vínculo Familiar',
+        'es_edicion': False,
     })
 
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def editar_vinculo(request, id_vinculo):
+    vinculo = get_object_or_404(VinculoFamiliar, pk=id_vinculo)
+    carga = vinculo.carga
+    next_url = _resolver_next_seguro(request, '')
+
+    if request.method == 'POST':
+        datos_antiguos_vinculo = model_to_dict(vinculo)
+        datos_antiguos_carga = model_to_dict(carga)
+
+        carga_form = CargaFamiliarForm(request.POST, instance=carga, carga_existente=carga)
+        form = VincularCargaForm(request.POST, instance=vinculo, carga_existente=carga)
+
+        if carga_form.is_valid() and form.is_valid():
+            try:
+                with transaction.atomic():
+                    carga_guardada = carga_form.save()
+                    registrar_auditoria(request, "EDICION", "CargaFamiliar", carga_guardada, datos_antiguos_carga)
+
+                    vinculo_guardado = form.save()
+                    registrar_auditoria(request, "EDICION", "VinculoFamiliar", vinculo_guardado, datos_antiguos_vinculo)
+
+                messages.success(request, 'El vínculo familiar fue actualizado correctamente.')
+                if next_url:
+                    return redirect(next_url)
+                return redirect('comunidadApp:lista_vinculos')
+            except Exception as e:
+                messages.error(request, f'Error al actualizar: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrige los errores en el formulario.')
+    else:
+        carga_form = CargaFamiliarForm(instance=carga, carga_existente=carga)
+        form = VincularCargaForm(instance=vinculo, carga_existente=carga)
+
+    return render(request, 'administrador/vinculos/form_vinculo.html', {
+        'form': form,
+        'carga_form': carga_form,
+        'carga_existente': carga,
+        'next_url': next_url,
+        'titulo': 'Editar Vínculo Familiar',
+        'es_edicion': True,
+    })
+
+
+@login_required
+@role_required('Administrador', 'Profesional')
+def cambiar_estado_vinculo(request, id_vinculo):
+    if request.method == 'POST':
+        vinculo = get_object_or_404(VinculoFamiliar, pk=id_vinculo)
+
+        with transaction.atomic():
+            datos_antiguos = model_to_dict(vinculo)
+            nuevo_estado = not vinculo.estado
+            vinculo.estado = nuevo_estado
+            vinculo.save()
+            registrar_auditoria(request, "CAMBIO_ESTADO", "VinculoFamiliar", vinculo, datos_antiguos)
+
+        accion_str = "habilitado" if nuevo_estado else "inhabilitado"
+        messages.success(request, f'El vínculo familiar fue {accion_str} correctamente.')
+
+    return redirect('comunidadApp:lista_vinculos')
 
 @login_required
 @role_required('Administrador', 'Profesional', 'Delegado', 'Coordinador')
@@ -746,4 +752,70 @@ def detalle_organizacion(request, id_organizacion):
         'afiliaciones_inactivas': afiliaciones_inactivas,
         'total_integrantes_activos': afiliaciones_activas.count(),
         'query': query,
+    })
+
+
+@login_required
+@role_required('Profesional')
+def panel_profesional(request):
+    query = (request.GET.get('q') or '').strip()
+    solo_separados = request.GET.get('separados') == '1'
+
+    vinculos_qs = (
+        VinculoFamiliar.objects.filter(estado=True, carga__estado=True)
+        .select_related('carga', 'familiar')
+        .prefetch_related('carga__vinculos__familiar')
+        .order_by('-id_vinculo')
+    )
+
+    if solo_separados:
+        vinculos_qs = vinculos_qs.filter(carga__padres_separados=True)
+
+    if query:
+        vinculos_qs = vinculos_qs.filter(
+            Q(carga__nombres__icontains=query) |
+            Q(carga__apellido_paterno__icontains=query) |
+            Q(carga__rut__icontains=query) |
+            Q(familiar__nombres__icontains=query) |
+            Q(familiar__apellido_paterno__icontains=query) |
+            Q(familiar__rut__icontains=query)
+        ).distinct()
+
+    total_cargas_activas = CargaFamiliar.objects.filter(estado=True).count()
+    total_padres_separados = CargaFamiliar.objects.filter(estado=True, padres_separados=True).count()
+    total_vinculos_activos = VinculoFamiliar.objects.filter(estado=True).count()
+
+    filas_profesional = []
+    for v in vinculos_qs:
+        otros_progenitores = [
+            otro for otro in v.carga.vinculos.all()
+            if otro.estado and otro.familiar_id != v.familiar_id
+        ]
+        if v.vive_con_este_vecino:
+            badge_residencia = 'Vive en este domicilio'
+            badge_clase = 'bg-success'
+        elif v.carga.padres_separados:
+            badge_residencia = 'Padres separados - Vive con otro progenitor'
+            badge_clase = 'bg-warning text-dark'
+        else:
+            badge_residencia = 'No vive en este domicilio'
+            badge_clase = 'bg-secondary'
+
+        filas_profesional.append({
+            'vinculo': v,
+            'carga': v.carga,
+            'vecino': v.familiar,
+            'otros_progenitores': otros_progenitores,
+            'badge_residencia': badge_residencia,
+            'badge_clase': badge_clase,
+        })
+
+    return render(request, 'profesional/panel_vinculos_profesional.html', {
+        'filas_profesional': filas_profesional,
+        'query': query,
+        'solo_separados': solo_separados,
+        'total_cargas_activas': total_cargas_activas,
+        'total_padres_separados': total_padres_separados,
+        'total_vinculos_activos': total_vinculos_activos,
+        'rol_menu': 'profesional',
     })

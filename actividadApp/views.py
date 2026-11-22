@@ -20,7 +20,7 @@ from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError, PermissionDenied
 import json
 from django.forms.models import model_to_dict
-from comunidadApp.models import AfiliacionVecino
+from comunidadApp.models import AfiliacionVecino, VinculoFamiliar
 # --- FUNCIÓN AUXILIAR DE AUDITORÍA ---
 def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteriores=None):
     """
@@ -1160,6 +1160,37 @@ def detalle_vecino(request, id_vecino):
         .order_by('-estado', '-id_afiliacion')
     )
 
+    vinculos_cargas = list(
+        VinculoFamiliar.objects.filter(familiar=vecino)
+        .select_related('carga')
+        .prefetch_related('carga__vinculos__familiar')
+        .order_by('-estado', '-id_vinculo')
+    )
+
+    cargas_detalle = []
+    for v in vinculos_cargas:
+        otros_vinculos = [
+            otro for otro in v.carga.vinculos.all()
+            if otro.estado and otro.familiar_id != vecino.pk
+        ]
+        if v.vive_con_este_vecino:
+            badge_residencia = 'Vive en este domicilio'
+            badge_clase = 'bg-success'
+        elif v.carga.padres_separados:
+            badge_residencia = 'Padres separados - Vive con otro progenitor'
+            badge_clase = 'bg-warning text-dark'
+        else:
+            badge_residencia = 'No vive en este domicilio'
+            badge_clase = 'bg-secondary'
+
+        cargas_detalle.append({
+            'vinculo': v,
+            'carga': v.carga,
+            'otros_vinculos': otros_vinculos,
+            'badge_residencia': badge_residencia,
+            'badge_clase': badge_clase,
+        })
+
     # Determinamos el rol exacto para el menú lateral dinámico
     if request.user.groups.filter(name='Administrador').exists():
         rol_menu = 'administrador'
@@ -1174,10 +1205,11 @@ def detalle_vecino(request, id_vecino):
         'vecino': vecino,
         'actividades_vecino': actividades_vecino,
         'afiliaciones_vecino': afiliaciones_vecino,
+        'vinculos_cargas': vinculos_cargas,
+        'cargas_detalle': cargas_detalle,
         'rol_menu': rol_menu,
     }
     return render(request, 'detalle_vecino.html', context)
-
 
 # ==========================================
 # UTILIDAD ORM PARA REPORTES Y ESTADÍSTICAS (CA3)

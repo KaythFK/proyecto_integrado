@@ -343,9 +343,12 @@ class CargaFamiliarForm(forms.ModelForm):
         rut_formateado = validar_y_formatear_rut(self.cleaned_data.get('rut'))
         if self.carga_existente is not None:
             return rut_formateado
-        if CargaFamiliar.objects.filter(rut__iexact=rut_formateado).exists():
+        qs = CargaFamiliar.objects.filter(rut__iexact=rut_formateado)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
             raise ValidationError(
-                'Ya existe una carga registrada con este RUT. Sal del campo o pulsa Buscar RUT para reutilizarla.'
+                'Ya existe una carga registrada con este RUT.'
             )
         return rut_formateado
 
@@ -359,7 +362,7 @@ class CargaFamiliarForm(forms.ModelForm):
         return validar_fecha_no_futura(self.cleaned_data.get('fecha_nacimiento'))
 
 
-class VinculoCargaForm(forms.ModelForm):
+class VincularCargaForm(forms.ModelForm):
     class Meta:
         model = VinculoFamiliar
         fields = [
@@ -421,6 +424,8 @@ class VinculoCargaForm(forms.ModelForm):
                 carga=self.carga_existente,
                 estado=True,
             )
+            if self.instance and self.instance.pk:
+                duplicado = duplicado.exclude(pk=self.instance.pk)
             if duplicado.exists():
                 raise ValidationError(
                     f'"{familiar}" ya tiene un vínculo activo registrado con la carga "{self.carga_existente}".'

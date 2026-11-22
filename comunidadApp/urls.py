@@ -22,6 +22,8 @@ urlpatterns = [
     path('cargas/crear/', views.crear_carga, name='crear_carga'),
     path('cargas/editar/<int:id_carga>/', views.editar_carga, name='editar_carga'),
     path('cargas/estado/<int:id_carga>/', views.cambiar_estado_carga, name='cambiar_estado_carga'),
+    path('cargas/buscar-rut/', views.buscar_carga_por_rut, name='buscar_carga_por_rut'),
+    path('profesional/cargas-vinculos/', views.panel_profesional, name='panel_profesional'),
 
     #Vinculos Familiares
     path('vinculos/', views.lista_vinculos, name='lista_vinculos'),
