@@ -198,6 +198,12 @@ class Retroalimentacion(models.Model):
 
     id_retroalimentacion = models.AutoField(primary_key=True)
     tipo = models.CharField(max_length=20, choices=OPCIONES_TIPO)
+    porcentaje_impacto = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00')), MaxValueValidator(Decimal('30.00'))]
+    )
     archivo_respaldo = models.ImageField(upload_to='retroalimentaciones/', blank=True, null=True)
     canal_recepcion = models.CharField(max_length=100)
     fecha = models.DateField()
@@ -250,8 +256,15 @@ class Retroalimentacion(models.Model):
         verbose_name_plural = 'Retroalimentaciones'
 
 class Ausencia(models.Model):
+    OPCIONES_TIPO = [
+        ('VACACIONES', 'Vacaciones'),
+        ('DIAS_ADMINISTRATIVOS', 'Días administrativos'),
+        ('DIAS_LIBRES', 'Días libres'),
+        ('LICENCIA_MEDICA', 'Licencia médica'),
+    ]
+
     id_ausencia = models.AutoField(primary_key=True)
-    tipo_ausencia = models.CharField(max_length=50)
+    tipo_ausencia = models.CharField(max_length=50, choices=OPCIONES_TIPO)
     fecha_inicio = models.DateField()
     fecha_termino = models.DateField()
     dias_computables = models.IntegerField() 

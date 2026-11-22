@@ -6,12 +6,13 @@ from django.db.models import Q
 
 from config.utils import inicio_del_dia
 from .models import Auditoria, Profesional
+from config.utils import EtiquetaFuncionarioFiltroMixin
 
 SELECT = {'class': 'form-select borde-guinda'}
 FECHA = {'class': 'form-control borde-guinda', 'type': 'date'}
 
 
-class AuditoriaFilter(django_filters.FilterSet):
+class AuditoriaFilter(EtiquetaFuncionarioFiltroMixin, django_filters.FilterSet):
     q = django_filters.CharFilter(
         method='buscar_texto', label='Buscar',
         widget=forms.TextInput(attrs={'class': 'form-control borde-guinda', 'placeholder': 'Evento, entidad o registro'}))

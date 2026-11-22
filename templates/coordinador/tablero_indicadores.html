@@ -202,6 +202,7 @@
                                     <th scope="col" class="text-center">Avance</th>
                                     <th scope="col" class="text-center">Cumplimiento</th>
                                     <th scope="col" class="text-center">Ajuste</th>
+                                    <th scope="col" class="text-center">Días descontados</th>
                                     <th scope="col" class="text-center">Semáforo</th>
                                     <th scope="col" class="text-center">Acciones</th>
                                 </tr>
@@ -220,7 +221,21 @@
                                     <td>{{ ind.meta_id_meta.id_periodo.nombre }}</td>
                                     <td class="text-center">{{ ind.avance }}</td>
                                     <td class="text-center fw-semibold">{{ ind.cumplimiento }}%</td>
-                                    <td class="text-center">{{ ind.ajuste }}</td>
+                                    <td class="text-center">
+                                        <span class="fw-semibold">{{ ind.ajuste }}</span>
+                                        {% if ind.detalle_ajuste.retroalimentacion or ind.detalle_ajuste.ausencia %}
+                                        <div class="text-muted texto-075 text-nowrap">
+                                            {% if ind.detalle_ajuste.retroalimentacion %}Retroalim.: {{ ind.detalle_ajuste.retroalimentacion }}{% endif %}
+                                            {% if ind.detalle_ajuste.retroalimentacion and ind.detalle_ajuste.ausencia %}<br>{% endif %}
+                                            {% if ind.detalle_ajuste.ausencia %}Ausencias: {{ ind.detalle_ajuste.ausencia }}{% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if ind.detalle_ajuste.dias_descontados %}
+                                        <span class="badge bg-info text-dark">{{ ind.detalle_ajuste.dias_descontados }} de {{ ind.detalle_ajuste.dias_periodo }}</span>
+                                        {% else %}<span class="text-muted">—</span>{% endif %}
+                                    </td>
                                     <td class="text-center">
                                         <span class="badge redondeado-6
                                             {% if ind.semaforo == 'VERDE' %}bg-success

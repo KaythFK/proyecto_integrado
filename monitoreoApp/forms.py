@@ -14,6 +14,7 @@ from config.utils import (
     validar_datos_meta,
     validar_fechas_meta_en_periodo,
 )
+from config.utils import EtiquetaFuncionarioMixin
 
 
 class MetaForm(forms.ModelForm):
@@ -110,7 +111,7 @@ class MetaForm(forms.ModelForm):
         return cleaned_data
 
 
-class IndicadorForm(forms.ModelForm):
+class IndicadorForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Indicador
         exclude = ['estado', 'fecha_calculo', 'avance']
@@ -152,7 +153,7 @@ class IndicadorForm(forms.ModelForm):
         return ponderacion
 
 
-class MetaAsignacionForm(forms.ModelForm):
+class MetaAsignacionForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Meta
         exclude = ['estado', 'version'] # La versión se asigna por código (KAN-208)

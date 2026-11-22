@@ -8,9 +8,10 @@ from django.db.models.functions import Replace, Upper
 
 from administracionApp.models import Profesional
 from .models import Compromiso
+from config.utils import EtiquetaFuncionarioFiltroMixin
 
 
-class CompromisoFilter(django_filters.FilterSet):
+class CompromisoFilter(EtiquetaFuncionarioFiltroMixin, django_filters.FilterSet):
     responsable = django_filters.ModelChoiceFilter(
         field_name='id_funcionario', queryset=Profesional.objects.none(), empty_label='Todos los responsables',
         widget=forms.Select(attrs={'class': 'form-select borde-guinda'}))

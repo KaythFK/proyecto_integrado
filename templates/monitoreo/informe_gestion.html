@@ -48,7 +48,7 @@
                 <label class="form-label small fw-bold mb-1" for="filtroFuncionario">Funcionario</label>
                 <select name="funcionario" id="filtroFuncionario" class="form-select borde-guinda">
                     <option value="">Todos</option>
-                    {% for f in funcionarios %}<option value="{{ f.pk }}" {% if funcionario and funcionario.pk == f.pk %}selected{% endif %}>{{ f.nombres }} {{ f.apellido_paterno }}{% if not es_delegado %} · {{ f.id_delegacion.nombre }}{% endif %}</option>{% endfor %}
+                    {% for f in funcionarios %}<option value="{{ f.pk }}" {% if funcionario and funcionario.pk == f.pk %}selected{% endif %}>{{ f.etiqueta }}</option>{% endfor %}
                 </select>
             </div>
             <div class="col-12 col-sm-6 col-lg-3 d-flex gap-2">

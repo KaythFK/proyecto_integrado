@@ -19,19 +19,24 @@ from django.db.models import Q
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from .correo import enviar_correo
-from .forms import CambioClaveInicialForm, RecuperarClaveForm, RestablecerClaveForm
-from .models import ClaveTemporal
+from django.db import transaction
+from django.forms.models import model_to_dict
+from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_POST
+from .decorators import role_required
+from .forms import CambioClaveInicialForm, RecuperarClaveForm, RestablecerClaveForm, RolForm
+from .models import ClaveTemporal, RolSistema, asegurar_roles_base, asignar_rol
 
 
 def destino_segun_rol(user):
-    roles = [grupo.name.upper() for grupo in user.groups.all()]
-    if user.is_superuser or any('ADMINISTRADOR' in rol for rol in roles):
+    roles = set(user.groups.values_list('name', flat=True))
+    if user.is_superuser or 'Administrador' in roles:
         return 'administracionApp:dashboard_admin'
-    if any('DELEGADO' in rol for rol in roles):
+    if 'Delegado' in roles:
         return 'monitoreoApp:dashboard_delegado'
-    if any('COORDINADOR' in rol for rol in roles):
+    if 'Coordinador' in roles:
         return 'tuboApp:dashboard_coordinador'
-    if any('PROFESIONAL' in rol for rol in roles):
+    if 'Profesional' in roles:
         return 'actividadApp:dashboard_profesional'
     return 'lista_actividades'
 
@@ -230,3 +235,112 @@ def restablecer_clave(request, uidb64, token):
         form = RestablecerClaveForm(usuario)
 
     return render(request, 'login/restablecer_clave.html', {'token_valido': True, 'form': form})
+
+
+# --- ROLES DEL SISTEMA ---
+def accesos_de_perfil(perfil):
+    """Lo que ve en su menú un usuario con ese perfil base."""
+    from config.menu import MENU_POR_ROL
+    if perfil == 'Administrador':
+        return ['Acceso completo al sistema']
+    accesos = []
+    for texto, _, destino in MENU_POR_ROL.get(perfil.lower(), []):
+        if isinstance(destino, list):
+            accesos += [hijo for hijo, _, _ in destino]
+        elif texto != 'Mis alertas':
+            accesos.append(texto)
+    return accesos
+
+
+def usuarios_del_rol(rol):
+    usuarios = User.objects.filter(groups=rol.grupo)
+    if rol.es_base:
+        usuarios = usuarios.exclude(groups__rol_sistema__es_base=False)
+    return usuarios.select_related('profesional__id_delegacion', 'profesional__id_cargo').distinct().order_by('first_name', 'username')
+
+
+def auditar_rol(request, evento, rol, datos_anteriores=None):
+    from administracionApp.views import registrar_auditoria
+    registrar_auditoria(request, evento, 'RolSistema', rol, datos_anteriores)
+
+
+def datos_de_rol(rol):
+    datos = model_to_dict(rol)
+    datos['nombre'] = rol.grupo.name
+    return datos
+
+
+@login_required
+@role_required('Administrador')
+def lista_roles(request):
+    asegurar_roles_base()
+    roles = []
+    for rol in RolSistema.objects.select_related('grupo').order_by('-es_base', 'grupo__name'):
+        usuarios = usuarios_del_rol(rol)
+        rol.accesos = accesos_de_perfil(rol.perfil_base)
+        rol.total_usuarios = usuarios.count()
+        rol.usuarios_activos = usuarios.filter(is_active=True).count()
+        roles.append(rol)
+    return render(request, 'administrador/roles/lista_roles.html', {'roles': roles})
+
+
+@login_required
+@role_required('Administrador')
+def crear_rol(request):
+    form = RolForm(request.POST or None)
+    if request.method == 'POST':
+        if form.is_valid():
+            with transaction.atomic():
+                rol = form.save()
+                auditar_rol(request, 'CREACION', rol)
+            messages.success(request, f'El rol "{rol.nombre}" fue creado con los accesos del perfil {rol.perfil_base}.')
+            return redirect('usuariosApp:lista_roles')
+        messages.error(request, 'Por favor corrige los errores en el formulario.')
+    return render(request, 'administrador/roles/form_rol.html', {'form': form, 'titulo': 'Registrar Rol'})
+
+
+@login_required
+@role_required('Administrador')
+def editar_rol(request, id_rol):
+    rol = get_object_or_404(RolSistema.objects.select_related('grupo'), pk=id_rol)
+    datos_anteriores = datos_de_rol(rol)
+    perfil_anterior = rol.perfil_base
+    form = RolForm(request.POST or None, instance=rol)
+    if request.method == 'POST':
+        if form.is_valid():
+            with transaction.atomic():
+                rol = form.save()
+                if rol.perfil_base != perfil_anterior:
+                    for usuario in usuarios_del_rol(rol):
+                        asignar_rol(usuario, rol.grupo)
+                auditar_rol(request, 'EDICION', rol, datos_anteriores)
+            messages.success(request, f'El rol "{rol.nombre}" fue actualizado correctamente.')
+            return redirect('usuariosApp:lista_roles')
+        messages.error(request, 'Por favor corrige los errores en el formulario.')
+    return render(request, 'administrador/roles/form_rol.html', {
+        'form': form,
+        'titulo': f'Editar Rol: {rol.nombre}',
+        'rol': rol,
+        'accesos': accesos_de_perfil(rol.perfil_base),
+        'usuarios': usuarios_del_rol(rol),
+    })
+
+
+@login_required
+@role_required('Administrador')
+@require_POST
+def cambiar_estado_rol(request, id_rol):
+    rol = get_object_or_404(RolSistema.objects.select_related('grupo'), pk=id_rol)
+    if rol.es_base:
+        messages.error(request, 'Los perfiles base del sistema no se pueden desactivar.')
+        return redirect('usuariosApp:lista_roles')
+    activos = usuarios_del_rol(rol).filter(is_active=True).count()
+    if rol.estado and activos:
+        messages.error(request, f'No se puede desactivar "{rol.nombre}": tiene {activos} usuario{"s" if activos != 1 else ""} activo{"s" if activos != 1 else ""}. Reasígnalos a otro rol primero.')
+        return redirect('usuariosApp:lista_roles')
+    datos_anteriores = datos_de_rol(rol)
+    rol.estado = not rol.estado
+    rol.save(update_fields=['estado'])
+    auditar_rol(request, 'CAMBIO_ESTADO', rol, datos_anteriores)
+    messages.success(request, f'El rol "{rol.nombre}" fue {"activado" if rol.estado else "desactivado"} correctamente.')
+    return redirect('usuariosApp:lista_roles')

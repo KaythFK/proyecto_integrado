@@ -621,6 +621,11 @@ def sincronizar_calculos_indicador(indicador, guardar=True):
     indicador.ajuste = ajuste_actual
 
     if meta and meta.valor_objetivo is not None and Decimal(str(meta.valor_objetivo)) > Decimal('0'):
+        from monitoreoApp.services import ajuste_del_indicador
+        if indicador.id_funcionario_id:
+            sin_tope = calcular_porcentaje_cumplimiento(indicador.avance, meta.valor_objetivo, tope_maximo=None)
+            indicador.detalle_ajuste = ajuste_del_indicador(meta, indicador.id_funcionario, sin_tope)
+            ajuste_actual = indicador.ajuste = indicador.detalle_ajuste['total']
         cumplimiento_base = calcular_porcentaje_cumplimiento(
             indicador.avance,
             meta.valor_objetivo,
@@ -645,6 +650,44 @@ def sincronizar_calculos_indicador(indicador, guardar=True):
 
 
 
+def etiqueta_funcionario(profesional):
+    """Nombre del funcionario con su rol y delegación: "Ana Pérez (Profesional · Centro)"."""
+    from usuariosApp.models import rol_principal
+    usuario = getattr(profesional, 'usuario', None)
+    rol = rol_principal(usuario) if usuario else None
+    roles = rol.name if rol else ''
+    delegacion = profesional.id_delegacion.nombre if profesional.id_delegacion_id else ''
+    detalle = ' · '.join(parte for parte in (roles or 'Sin rol', delegacion) if parte)
+    return f'{profesional.nombres} {profesional.apellido_paterno} ({detalle})'
+
+
+def etiquetar_funcionarios(campos):
+    """En cada lista desplegable de funcionarios muestra el rol y la delegación junto al nombre."""
+    for campo in campos.values():
+        consulta = getattr(campo, 'queryset', None)
+        if consulta is not None and consulta.model is Profesional:
+            campo.queryset = consulta.select_related('id_delegacion', 'usuario').prefetch_related('usuario__groups')
+            campo.label_from_instance = etiqueta_funcionario
+
+
+class EtiquetaFuncionarioMixin:
+    """Para formularios: aplica etiquetar_funcionarios a sus campos."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        etiquetar_funcionarios(self.fields)
+
+
+class EtiquetaFuncionarioFiltroMixin:
+    """Para filtros de django-filter: aplica etiquetar_funcionarios al formulario del filtro."""
+    @property
+    def form(self):
+        formulario = super().form
+        if not getattr(formulario, '_funcionarios_etiquetados', False):
+            etiquetar_funcionarios(formulario.fields)
+            formulario._funcionarios_etiquetados = True
+        return formulario
+
+
 def filtrar_funcionarios_por_delegacion(user, form, nombre_campo='id_funcionario'):
     """
     Filtra dinámicamente el queryset de un campo de funcionario en el formulario 
@@ -657,6 +700,7 @@ def filtrar_funcionarios_por_delegacion(user, form, nombre_campo='id_funcionario
             id_delegacion=delegacion,
             estado=True
         ).order_by('nombres')
+        etiquetar_funcionarios({nombre_campo: form.fields[nombre_campo]})
 
 def validar_meta_corresponde_a_profesional(profesional, meta):
     """
