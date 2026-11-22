@@ -7,7 +7,7 @@ from usuariosApp.decorators import role_required
 from actividadApp.models import Actividad, Ausencia
 from actividadApp.forms import etiqueta_meta
 from .models import Alerta, HistorialMeta, Meta, Indicador, ReglaAlerta
-from .services import dias_aviso_vencimiento, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta, asegurar_indicadores_para_tablero, sincronizar_indicador
+from .services import dias_aviso_vencimiento, dias_umbral_sin_registros, funcionarios_a_monitorear, uso_de_funcionarios, generar_alertas, registrar_incumplimientos, resumen_compromisos, tipo_de_alerta, asegurar_indicadores_para_tablero, sincronizar_indicador
 from .forms import MetaForm, IndicadorForm, ReglaAlertaForm
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import Http404, HttpResponse, request
@@ -93,6 +93,9 @@ def dashboard_delegado(request):
 
     filas, cumplimiento_delegacion, semaforo_delegacion, metas_en_rojo = resumen_indicadores(delegacion_actual, periodo)
     rezagados = resultados_bajo_umbral(delegacion_actual, periodo)
+    umbral_sin_registros = dias_umbral_sin_registros(hoy)
+    sin_registros = [f for f in uso_de_funcionarios(funcionarios_a_monitorear(delegacion_actual), periodo, umbral_sin_registros, hoy)
+                     if f['supera_umbral']]
 
     context = {
         'delegacion_nombre': delegacion_actual.nombre,
@@ -110,6 +113,8 @@ def dashboard_delegado(request):
         'finalizadas': actividades_equipo.filter(estado_progreso='FINALIZADA').count(),
         'tubo': resumen_compromisos(compromisos_equipo, hoy),
         'dias_aviso': dias_aviso_vencimiento(hoy),
+        'sin_registros': sin_registros,
+        'umbral_sin_registros': umbral_sin_registros,
     }
     return render(request, 'delegado/dashboard_delegado.html', context)
 
@@ -975,6 +980,38 @@ def editar_regla_alerta(request, tipo):
     })
 
 
+@login_required
+@role_required('Delegado', 'Coordinador', 'Administrador')
+def frecuencia_registros(request):
+    hoy = date.today()
+    periodos, periodo = elegir_periodo(request)
+    delegacion = delegacion_del_delegado(request.user)
+    es_delegado = delegacion is not None
+    delegaciones = Delegacion.objects.none()
+    if not es_delegado:
+        delegaciones = Delegacion.objects.filter(estado=True).order_by('nombre')
+        if (request.GET.get('delegacion') or '').isdigit():
+            delegacion = delegaciones.filter(pk=request.GET['delegacion']).first()
+
+    umbral = dias_umbral_sin_registros(hoy)
+    filas = uso_de_funcionarios(funcionarios_a_monitorear(delegacion), periodo, umbral, hoy)
+    con_promedio = [f['promedio'] for f in filas if f['promedio'] is not None]
+    return render(request, 'monitoreo/frecuencia_registros.html', {
+        'filas': filas,
+        'periodos': periodos,
+        'periodo': periodo,
+        'es_delegado': es_delegado,
+        'delegaciones': delegaciones,
+        'delegacion': delegacion,
+        'umbral': umbral,
+        'hay_regla': ReglaAlerta.vigente(ReglaAlerta.SIN_REGISTROS, hoy) is not None,
+        'medido_hasta': min(hoy - timedelta(days=1), periodo.fecha_termino) if periodo else None,
+        'total_registros': sum(f['total'] for f in filas),
+        'promedio_equipo': round(sum(con_promedio) / len(con_promedio), 2) if con_promedio else None,
+        'sin_actividad': sum(1 for f in filas if f['supera_umbral']),
+    })
+
+
 AVISO_REPORTE = 'Informe de apoyo al análisis. No ejecuta decisiones automáticas sobre el personal.'
 
 
@@ -1065,43 +1102,90 @@ def datos_grafico_tendencia(periodos, filas):
     return {'etiquetas': etiquetas, 'series': list(series.values()), 'objetivo': objetivo}
 
 
+EXCEL_GUINDA, EXCEL_OSCURO, EXCEL_GRIS = '8B1D19', '212529', 'F2F2F2'
+EXCEL_SEMAFORO = {'VERDE': ('C6EFCE', '006100', 'Verde'), 'AMARILLO': ('FFEB9C', '7F6000', 'Amarillo'),
+                  'ROJO': ('FFC7CE', '9C0006', 'Rojo')}
+
+
+def excel_borde():
+    from openpyxl.styles import Border, Side
+    linea = Side(style='thin', color='D0D0D0')
+    return Border(left=linea, right=linea, top=linea, bottom=linea)
+
+
+def excel_encabezado(hoja, fila, titulos, color=EXCEL_OSCURO):
+    from openpyxl.styles import Alignment, Font, PatternFill
+    for col, texto in enumerate(titulos, start=1):
+        celda = hoja.cell(row=fila, column=col, value=texto)
+        celda.font = Font(bold=True, color='FFFFFF')
+        celda.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        celda.border = excel_borde()
+        celda.fill = PatternFill('solid', fgColor=color)
+    hoja.row_dimensions[fila].height = 30
+
+
+def excel_titulo(hoja, texto, ancho, usuario):
+    """Título institucional con la fecha de generación y quién lo generó."""
+    from openpyxl.styles import Alignment, Font, PatternFill
+    hoja.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ancho)
+    celda = hoja.cell(row=1, column=1, value=texto)
+    celda.font = Font(bold=True, size=15, color='FFFFFF')
+    celda.fill = PatternFill('solid', fgColor=EXCEL_GUINDA)
+    celda.alignment = Alignment(horizontal='left', vertical='center', indent=1)
+    hoja.row_dimensions[1].height = 32
+    hoja.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ancho)
+    sub = hoja.cell(row=2, column=1, value=f"Ilustre Municipalidad de La Serena · Generado el "
+                                          f"{timezone.localtime():%d/%m/%Y %H:%M} por {usuario.get_username()}")
+    sub.font = Font(italic=True, color='595959')
+
+
+def excel_filtros(hoja, filtros, ancho, fila=4):
+    """Escribe los filtros aplicados y el aviso; devuelve la fila siguiente libre."""
+    from openpyxl.styles import Font, PatternFill
+    for nombre, valor in filtros:
+        hoja.cell(row=fila, column=1, value=nombre).font = Font(bold=True, color=EXCEL_GUINDA)
+        hoja.merge_cells(start_row=fila, start_column=2, end_row=fila, end_column=ancho)
+        hoja.cell(row=fila, column=2, value=valor)
+        fila += 1
+    hoja.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=ancho)
+    aviso = hoja.cell(row=fila, column=1, value=AVISO_REPORTE)
+    aviso.font = Font(italic=True, color='595959')
+    aviso.fill = PatternFill('solid', fgColor=EXCEL_GRIS)
+    return fila + 1
+
+
+def excel_anchos(hoja, medidas):
+    from openpyxl.utils import get_column_letter
+    for col, medida in enumerate(medidas, start=1):
+        hoja.column_dimensions[get_column_letter(col)].width = medida
+
+
+def excel_descarga(libro, nombre):
+    for hoja in libro.worksheets:
+        hoja.page_setup.orientation = 'landscape'
+        hoja.page_setup.fitToWidth = 1
+        hoja.sheet_properties.pageSetUpPr.fitToPage = True
+    respuesta = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    respuesta['Content-Disposition'] = f'attachment; filename="{nombre}_{date.today():%Y%m%d}.xlsx"'
+    libro.save(respuesta)
+    return respuesta
+
+
 def reporte_tendencia_excel(request, filas, filtros, periodos):
     from openpyxl import Workbook
     from openpyxl.chart import LineChart, Reference
-    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
-    guinda, oscuro, gris = '8B1D19', '212529', 'F2F2F2'
-    blanco_negrita = Font(bold=True, color='FFFFFF')
-    linea = Side(style='thin', color='D0D0D0')
-    borde = Border(left=linea, right=linea, top=linea, bottom=linea)
+    guinda, gris = EXCEL_GUINDA, EXCEL_GRIS
+    borde = excel_borde()
+    colores_semaforo = EXCEL_SEMAFORO
     centro = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    colores_semaforo = {'VERDE': ('C6EFCE', '006100', 'Verde'), 'AMARILLO': ('FFEB9C', '7F6000', 'Amarillo'),
-                        'ROJO': ('FFC7CE', '9C0006', 'Rojo')}
     porcentaje, puntos, fecha = '0.0"%"', '+0.0" pts";-0.0" pts";0.0" pts"', 'DD/MM/YYYY'
-
-    def encabezado(hoja, fila, titulos, color=oscuro):
-        for col, titulo in enumerate(titulos, start=1):
-            celda = hoja.cell(row=fila, column=col, value=titulo)
-            celda.font, celda.alignment, celda.border = blanco_negrita, centro, borde
-            celda.fill = PatternFill('solid', fgColor=color)
-        hoja.row_dimensions[fila].height = 30
+    encabezado, anchos = excel_encabezado, excel_anchos
 
     def titulo(hoja, texto, ancho):
-        hoja.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ancho)
-        celda = hoja.cell(row=1, column=1, value=texto)
-        celda.font = Font(bold=True, size=15, color='FFFFFF')
-        celda.fill = PatternFill('solid', fgColor=guinda)
-        celda.alignment = Alignment(horizontal='left', vertical='center', indent=1)
-        hoja.row_dimensions[1].height = 32
-        hoja.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ancho)
-        sub = hoja.cell(row=2, column=1, value=f"Ilustre Municipalidad de La Serena · Generado el "
-                                              f"{timezone.localtime():%d/%m/%Y %H:%M} por {request.user.get_username()}")
-        sub.font = Font(italic=True, color='595959')
-
-    def anchos(hoja, medidas):
-        for col, medida in enumerate(medidas, start=1):
-            hoja.column_dimensions[get_column_letter(col)].width = medida
+        excel_titulo(hoja, texto, ancho, request.user)
 
     libro = Workbook()
     resumen = libro.active
@@ -1110,18 +1194,7 @@ def reporte_tendencia_excel(request, filas, filtros, periodos):
                 'Umbral regular', 'Brecha', 'Semáforo', 'Indicadores']
     titulo(resumen, 'Reporte de tendencias por cargo', len(columnas))
 
-    fila = 4
-    for nombre, valor in filtros:
-        resumen.cell(row=fila, column=1, value=nombre).font = Font(bold=True, color=guinda)
-        resumen.merge_cells(start_row=fila, start_column=2, end_row=fila, end_column=len(columnas))
-        resumen.cell(row=fila, column=2, value=valor)
-        fila += 1
-    resumen.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=len(columnas))
-    aviso = resumen.cell(row=fila, column=1, value=AVISO_REPORTE)
-    aviso.font = Font(italic=True, color='595959')
-    aviso.fill = PatternFill('solid', fgColor=gris)
-
-    inicio_tabla = fila + 2
+    inicio_tabla = excel_filtros(resumen, filtros, len(columnas)) + 1
     encabezado(resumen, inicio_tabla, columnas)
     for i, f in enumerate(filas, start=inicio_tabla + 1):
         valores = [f['periodo'].nombre, f['periodo'].fecha_inicio, f['periodo'].fecha_termino,
@@ -1211,15 +1284,7 @@ def reporte_tendencia_excel(request, filas, filtros, periodos):
             serie.smooth = False
         grafico.add_chart(linea_grafico, f"A{ultima_fila + 3}")
 
-    for hoja in libro.worksheets:
-        hoja.page_setup.orientation = 'landscape'
-        hoja.page_setup.fitToWidth = 1
-        hoja.sheet_properties.pageSetUpPr.fitToPage = True
-
-    respuesta = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    respuesta['Content-Disposition'] = f'attachment; filename="tendencias_por_cargo_{date.today():%Y%m%d}.xlsx"'
-    libro.save(respuesta)
-    return respuesta
+    return excel_descarga(libro, 'tendencias_por_cargo')
 
 
 @login_required
@@ -1272,5 +1337,210 @@ def tendencias_cargo(request):
         'filtros': filtros,
         'grafico': datos_grafico_tendencia(periodos, filas),
         'url_reporte': f"{request.path}?{parametros.urlencode()}",
+        'aviso': AVISO_REPORTE,
+    })
+
+
+COLUMNAS_INFORME = [
+    ('act_total', 'Actividades'), ('act_pendientes', 'Pendientes'), ('act_en_proceso', 'En proceso'),
+    ('act_finalizadas', 'Finalizadas'), ('ev_aprobadas', 'Evidencias aprobadas'), ('ev_rechazadas', 'Evidencias rechazadas'),
+    ('ev_por_revisar', 'Evidencias por revisar'), ('comp_total', 'Compromisos'), ('comp_realizados', 'Realizados'),
+    ('comp_vencidos', 'Vencidos'), ('comp_pendientes', 'Por vencer'), ('felicitaciones', 'Felicitaciones'),
+    ('reclamos', 'Reclamos'),
+]
+
+
+def informe_de_gestion(periodo, delegacion=None, cargo=None, funcionario=None, hoy=None):
+    """
+    Consolida por funcionario la gestión del período que cumple los filtros: actividades y evidencias de las metas
+    del período, compromisos según su fecha comprometida, retroalimentaciones según su fecha y cumplimiento ponderado.
+    Solo considera registros activos.
+    """
+    from django.db.models import Count
+    from actividadApp.models import Evidencia, Retroalimentacion
+    hoy = hoy or date.today()
+    vacio = {'filas': [], 'totales': {clave: 0 for clave, _ in COLUMNAS_INFORME}, 'cumplimiento': None, 'semaforo': None}
+    if periodo is None:
+        return vacio
+
+    alcance = Profesional.objects.all()
+    if delegacion is not None:
+        alcance = alcance.filter(id_delegacion=delegacion)
+    if cargo is not None:
+        alcance = alcance.filter(id_cargo=cargo)
+    if funcionario is not None:
+        alcance = alcance.filter(pk=funcionario.pk)
+
+    datos = {}
+
+    def sumar(pk, clave, cantidad):
+        fila = datos.setdefault(pk, {c: 0 for c, _ in COLUMNAS_INFORME})
+        fila[clave] += cantidad
+
+    actividades = Actividad.objects.filter(estado=True, id_meta__id_periodo=periodo, id_profesional__in=alcance)
+    por_estado = {'PENDIENTE': 'act_pendientes', 'EN_PROCESO': 'act_en_proceso', 'FINALIZADA': 'act_finalizadas'}
+    for fila in actividades.values('id_profesional', 'estado_progreso').order_by().annotate(n=Count('pk')):
+        sumar(fila['id_profesional'], 'act_total', fila['n'])
+        if fila['estado_progreso'] in por_estado:
+            sumar(fila['id_profesional'], por_estado[fila['estado_progreso']], fila['n'])
+
+    evidencias = Evidencia.objects.filter(estado=True, id_actividad__in=actividades)
+    por_revision = {'APROBADO': 'ev_aprobadas', 'RECHAZADO': 'ev_rechazadas'}
+    for fila in evidencias.values('id_actividad__id_profesional', 'estado_revision').order_by().annotate(n=Count('pk')):
+        sumar(fila['id_actividad__id_profesional'], por_revision.get(fila['estado_revision'], 'ev_por_revisar'), fila['n'])
+
+    compromisos = Compromiso.objects.filter(estado=True, id_funcionario__in=alcance,
+                                            fecha_comprometida__range=(periodo.fecha_inicio, periodo.fecha_termino))
+    for compromiso in compromisos.values('id_funcionario', 'estado_progreso', 'fecha_comprometida'):
+        pk = compromiso['id_funcionario']
+        sumar(pk, 'comp_total', 1)
+        if compromiso['estado_progreso'] == 'REALIZADO':
+            sumar(pk, 'comp_realizados', 1)
+        elif compromiso['fecha_comprometida'] < hoy:
+            sumar(pk, 'comp_vencidos', 1)
+        else:
+            sumar(pk, 'comp_pendientes', 1)
+
+    retroalimentaciones = Retroalimentacion.objects.filter(estado=True, retroalimentado__in=alcance,
+                                                           fecha__range=(periodo.fecha_inicio, periodo.fecha_termino))
+    por_tipo = {'FELICITACION': 'felicitaciones', 'RECLAMO': 'reclamos'}
+    for fila in retroalimentaciones.values('retroalimentado', 'tipo').order_by().annotate(n=Count('pk')):
+        if fila['tipo'] in por_tipo:
+            sumar(fila['retroalimentado'], por_tipo[fila['tipo']], fila['n'])
+
+    ponderado = {}
+    indicadores = (Indicador.objects
+                   .filter(estado=True, meta_id_meta__estado=True, meta_id_meta__id_periodo=periodo, id_funcionario__in=alcance)
+                   .select_related('meta_id_meta'))
+    for indicador in indicadores:
+        cumplimiento = cumplimiento_de(indicador)
+        if cumplimiento is None:
+            continue
+        peso = float(indicador.meta_id_meta.ponderador or 0)
+        suma = ponderado.setdefault(indicador.id_funcionario_id, [0.0, 0.0])
+        suma[0] += cumplimiento * peso
+        suma[1] += peso
+        datos.setdefault(indicador.id_funcionario_id, {c: 0 for c, _ in COLUMNAS_INFORME})
+
+    incluidos = set(datos) | set(funcionarios_a_monitorear().filter(pk__in=alcance).values_list('pk', flat=True))
+    filas = []
+    for profesional in (Profesional.objects.filter(pk__in=incluidos)
+                        .select_related('id_delegacion', 'id_cargo').order_by('id_delegacion__nombre', 'nombres', 'apellido_paterno')):
+        fila = dict(datos.get(profesional.pk) or {c: 0 for c, _ in COLUMNAS_INFORME})
+        suma, peso = ponderado.get(profesional.pk, (0.0, 0.0))
+        fila['cumplimiento'] = round(suma / peso, 1) if peso else None
+        fila['semaforo'] = semaforo_segun_umbral(fila['cumplimiento'], periodo) if peso else None
+        fila['funcionario'] = profesional
+        filas.append(fila)
+
+    suma_total = sum(s for s, _ in ponderado.values())
+    peso_total = sum(p for _, p in ponderado.values())
+    cumplimiento = round(suma_total / peso_total, 1) if peso_total else None
+    return {
+        'filas': filas,
+        'totales': {clave: sum(f[clave] for f in filas) for clave, _ in COLUMNAS_INFORME},
+        'cumplimiento': cumplimiento,
+        'semaforo': semaforo_segun_umbral(cumplimiento, periodo) if peso_total else None,
+    }
+
+
+def informe_gestion_excel(request, informe, filtros):
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    borde = excel_borde()
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = 'Informe'
+    columnas = ['Funcionario', 'Delegación', 'Cargo'] + [nombre for _, nombre in COLUMNAS_INFORME] + ['Cumplimiento', 'Semáforo']
+    excel_titulo(hoja, 'Informe de gestión', len(columnas), request.user)
+    inicio = excel_filtros(hoja, filtros, len(columnas)) + 1
+    excel_encabezado(hoja, inicio, columnas)
+
+    def escribir(fila_excel, valores, semaforo, negrita=False, fondo=None):
+        for col, valor in enumerate(valores, start=1):
+            celda = hoja.cell(row=fila_excel, column=col, value=valor)
+            celda.border = borde
+            celda.alignment = Alignment(horizontal='left' if col <= 3 else 'center', vertical='center')
+            celda.font = Font(bold=negrita)
+            if fondo:
+                celda.fill = PatternFill('solid', fgColor=fondo)
+        hoja.cell(row=fila_excel, column=len(columnas) - 1).number_format = '0.0"%"'
+        if semaforo in EXCEL_SEMAFORO:
+            color, letra, texto = EXCEL_SEMAFORO[semaforo]
+            celda = hoja.cell(row=fila_excel, column=len(columnas), value=texto)
+            celda.fill = PatternFill('solid', fgColor=color)
+            celda.font = Font(bold=True, color=letra)
+
+    fila_excel = inicio + 1
+    for n, f in enumerate(informe['filas']):
+        p = f['funcionario']
+        valores = ([f'{p.nombres} {p.apellido_paterno}', p.id_delegacion.nombre, p.id_cargo.nombre]
+                   + [f[clave] for clave, _ in COLUMNAS_INFORME] + [f['cumplimiento'], None])
+        escribir(fila_excel, valores, f['semaforo'], fondo=EXCEL_GRIS if n % 2 else None)
+        fila_excel += 1
+    totales = (['Total', '', ''] + [informe['totales'][clave] for clave, _ in COLUMNAS_INFORME]
+               + [informe['cumplimiento'], None])
+    escribir(fila_excel, totales, informe['semaforo'], negrita=True, fondo='E7D3D2')
+
+    hoja.auto_filter.ref = f"A{inicio}:{get_column_letter(len(columnas))}{max(fila_excel - 1, inicio + 1)}"
+    hoja.freeze_panes = hoja.cell(row=inicio + 1, column=2)
+    excel_anchos(hoja, [26, 18, 20] + [13] * len(COLUMNAS_INFORME) + [14, 12])
+    return excel_descarga(libro, 'informe_de_gestion')
+
+
+@login_required
+@role_required('Coordinador', 'Administrador', 'Delegado')
+def informe_gestion(request):
+    periodos, periodo = elegir_periodo(request)
+    delegacion_fija = delegacion_del_delegado(request.user)
+    delegaciones = Delegacion.objects.filter(estado=True).order_by('nombre')
+    if delegacion_fija is not None:
+        delegaciones = delegaciones.filter(pk=delegacion_fija.pk)
+    funcionarios = Profesional.objects.select_related('id_delegacion').order_by('nombres', 'apellido_paterno')
+    if delegacion_fija is not None:
+        funcionarios = funcionarios.filter(id_delegacion=delegacion_fija)
+
+    def elegido(opciones, clave):
+        valor = request.GET.get(clave, '')
+        return opciones.filter(pk=valor).first() if valor.isdigit() else None
+
+    delegacion = delegacion_fija or elegido(delegaciones, 'delegacion')
+    cargo = elegido(Cargo.objects.all(), 'cargo')
+    funcionario = elegido(funcionarios, 'funcionario')
+    informe = informe_de_gestion(periodo, delegacion, cargo, funcionario)
+
+    filtros = [
+        ('Período', f'{periodo.nombre} ({periodo.fecha_inicio:%d/%m/%Y} al {periodo.fecha_termino:%d/%m/%Y})' if periodo else 'Sin períodos'),
+        ('Delegación', delegacion.nombre if delegacion else 'Todas'),
+        ('Cargo', cargo.nombre if cargo else 'Todos'),
+        ('Funcionario', f'{funcionario.nombres} {funcionario.apellido_paterno}' if funcionario else 'Todos'),
+        ('Ámbito', f'Delegación {delegacion_fija.nombre}' if delegacion_fija else 'Todas las delegaciones'),
+    ]
+    if request.GET.get('formato') == 'excel':
+        return informe_gestion_excel(request, informe, filtros)
+
+    for fila in informe['filas']:
+        fila['valores'] = [fila[clave] for clave, _ in COLUMNAS_INFORME]
+    parametros = request.GET.copy()
+    parametros['formato'] = 'excel'
+    if periodo:
+        parametros['periodo'] = periodo.pk
+    return render(request, 'monitoreo/informe_gestion.html', {
+        'periodos': periodos,
+        'periodo': periodo,
+        'delegaciones': delegaciones,
+        'delegacion': delegacion,
+        'es_delegado': delegacion_fija is not None,
+        'cargos': Cargo.objects.order_by('nombre'),
+        'cargo': cargo,
+        'funcionarios': funcionarios.filter(estado=True),
+        'funcionario': funcionario,
+        'informe': informe,
+        'columnas': [nombre for _, nombre in COLUMNAS_INFORME],
+        'totales': [informe['totales'][clave] for clave, _ in COLUMNAS_INFORME],
+        'filtros': filtros,
+        'url_excel': f"{request.path}?{parametros.urlencode()}",
         'aviso': AVISO_REPORTE,
     })

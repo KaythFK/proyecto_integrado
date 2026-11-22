@@ -118,15 +118,18 @@ class ReglaAlerta(models.Model):
     VENCIMIENTO = 'VENCIMIENTO'
     EVIDENCIA_PENDIENTE = 'EVIDENCIA_PENDIENTE'
     AVANCE_BAJO = 'AVANCE_BAJO'
+    SIN_REGISTROS = 'SIN_REGISTROS'
     OPCIONES_TIPO = [
         (VENCIMIENTO, 'Compromiso por vencer o vencido'),
         (EVIDENCIA_PENDIENTE, 'Evidencia pendiente de revisión'),
         (AVANCE_BAJO, 'Avance bajo el umbral'),
+        (SIN_REGISTROS, 'Ausencia de registros'),
     ]
     UNIDAD_UMBRAL = {
         VENCIMIENTO: 'días de anticipación',
         EVIDENCIA_PENDIENTE: 'días sin revisar',
         AVANCE_BAJO: '% de cumplimiento mínimo',
+        SIN_REGISTROS: 'días hábiles sin registros',
     }
 
     id_regla = models.AutoField(primary_key=True)

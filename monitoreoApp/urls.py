@@ -31,6 +31,8 @@ urlpatterns = [
     path('indicadores/tablero/<int:id_indicador>/estado/', views.cambiar_estado_indicador_tablero, name='cambiar_estado_indicador_tablero'),
 
     path('tendencias/', views.tendencias_cargo, name='tendencias_cargo'),
+    path('frecuencia-registros/', views.frecuencia_registros, name='frecuencia_registros'),
+    path('informe-gestion/', views.informe_gestion, name='informe_gestion'),
 
     path('alertas/', views.mis_alertas, name='mis_alertas'),
     path('alertas/<int:id_alerta>/revisar/', views.marcar_alerta_revisada, name='marcar_alerta_revisada'),

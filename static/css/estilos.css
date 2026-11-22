@@ -263,6 +263,15 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
 .alerta-evidencia_pendiente .alerta-icono { background-color: #FEF3C7; color: #B45309; }
 .alerta-avance_bajo { border-left-color: #6B21A8; }
 .alerta-avance_bajo .alerta-icono { background-color: #F3E8FF; color: #6B21A8; }
+.alerta-sin_registros { border-left-color: #0E7490; }
+.alerta-sin_registros .alerta-icono { background-color: #CFFAFE; color: #0E7490; }
 .alerta-revisada { opacity: 0.65; border-left-color: #9CA3AF; }
 .menu-contador { margin-left: 6px; font-size: 0.7rem; vertical-align: 1px; }
 @media (max-width: 576px) { .alerta-item { flex-wrap: wrap; } }
+
+/* Tablas: borde para distinguirlas del fondo blanco */
+.card:has(.table-responsive),
+.table-responsive.shadow-sm {
+    border: 1px solid #CED4DA !important;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.10) !important;
+}
