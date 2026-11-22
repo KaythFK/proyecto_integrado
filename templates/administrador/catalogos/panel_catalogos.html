@@ -34,10 +34,13 @@
             <button class="nav-link {% if tab_activa == 'area' %}active{% endif %}" 
                     data-bs-toggle="tab" data-bs-target="#tab-area" type="button">Áreas de Apoyo</button>
         </li>
-        <!-- Pestaña Gestiones -->
         <li class="nav-item" role="presentation">
             <button class="nav-link {% if tab_activa == 'gestion' %}active{% endif %}" 
                     data-bs-toggle="tab" data-bs-target="#tab-gestion" type="button">Tipos de Gestión</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activa == 'celebracion' %}active{% endif %}" 
+                    data-bs-toggle="tab" data-bs-target="#tab-celebracion" type="button">Tipos de Celebración</button>
         </li>
     </ul>
 
@@ -45,11 +48,16 @@
         
         <!-- PESTAÑA 1: SERVICIOS -->
         <div class="tab-pane fade {% if tab_activa == 'servicio' %}show active{% endif %}" id="tab-servicio">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-3">
                 <h5 class="fw-bold m-0 texto-guinda">Catálogo de Servicios</h5>
                 <button class="btn text-white fw-bold align-self-stretch align-self-md-auto fondo-rojo" onclick="abrirModalCatalogo('crear', 'servicio', '', '')">
                     + Nuevo Servicio
                 </button>
+            </div>
+
+            <div class="alert alert-light border-start border-4 border-secondary small text-muted mb-4">
+                <i class="bi bi-info-circle-fill me-1 texto-guinda"></i>
+                <strong>¿Qué es este catálogo?</strong> Define los servicios municipales disponibles que se asocian a las atenciones y actividades registradas en terreno.
             </div>
             
             <div class="table-responsive shadow-sm rounded">
@@ -85,11 +93,16 @@
 
         <!-- PESTAÑA 2: ÍTEMS -->
         <div class="tab-pane fade {% if tab_activa == 'item' %}show active{% endif %}" id="tab-item">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-3">
                 <h5 class="fw-bold m-0 texto-guinda">Catálogo de Ítems</h5>
                 <button class="btn text-white fw-bold align-self-stretch align-self-md-auto fondo-rojo" onclick="abrirModalCatalogo('crear', 'item', '', '')">
                     + Nuevo Ítem
                 </button>
+            </div>
+
+            <div class="alert alert-light border-start border-4 border-secondary small text-muted mb-4">
+                <i class="bi bi-info-circle-fill me-1 texto-guinda"></i>
+                <strong>¿Qué es este catálogo?</strong> Agrupa las líneas de trabajo o categorías que se asignan a los cargos y metas para medir el cumplimiento de gestión.
             </div>
             
             <div class="table-responsive shadow-sm rounded">
@@ -125,11 +138,16 @@
 
         <!-- PESTAÑA 3: ÁREAS DE APOYO -->
         <div class="tab-pane fade {% if tab_activa == 'area' %}show active{% endif %}" id="tab-area">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-3">
                 <h5 class="fw-bold m-0 texto-guinda">Catálogo de Áreas de Apoyo</h5>
                 <button class="btn text-white fw-bold align-self-stretch align-self-md-auto fondo-rojo" onclick="abrirModalCatalogoArea('crear', '', '', '')">
                     + Nueva Área
                 </button>
+            </div>
+
+            <div class="alert alert-light border-start border-4 border-secondary small text-muted mb-4">
+                <i class="bi bi-info-circle-fill me-1 texto-guinda"></i>
+                <strong>¿Qué es este catálogo?</strong> Registra las unidades o departamentos municipales de apoyo y derivación, junto con su correo de contacto para notificaciones.
             </div>
             
             <div class="table-responsive shadow-sm rounded">
@@ -158,7 +176,6 @@
                             <td>{% if ar.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <!-- AQUI ESTÁ EL ARREGLO: Sin conflictos de comillas usando un bloque if -->
                                     <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" 
                                             onclick="abrirModalCatalogoArea('editar', '{{ ar.id_area_apoyo }}', '{{ ar.nombre|escapejs }}', '{% if ar.correo %}{{ ar.correo|escapejs }}{% endif %}')">
                                         <i class="bi bi-pencil-square"></i> Editar
@@ -184,11 +201,16 @@
 
         <!-- PESTAÑA 4: GESTIONES -->
         <div class="tab-pane fade {% if tab_activa == 'gestion' %}show active{% endif %}" id="tab-gestion">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-3">
                 <h5 class="fw-bold m-0 texto-guinda">Catálogo de Tipos de Gestión</h5>
                 <button class="btn text-white fw-bold align-self-stretch align-self-md-auto fondo-rojo" onclick="abrirModalCatalogo('crear', 'gestion', '', '')">
                     + Nuevo Tipo de Gestión
                 </button>
+            </div>
+
+            <div class="alert alert-light border-start border-4 border-secondary small text-muted mb-4">
+                <i class="bi bi-info-circle-fill me-1 texto-guinda"></i>
+                <strong>¿Qué es este catálogo?</strong> Clasifica los tipos de gestiones administrativas u operativas que los funcionarios pueden registrar en sus actividades.
             </div>
             
             <div class="table-responsive shadow-sm rounded">
@@ -222,6 +244,51 @@
             </div>
         </div>
 
+        <!-- PESTAÑA 5: TIPOS DE CELEBRACIÓN (HU-40 / CA1) -->
+        <div class="tab-pane fade {% if tab_activa == 'celebracion' %}show active{% endif %}" id="tab-celebracion">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-3">
+                <h5 class="fw-bold m-0 texto-guinda">Catálogo de Tipos de Celebración</h5>
+                <button class="btn text-white fw-bold align-self-stretch align-self-md-auto fondo-rojo" onclick="abrirModalCatalogo('crear', 'celebracion', '', '')">
+                    + Nuevo Tipo de Celebración
+                </button>
+            </div>
+
+            <div class="alert alert-light border-start border-4 border-secondary small text-muted mb-4">
+                <i class="bi bi-info-circle-fill me-1 texto-guinda"></i>
+                <strong>¿Qué es este catálogo?</strong> Define los tipos oficiales de festividades (ej. Navidad, Día del Niño, Fiestas Patrias) que sirven de base para crear las plantillas globales de celebraciones comunales.
+            </div>
+            
+            <div class="table-responsive shadow-sm rounded">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark"><tr><th>ID</th><th>Nombre</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
+                    <tbody>
+                        {% for cel in celebraciones %}
+                        <tr>
+                            <td>#{{ cel.id_catcel }}</td>
+                            <td class="fw-bold">{{ cel.nombre }}</td>
+                            <td>{% if cel.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                                    <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'celebracion', '{{ cel.id_catcel }}', '{{ cel.nombre|escapejs }}')"><i class="bi bi-pencil-square"></i> Editar</button>
+                                    
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="badge mb-1 {% if cel.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                            {% if cel.estado %}Activo{% else %}Inactivo{% endif %}
+                                        </span>
+                                        <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                            <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch" {% if cel.estado %}checked{% endif %}
+                                            onclick="abrirModalEstado(event, 'celebracion', '{{ cel.id_catcel }}', '{{ cel.nombre|escapejs }}', '{{ cel.estado }}')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %} <tr><td colspan="4" class="text-center text-muted py-4">No hay tipos de celebración registrados.</td></tr> {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -229,7 +296,7 @@
 <!-- MODALES Y CAJAS INVISIBLES -->
 <!-- ========================================== -->
 
-<!-- Modal GENÉRICO para Crear/Editar (Servicios, Ítems, Gestiones) -->
+<!-- Modal GENÉRICO para Crear/Editar (Servicios, Ítems, Gestiones, Celebraciones) -->
 <div class="modal fade" id="modalCatalogo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow border-0">
@@ -267,7 +334,7 @@
             <form method="POST" action="{% url 'administracionApp:gestionar_catalogo' %}">
                 {% csrf_token %}
                 <input type="hidden" name="accion" id="inputAccionArea">
-                <input type="hidden" name="tipo" value="area"> <!-- Siempre es area -->
+                <input type="hidden" name="tipo" value="area">
                 <input type="hidden" name="id_obj" id="inputIdObjArea">
 
                 <div class="modal-body p-4">
@@ -317,7 +384,7 @@
 </div>
 
 <script>
-// Función para el modal genérico (Servicios, Ítems, Gestiones)
+// Función para el modal genérico (Servicios, Ítems, Gestiones, Celebraciones)
 function abrirModalCatalogo(accion, tipo, id_obj, nombre_actual) {
     document.getElementById('inputAccion').value = accion;
     document.getElementById('inputTipo').value = tipo; 

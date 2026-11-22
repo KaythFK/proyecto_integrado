@@ -232,6 +232,12 @@ class CelebracionDelegacion(models.Model):
     class Meta:
         db_table = 'celebracion_delegacion'
         verbose_name_plural = 'Celebraciones por Delegación'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['celebracion', 'delegacion'],
+                name='uq_celebracion_delegacion',
+            )
+        ]
 
 
 class BeneficiarioCelebracion(models.Model):
@@ -252,4 +258,23 @@ class BeneficiarioCelebracion(models.Model):
 
     class Meta:
         db_table = 'beneficiario_celebracion'
-        verbose_name_plural = 'Beneficiarios de Celebraciones' 
+        verbose_name_plural = 'Beneficiarios de Celebraciones'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['celebracion_delegacion', 'vecino'],
+                condition=Q(vecino__isnull=False),
+                name='uq_beneficiario_vecino_evento',
+            ),
+            models.UniqueConstraint(
+                fields=['celebracion_delegacion', 'carga_familiar'],
+                condition=Q(carga_familiar__isnull=False),
+                name='uq_beneficiario_carga_evento',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if bool(self.vecino_id) == bool(self.carga_familiar_id):
+            raise ValidationError(
+                'Debes asociar exactamente un Vecino o una Carga Familiar.'
+            )
