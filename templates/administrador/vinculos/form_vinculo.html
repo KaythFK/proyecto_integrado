@@ -3,7 +3,6 @@
 
 {% block title %}{{ titulo }}{% endblock %}
 
-
 {% block cabecera %}
 <h3 class="text-white fw-bold m-0 text-center">Gestión de Administración</h3>
 {% endblock %}
@@ -14,39 +13,60 @@
         <div class="card-header text-white px-4 py-3 fondo-guinda redondeado-sup-15">
             <h4 class="mb-0 fw-bold">{{ titulo }}</h4>
         </div>
-        <div class="card-body p-4 p-md-5">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show shadow-sm" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
 
-            {% if form.non_field_errors %}
+        <div class="card-body p-4 p-md-5">
+            {% include 'parciales/mensajes.html' %}
+
+            {% if carga_form.non_field_errors or form.non_field_errors %}
                 <div class="alert alert-danger shadow-sm border-danger border-2 mb-4">
                     <h6 class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill"></i> Atención:</h6>
                     <ul class="mb-0 ps-3">
-                    {% for error in form.non_field_errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
+                        {% for error in carga_form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
                     </ul>
                 </div>
             {% endif %}
 
-            <form method="POST" novalidate>
+            {% if not es_edicion %}
+                <div class="alert alert-info shadow-sm border-info mb-4 d-flex align-items-start gap-2" role="alert">
+                    <i class="bi bi-info-circle-fill fs-5 mt-1"></i>
+                    <div>
+                        <strong>¿Cómo funciona el registro por RUT?</strong><br>
+                        Ingresa el RUT de la carga familiar y presiona <strong>Buscar RUT</strong> (o sal del campo). Si la carga ya existe en el sistema, sus datos se cargarán automáticamente para reutilizar su ficha sin duplicarla; si no existe, podrás ingresar todos sus datos nuevos a continuación.
+                    </div>
+                </div>
+            {% endif %}
+
+            <form method="POST"
+                  id="formVinculoCompleto"
+                  data-buscar-url="{% url 'comunidadApp:buscar_carga_por_rut' %}"
+                  data-es-edicion="{% if es_edicion %}1{% else %}0{% endif %}"
+                  novalidate>
                 {% csrf_token %}
+                {% if next_url %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                {% endif %}
+                <input type="hidden"
+                       name="carga_existente_id"
+                       id="id_carga_existente"
+                       value="{% if carga_existente %}{{ carga_existente.pk }}{% endif %}">
+
+                <div id="avisoCargaExistente" class="alert alert-info d-none mb-4"></div>
+
                 <h5 class="fw-bold mb-3 titulo-seccion">
-                    Asignación de Relación
+                    Datos de la Carga Familiar
                 </h5>
-                
+
                 <div class="row p-3 rounded mb-4 caja-gris">
-                    {% for field in form %}
-                        {% if field.name == 'padres_separados' or field.name == 'vive_con_este_vecino' %}
-                            <!-- Texto a la izquierda e interruptor a la derecha en la misma línea -->
+                    {% for field in carga_form %}
+                        {% if field.name == 'padres_separados' %}
                             <div class="col-12 col-md-6 mb-3 d-flex flex-column justify-content-center">
-                                <div class="d-flex justify-content-between align-items-center p-2 bg-white rounded border" style="border-color: #dee2e6 !important; height: 38px;">
+                                <div class="d-flex justify-content-between align-items-center p-2 bg-white rounded border"
+                                     style="border-color: #dee2e6 !important; height: 38px;">
                                     <label class="form-label fw-bold text-dark m-0" for="{{ field.id_for_label }}">
                                         {{ field.label }}
                                     </label>
@@ -59,9 +79,68 @@
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <!-- Campos normales (Select, Text, Textarea) -->
+                            <div class="col-12 col-md-6 mb-3">
+                                <label class="form-label fw-bold text-dark" for="{{ field.id_for_label }}">
+                                    {{ field.label }} {% if field.field.required %}*{% endif %}
+                                </label>
+
+                                {% if field.name == 'rut' and not es_edicion %}
+                                    <div class="input-group">
+                                        {{ field }}
+                                        <button type="button"
+                                                id="btnVerificarRut"
+                                                class="btn text-white fw-bold fondo-guinda">
+                                            Buscar RUT
+                                        </button>
+                                    </div>
+                                {% else %}
+                                    {{ field }}
+                                {% endif %}
+
+                                {% for error in field.errors %}
+                                    <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <h5 class="fw-bold mb-3 titulo-seccion">
+                    Asignación de Relación
+                </h5>
+
+                <div class="row p-3 rounded mb-4 caja-gris">
+                    {% if vecino_obj %}
+                        <div class="col-12 col-md-6 mb-3">
+                            <label class="form-label fw-bold text-dark">Vecino / Progenitor</label>
+                            <input type="text"
+                                   class="form-control bg-light"
+                                   value="{{ vecino_obj.nombres }} {{ vecino_obj.apellido_paterno }} ({{ vecino_obj.rut }})"
+                                   readonly>
+                        </div>
+                    {% endif %}
+
+                    {% for field in form %}
+                        {% if field.is_hidden %}
+                            {{ field }}
+                        {% elif field.name == 'vive_con_este_vecino' %}
+                            <div class="col-12 col-md-6 mb-3 d-flex flex-column justify-content-center">
+                                <div class="d-flex justify-content-between align-items-center p-2 bg-white rounded border"
+                                     style="border-color: #dee2e6 !important; height: 38px;">
+                                    <label class="form-label fw-bold text-dark m-0" for="{{ field.id_for_label }}">
+                                        {{ field.label }}
+                                    </label>
+                                    <div class="form-check form-switch m-0 ps-0">
+                                        {{ field }}
+                                    </div>
+                                </div>
+                                {% for error in field.errors %}
+                                    <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
                             <div class="col-12 {% if field.name == 'observacion_custodia' %}col-md-12{% else %}col-md-6{% endif %} mb-3">
-                                <label class="form-label fw-bold text-dark">
+                                <label class="form-label fw-bold text-dark" for="{{ field.id_for_label }}">
                                     {{ field.label }} {% if field.field.required %}*{% endif %}
                                 </label>
                                 {{ field }}
@@ -72,12 +151,14 @@
                         {% endif %}
                     {% endfor %}
                 </div>
-                
+
                 <div class="d-grid gap-3 d-sm-flex justify-content-sm-end mt-4">
-                    <a href="{% url 'comunidadApp:lista_vinculos' %}" class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto shadow-sm">
+                    <a href="{% if next_url %}{{ next_url }}{% else %}{% url 'comunidadApp:lista_vinculos' %}{% endif %}"
+                       class="btn btn-secondary px-4 py-2 fw-bold w-100 w-sm-auto shadow-sm">
                         Cancelar
                     </a>
-                    <button type="submit" class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto shadow-sm fondo-rojo">
+                    <button type="submit"
+                            class="btn text-white px-5 py-2 fw-bold w-100 w-sm-auto shadow-sm fondo-rojo">
                         Guardar Vínculo
                     </button>
                 </div>
@@ -85,4 +166,117 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('formVinculoCompleto');
+    if (!form) return;
+
+    const esEdicion = form.dataset.esEdicion === '1';
+    const buscarUrl = form.dataset.buscarUrl;
+    if (esEdicion || !buscarUrl) return;
+
+    const inputRut = document.getElementById('id_rut_carga');
+    const btnBuscar = document.getElementById('btnVerificarRut');
+    const inputCargaId = document.getElementById('id_carga_existente');
+    const aviso = document.getElementById('avisoCargaExistente');
+
+    const campoNombres = document.getElementById('id_nombres_carga');
+    const campoApPaterno = document.getElementById('id_apellido_paterno_carga');
+    const campoApMaterno = document.getElementById('id_apellido_materno_carga');
+    const campoFechaNac = document.getElementById('id_fecha_nacimiento_carga');
+    const campoGenero = document.getElementById('id_genero_carga');
+    const switchPadresSeparados = document.getElementById('id_padres_separados_carga');
+
+    const camposTextoFecha = [campoNombres, campoApPaterno, campoApMaterno, campoFechaNac];
+
+    function cargarDatosExistentes(carga) {
+        if (inputCargaId) inputCargaId.value = carga.id_carga;
+        if (inputRut && carga.rut) inputRut.value = carga.rut;
+        if (campoNombres) campoNombres.value = carga.nombres || '';
+        if (campoApPaterno) campoApPaterno.value = carga.apellido_paterno || '';
+        if (campoApMaterno) campoApMaterno.value = carga.apellido_materno || '';
+        if (campoFechaNac) campoFechaNac.value = carga.fecha_nacimiento || '';
+        if (campoGenero && carga.genero) campoGenero.value = carga.genero;
+
+        camposTextoFecha.forEach(function (el) {
+            if (!el) return;
+            el.readOnly = true;
+            el.classList.add('bg-light');
+        });
+
+        if (switchPadresSeparados) {
+            switchPadresSeparados.checked = Boolean(carga.padres_separados);
+        }
+
+        const vinculosTxt = (carga.vinculos_activos || [])
+            .map(function (v) {
+                return v.familiar + ' (' + v.parentesco + (v.vive_con_este_vecino ? ', convive' : ', no convive') + ')';
+            })
+            .join(' · ');
+
+        if (aviso) {
+            aviso.className = 'alert alert-success mb-4';
+            const detalleVinculos = vinculosTxt
+                ? '<div class="small mt-1">Vínculos activos actuales: ' + vinculosTxt + '</div>'
+                : '';
+            aviso.innerHTML =
+                '<strong>Carga ya registrada:</strong> se cargaron los datos de <strong>' +
+                (carga.nombres || '') + ' ' + (carga.apellido_paterno || '') +
+                '</strong> para vincularla sin duplicar su registro.' + detalleVinculos;
+        }
+    }
+
+    function habilitarRegistroNuevo(mensaje) {
+        if (inputCargaId) inputCargaId.value = '';
+        camposTextoFecha.forEach(function (el) {
+            if (!el) return;
+            el.readOnly = false;
+            el.classList.remove('bg-light');
+        });
+
+        if (aviso) {
+            if (mensaje) {
+                aviso.className = 'alert alert-warning mb-4';
+                aviso.textContent = mensaje;
+            } else {
+                aviso.className = 'alert alert-info d-none mb-4';
+                aviso.textContent = '';
+            }
+        }
+    }
+
+    async function buscarRutCarga() {
+        if (!inputRut) return;
+        const rut = inputRut.value.trim();
+        if (!rut) {
+            habilitarRegistroNuevo('');
+            return;
+        }
+
+        try {
+            const resp = await fetch(buscarUrl + '?rut=' + encodeURIComponent(rut));
+            const data = await resp.json();
+
+            if (data.encontrado && data.carga) {
+                cargarDatosExistentes(data.carga);
+            } else {
+                habilitarRegistroNuevo(data.mensaje || '');
+                if (data.rut_formateado && inputCargaId && !inputCargaId.value) {
+                    inputRut.value = data.rut_formateado;
+                }
+            }
+        } catch (err) {
+            console.error('Error al buscar carga por RUT:', err);
+        }
+    }
+
+    if (inputRut) {
+        inputRut.addEventListener('blur', buscarRutCarga);
+    }
+    if (btnBuscar) {
+        btnBuscar.addEventListener('click', buscarRutCarga);
+    }
+});
+</script>
 {% endblock %}

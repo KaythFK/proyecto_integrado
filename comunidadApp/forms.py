@@ -10,6 +10,11 @@ from config.utils import (
     validar_organizacion_matriz,
 )
 from datetime import date
+from django.core.exceptions import ValidationError
+from administracionApp.models import Vecino
+from django import forms
+from django.core.exceptions import ValidationError
+
 
 class OrganizacionComunitariaForm(forms.ModelForm):
     class Meta:
@@ -271,94 +276,158 @@ class AfiliacionVecinoForm(forms.ModelForm):
         return cleaned_data
 
 
-
-
-
 class CargaFamiliarForm(forms.ModelForm):
     class Meta:
         model = CargaFamiliar
-        exclude = ['estado']
-        
+        fields = [
+            'rut',
+            'nombres',
+            'apellido_paterno',
+            'apellido_materno',
+            'fecha_nacimiento',
+            'genero',
+            'padres_separados',
+        ]
         labels = {
-            'rut': 'RUT',
+            'rut': 'RUT de la Carga',
             'nombres': 'Nombres',
             'apellido_paterno': 'Apellido Paterno',
             'apellido_materno': 'Apellido Materno',
             'fecha_nacimiento': 'Fecha de Nacimiento',
+            'genero': 'Género',
+            'padres_separados': 'Padres separados',
         }
-        
         widgets = {
-            'rut': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 12345678-9', 'maxlength': '12', 'required': True}),
-            'nombres': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombres de la carga', 'maxlength': '100', 'required': True}),
-            'apellido_paterno': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido paterno', 'maxlength': '60', 'required': True}),
-            'apellido_materno': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido materno (opcional)', 'maxlength': '60'}),
-            'fecha_nacimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'required': True}),
+            'rut': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'placeholder': 'Ej: 22.333.444-5',
+                'id': 'id_rut_carga',
+                'autocomplete': 'off',
+            }),
+            'nombres': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'id': 'id_nombres_carga',
+            }),
+            'apellido_paterno': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'id': 'id_apellido_paterno_carga',
+            }),
+            'apellido_materno': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'id': 'id_apellido_materno_carga',
+            }),
+            'fecha_nacimiento': forms.DateInput(
+                format='%Y-%m-%d',
+                attrs={
+                    'class': 'form-control borde-guinda',
+                    'type': 'date',
+                    'id': 'id_fecha_nacimiento_carga',
+                },
+            ),
+            'genero': forms.Select(attrs={
+                'class': 'form-select borde-guinda',
+                'id': 'id_genero_carga',
+            }),
+            'padres_separados': forms.CheckboxInput(attrs={
+                'class': 'form-check-input switch-estado-sgr',
+                'role': 'switch',
+                'id': 'id_padres_separados_carga',
+            }),
         }
 
+    def __init__(self, *args, carga_existente=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.carga_existente = carga_existente
+
     def clean_rut(self):
-        rut_ingresado = self.cleaned_data.get('rut')
-        # 1. Validar y formatear por Módulo 11 usando utils global
-        rut_formateado = validar_y_formatear_rut(rut_ingresado)
-        
-        # 2. Control de duplicidad estricta en la base de datos
-        qs = CargaFamiliar.objects.filter(rut=rut_formateado)
+        rut_formateado = validar_y_formatear_rut(self.cleaned_data.get('rut'))
+        if self.carga_existente is not None:
+            return rut_formateado
+        qs = CargaFamiliar.objects.filter(rut__iexact=rut_formateado)
         if self.instance and self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
-            raise forms.ValidationError("Este RUT ya se encuentra registrado en el sistema como carga familiar.")
-            
+            raise ValidationError(
+                'Ya existe una carga registrada con este RUT.'
+            )
         return rut_formateado
 
     def clean_nombres(self):
-        return validar_texto_no_vacio(self.cleaned_data.get('nombres'), "El nombre")
+        return validar_texto_no_vacio(self.cleaned_data.get('nombres'), 'Los nombres')
 
     def clean_apellido_paterno(self):
-        return validar_texto_no_vacio(self.cleaned_data.get('apellido_paterno'), "El apellido paterno")
+        return validar_texto_no_vacio(self.cleaned_data.get('apellido_paterno'), 'El apellido paterno')
 
     def clean_fecha_nacimiento(self):
-        fecha = self.cleaned_data.get('fecha_nacimiento')
-        return validar_fecha_no_futura(fecha)
+        return validar_fecha_no_futura(self.cleaned_data.get('fecha_nacimiento'))
 
 
-
-class VinculoFamiliarForm(forms.ModelForm):
+class VincularCargaForm(forms.ModelForm):
     class Meta:
         model = VinculoFamiliar
-        exclude = ['estado']
-        
+        fields = [
+            'familiar',
+            'parentesco',
+            'vive_con_este_vecino',
+            'observacion_custodia',
+        ]
         labels = {
-            'carga': 'Carga Familiar',
-            'familiar': 'Vecino Titular',
+            'familiar': 'Vecino / Progenitor',
             'parentesco': 'Parentesco',
-            'padres_separados': '¿Padres Separados?',
-            'vive_con_este_vecino': '¿Vive con este vecino?',
-            'observacion_custodia': 'Observación de Custodia (Opcional)',
+            'vive_con_este_vecino': 'Vive con este vecino',
+            'observacion_custodia': 'Observación de custodia / convivencia',
         }
-        
         widgets = {
-            'carga': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'familiar': forms.Select(attrs={'class': 'form-select', 'required': True}),
-            'parentesco': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Hijo/a, Cónyuge, Tutor', 'maxlength': '50', 'required': True}),
-            'padres_separados': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
-            'vive_con_este_vecino': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
-            'observacion_custodia': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Detalle sobre régimen de visitas o custodia si aplica...'}),
+            'familiar': forms.Select(attrs={
+                'class': 'form-select borde-guinda',
+                'id': 'id_familiar_vinculo',
+            }),
+            'parentesco': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'placeholder': 'Ej: Madre, Padre, Hijo/a, Tutor/a',
+                'id': 'id_parentesco_vinculo',
+            }),
+            'vive_con_este_vecino': forms.CheckboxInput(attrs={
+                'class': 'form-check-input switch-estado-sgr',
+                'role': 'switch',
+                'id': 'id_vive_con_este_vecino_vinculo',
+            }),
+            'observacion_custodia': forms.TextInput(attrs={
+                'class': 'form-control borde-guinda',
+                'placeholder': 'Ej: Domicilio principal, fines de semana, custodia compartida...',
+                'id': 'id_observacion_custodia_vinculo',
+            }),
         }
 
+    def __init__(self, *args, carga_existente=None, vecino_fijo=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.carga_existente = carga_existente
+        self.vecino_fijo = vecino_fijo
+
+        self.fields['familiar'].queryset = Vecino.objects.filter(estado=True).order_by(
+            'nombres', 'apellido_paterno'
+        )
+
+        if vecino_fijo is not None:
+            self.fields['familiar'].initial = vecino_fijo.pk
+            self.fields['familiar'].widget = forms.HiddenInput()
+
     def clean_parentesco(self):
-        # Valida que el parentesco no contenga solo espacios en blanco
-        return validar_texto_no_vacio(self.cleaned_data.get('parentesco'), "El parentesco")
+        return validar_texto_no_vacio(self.cleaned_data.get('parentesco'), 'El parentesco')
 
     def clean(self):
         cleaned_data = super().clean()
-        carga = cleaned_data.get('carga')
-        familiar = cleaned_data.get('familiar')
-
-        # Evitar duplicidad exacta de vínculo activo
-        if carga and familiar:
-            qs = VinculoFamiliar.objects.filter(carga=carga, familiar=familiar, estado=True)
+        familiar = self.vecino_fijo or cleaned_data.get('familiar')
+        if familiar and self.carga_existente:
+            duplicado = VinculoFamiliar.objects.filter(
+                familiar=familiar,
+                carga=self.carga_existente,
+                estado=True,
+            )
             if self.instance and self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise forms.ValidationError("Este vínculo familiar entre el titular y la carga ya se encuentra registrado y activo.")
-                
+                duplicado = duplicado.exclude(pk=self.instance.pk)
+            if duplicado.exists():
+                raise ValidationError(
+                    f'"{familiar}" ya tiene un vínculo activo registrado con la carga "{self.carga_existente}".'
+                )
         return cleaned_data

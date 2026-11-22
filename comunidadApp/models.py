@@ -139,6 +139,7 @@ class CargaFamiliar(models.Model):
     apellido_materno = models.CharField(max_length=60, blank=True, null=True)
     fecha_nacimiento = models.DateField()
     genero = models.CharField(max_length=10, choices=[('M', 'Masculino'), ('F', 'Femenino'), ('O', 'Otro')])
+    padres_separados = models.BooleanField(default=False)
     estado = models.BooleanField(default=True)
 
     def __str__(self):
@@ -151,21 +152,37 @@ class CargaFamiliar(models.Model):
 
 class VinculoFamiliar(models.Model):
     id_vinculo = models.AutoField(primary_key=True)
-    carga = models.ForeignKey('CargaFamiliar', models.DO_NOTHING, db_column='id_carga')
+    carga = models.ForeignKey('CargaFamiliar', models.DO_NOTHING, db_column='id_carga', related_name='vinculos')
     familiar = models.ForeignKey('administracionApp.Vecino', models.DO_NOTHING, related_name='vinculos_como_familiar', db_column='id_familiar')
     parentesco = models.CharField(max_length=50)
-    padres_separados = models.BooleanField(default=False) 
-    vive_con_este_vecino = models.BooleanField(default=True) 
-    observacion_custodia = models.CharField(max_length=255, blank=True, null=True) 
+    vive_con_este_vecino = models.BooleanField(default=True)
+    observacion_custodia = models.CharField(max_length=255, blank=True, null=True)
     estado = models.BooleanField(default=True)
-
-    def __str__(self):
-        return f"Vínculo: {self.carga} ({self.parentesco})"
 
     class Meta:
         db_table = 'vinculo_familiar'
         verbose_name_plural = 'Vínculos Familiares'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['familiar', 'carga'],
+                condition=Q(estado=True),
+                name='uq_vinculo_familiar_carga_activo',
+            )
+        ]
 
+    def __str__(self):
+        return f"Vínculo: {self.carga} ({self.parentesco})"
+
+    def clean(self):
+        super().clean()
+        if self.carga_id and not self.carga.estado:
+            raise ValidationError({
+                'carga': 'No se puede vincular una carga familiar inactiva.'
+            })
+        if self.familiar_id and not self.familiar.estado:
+            raise ValidationError({
+                'familiar': 'No se puede vincular a un vecino inactivo.'
+            })
 
 # ==========================================
 # MÓDULOS DE CELEBRACIONES Y EVENTOS MASIVOS
