@@ -34,6 +34,9 @@ def etiqueta_meta(meta):
         item = f'Meta #{meta.pk}'
     return f"{item} — {meta.valor_objetivo} {meta.unidad} ({meta.id_periodo.nombre})"
 
+MENSAJE_TUBO_SIN_ORGANIZACION = 'Para generar un compromiso en el Tubo, selecciona la organización comunitaria.'
+
+
 class ActividadProfesionalForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Actividad
@@ -172,6 +175,9 @@ class ActividadProfesionalForm(EtiquetaFuncionarioMixin, forms.ModelForm):
 
         if en_tubo and not fecha_comprometida:
             self.add_error('fecha_comprometida', "Si la actividad genera un compromiso en el Tubo, debe indicar una fecha comprometida.")
+
+        if en_tubo and not cleaned_data.get('id_organizacion'):
+            self.add_error('id_organizacion', MENSAJE_TUBO_SIN_ORGANIZACION)
 
         if fecha_comprometida and fecha_finalizacion:
             self._ejecutar_validacion('fecha_comprometida', validar_rango_fechas, fecha_finalizacion, fecha_comprometida)
@@ -411,6 +417,12 @@ class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
             if not es_misma_instancia:
                 raise forms.ValidationError("No puedes seleccionar una organización comunitaria inactiva.")
         return org
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('en_tubo') and not cleaned_data.get('id_organizacion') and 'id_organizacion' not in self.errors:
+            self.add_error('id_organizacion', MENSAJE_TUBO_SIN_ORGANIZACION)
+        return cleaned_data
 
     
 class ActividadDelegadoForm(ActividadForm):
