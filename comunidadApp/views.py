@@ -4,7 +4,7 @@ from django.db import transaction
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.forms.models import model_to_dict
-
+from django.core.paginator import Paginator
 from usuariosApp.decorators import role_required
 from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar, Celebracion, CelebracionDelegacion, CatalogoCelebracion, BeneficiarioCelebracion
 from .forms import OrganizacionComunitariaForm, AfiliacionVecinoForm, CargaFamiliarForm, VincularCargaForm, CatalogoCelebracion, CelebracionForm
@@ -60,6 +60,9 @@ def registrar_auditoria(request, evento, entidad, objeto_instancia, datos_anteri
 
 # --- CRUD ORGANIZACIONES COMUNITARIAS ---
 
+
+
+
 @login_required
 @role_required('Administrador', 'Profesional')
 def lista_organizaciones(request):
@@ -73,7 +76,7 @@ def lista_organizaciones(request):
     else:
         organizaciones = OrganizacionComunitaria.objects.all()
 
-    organizaciones = organizaciones.order_by('nombre')
+    organizaciones = organizaciones.order_by('nombre', 'id_organizacion')
 
     if query:
         organizaciones = organizaciones.filter(
@@ -83,9 +86,17 @@ def lista_organizaciones(request):
             Q(subtipo__icontains=query)
         ).distinct()
 
+    paginator = Paginator(organizaciones, 15)  # Cambia 15 por la cantidad de filas por página que prefieras
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
+
     return render(request, 'administrador/organizaciones/lista_organizaciones.html', {
-        'organizaciones': organizaciones,
+        'organizaciones': page_obj,
+        'page_obj': page_obj,
         'query': query,
+        'query_string': query_params.urlencode(),
         'delegacion_profesional': delegacion_prof if delegacion_prof else None,
     })
 

@@ -14,7 +14,7 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <h4 class="fw-bold m-0 texto-guinda">Registro de Evidencias</h4>
-            <p class="text-muted m-0 mt-1">Revisión y validación de respaldos fotográficos.</p>
+            <p class="text-muted m-0 mt-1">Revisión y validación de respaldos fotográficos y documentales.</p>
         </div>
         
         <!-- Botón global exclusivo para Administrador -->
@@ -50,7 +50,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Actividad</th>
-                            <th>Fotografía de Respaldo</th>
+                            <th>Respaldo</th>
                             <th>Estado</th>
                             <th class="text-center">Acciones</th>
                         </tr>
@@ -60,22 +60,54 @@
                         <tr>
                             <td>
                                 <span class="badge bg-dark fs-6">{{ item.evidencia.id_actividad.codigo_unico }}</span>
-                                <div class="small text-muted mt-1">{{ item.evidencias|length }} foto(s)</div>
+                                <div class="small text-muted mt-1">{{ item.evidencias|length }} archivo(s)</div>
                             </td>
                             
-                            <!-- Botones para ver las fotos del mismo ingreso -->
+                            <!-- Dropdown compacto para ver los archivos del mismo ingreso -->
                             <td>
-                                <div class="d-flex flex-wrap gap-2">
-                                    {% for ev in item.evidencias %}
-                                        {% if ev.archivo_foto %}
-                                            <a href="{{ ev.archivo_foto.url }}" target="_blank" class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6">
-                                                <i class="bi bi-image"></i> Foto {{ forloop.counter }}
-                                            </a>
-                                        {% endif %}
-                                    {% empty %}
+                                {% with total_archivos=item.evidencias|length %}
+                                    {% if total_archivos == 0 %}
                                         <span class="text-muted small">Sin archivo</span>
-                                    {% endfor %}
-                                </div>
+                                    {% elif total_archivos == 1 %}
+                                        {% with ev=item.evidencias.0 %}
+                                            {% if ev.archivo_foto %}
+                                                <a href="{{ ev.archivo_foto.url }}" target="_blank" class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6">
+                                                    {% if '.pdf' in ev.archivo_foto.name|lower %}
+                                                        <i class="bi bi-file-earmark-pdf"></i> Ver PDF
+                                                    {% else %}
+                                                        <i class="bi bi-image"></i> Ver foto
+                                                    {% endif %}
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted small">Sin archivo</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    {% else %}
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-dark dropdown-toggle px-2 shadow-sm redondeado-6"
+                                                    type="button"
+                                                    data-bs-toggle="dropdown"
+                                                    aria-expanded="false">
+                                                <i class="bi bi-folder2-open"></i> Evidencias ({{ total_archivos }})
+                                            </button>
+                                            <ul class="dropdown-menu shadow-sm">
+                                                {% for ev in item.evidencias %}
+                                                    {% if ev.archivo_foto %}
+                                                        <li>
+                                                            <a class="dropdown-item" href="{{ ev.archivo_foto.url }}" target="_blank">
+                                                                {% if '.pdf' in ev.archivo_foto.name|lower %}
+                                                                    <i class="bi bi-file-earmark-pdf text-danger me-1"></i> PDF {{ forloop.counter }}
+                                                                {% else %}
+                                                                    <i class="bi bi-image me-1"></i> Archivo {{ forloop.counter }}
+                                                                {% endif %}
+                                                            </a>
+                                                        </li>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
                             </td>
                             
                             <td>
