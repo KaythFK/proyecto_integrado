@@ -205,30 +205,39 @@ def rol_usuario(request):
 
 def validar_imagen_evidencia(archivo):
     """
-    Valida que el archivo subido sea una imagen permitida (JPG, PNG, WEBP)
-    y que no supere el tamaño máximo de 10 MB para fotos de terreno.
+    Valida que el archivo subido sea una imagen permitida (JPG, PNG, WEBP) o PDF
+    y que no supere el tamaño máximo de 10 MB para respaldos y contratos.
     """
     if not archivo:
-        raise ValidationError("Debe seleccionar un archivo de imagen válido.")
+        raise ValidationError("Debe seleccionar un archivo de respaldo válido.")
 
-    # 1. Validar extensiones permitidas
-    extensiones_permitidas = ['.jpg', '.jpeg', '.png', '.webp']
+    extensiones_permitidas = ['.jpg', '.jpeg', '.png', '.webp', '.pdf']
     nombre_archivo = archivo.name.lower()
-    
+
     if not any(nombre_archivo.endswith(ext) for ext in extensiones_permitidas):
         raise ValidationError(
-            "Formato de archivo no permitido. Solo se aceptan imágenes en formato JPG, PNG o WEBP."
+            "Formato de archivo no permitido. Solo se aceptan imágenes (JPG, PNG, WEBP) o documentos PDF."
         )
 
-    # 2. Validar tamaño máximo (10 MB = 10 * 1024 * 1024 bytes)
-    tamano_maximo = 10 * 1024 * 1024 
+    tamano_maximo = 10 * 1024 * 1024
     if archivo.size > tamano_maximo:
         raise ValidationError(
-            "El archivo es demasiado pesado. El tamaño máximo permitido para las fotografías es de 10 MB."
+            "El archivo es demasiado pesado. El tamaño máximo permitido es de 10 MB."
         )
-        
-    return archivo
 
+    if nombre_archivo.endswith('.pdf'):
+        posicion_actual = archivo.tell() if hasattr(archivo, 'tell') else None
+        try:
+            if hasattr(archivo, 'seek'):
+                archivo.seek(0)
+            cabecera = archivo.read(5)
+            if cabecera != b'%PDF-':
+                raise ValidationError("El archivo PDF seleccionado no es válido o está dañado.")
+        finally:
+            if posicion_actual is not None and hasattr(archivo, 'seek'):
+                archivo.seek(posicion_actual)
+
+    return archivo
 
 
 def filtrar_evidencias_por_rol(user):

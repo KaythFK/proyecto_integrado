@@ -194,157 +194,6 @@ class ActividadProfesionalForm(EtiquetaFuncionarioMixin, forms.ModelForm):
         return instancia
 
 
-class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
-    class Meta:
-        model = Actividad
-        exclude = ['codigo_unico', 'estado']
-
-        widgets = {
-            'solicitud_problema': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Describe el problema o solicitud...'}),
-            'accion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Describe la acción realizada o a tomar...'}),
-            'solicitante_profesional': forms.Select(attrs={'class': 'form-select'}),
-            'solicitante_vecino': forms.Select(attrs={'class': 'form-select'}),
-            'estado_progreso': forms.Select(attrs={'class': 'form-select'}),
-            'es_coordinacion_preparatoria': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
-            'en_tubo': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
-            'id_profesional': forms.Select(attrs={'class': 'form-select'}),
-            'id_meta': forms.Select(attrs={'class': 'form-select'}),
-            'id_organizacion': forms.Select(attrs={'class': 'form-select'}),
-
-            'fecha_comprometida': forms.DateInput(
-                format='%d-%m-%Y',
-                attrs={
-                    'type': 'date',
-                    'class': 'form-control'
-                }
-            ),
-            'fecha_finalizacion': forms.DateInput(
-                format='%d-%m-%Y',
-                attrs={
-                    'type': 'date',
-                    'class': 'form-control'
-                }
-            ),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        hoy = date.today()
-        filtro = Q(id_periodo__estado=True, id_periodo__fecha_inicio__lte=hoy, id_periodo__fecha_termino__gte=hoy)
-        if self.instance.pk and self.instance.id_meta_id:
-            filtro |= Q(pk=self.instance.id_meta_id)
-        self.fields['id_meta'].queryset = self.fields['id_meta'].queryset.filter(filtro)
-        self.fields['id_meta'].label_from_instance = etiqueta_meta
-
-        if 'id_organizacion' in self.fields:
-            valor_actual_org = (
-                self.instance.id_organizacion_id
-                if self.instance and self.instance.pk and self.instance.id_organizacion_id
-                else None
-            )
-            limitar_a_opciones_activas(self.fields['id_organizacion'], valor_actual_org)
-
-    def clean_id_meta(self):
-        meta = self.cleaned_data.get('id_meta')
-        if meta and not meta.id_periodo.esta_vigente:
-            raise forms.ValidationError(
-                f'El período "{meta.id_periodo.nombre}" de esta meta no está vigente (cerrado o fuera de fecha). '
-                'No se pueden registrar ni modificar actividades en él.'
-            )
-        return meta
-
-    def clean_id_organizacion(self):
-        org = self.cleaned_data.get('id_organizacion')
-        if org and not org.estado:
-            es_misma_instancia = (
-                self.instance and self.instance.pk and self.instance.id_organizacion_id == org.pk
-            )
-            if not es_misma_instancia:
-                raise forms.ValidationError("No puedes seleccionar una organización comunitaria inactiva.")
-        return org
-
-
-class ActividadDelegadoForm(ActividadForm):
-    def __init__(self, *args, **kwargs):
-        delegacion = kwargs.pop('delegacion', None)
-        super().__init__(*args, **kwargs)
-
-        if delegacion:
-            profesionales_equipo = Profesional.objects.filter(
-                id_delegacion=delegacion,
-                estado=True,
-                usuario__groups__name='Profesional'
-            ).distinct().order_by('nombres')
-
-            if 'id_profesional' in self.fields:
-                self.fields['id_profesional'].queryset = profesionales_equipo
-            if 'solicitante_profesional' in self.fields:
-                self.fields['solicitante_profesional'].queryset = profesionales_equipo
-
-            if 'id_organizacion' in self.fields:
-                valor_actual_org = (
-                    self.instance.id_organizacion_id
-                    if self.instance and self.instance.pk and self.instance.id_organizacion_id
-                    else None
-                )
-                filtro_org = Q(estado=True, id_delegacion_id=delegacion.pk if hasattr(delegacion, 'pk') else delegacion)
-                if valor_actual_org is not None:
-                    filtro_org |= Q(pk=valor_actual_org)
-                self.fields['id_organizacion'].queryset = (
-                    self.fields['id_organizacion'].queryset.filter(filtro_org).distinct().order_by('nombre')
-                )
-
-    def _ejecutar_validacion(self, campo, fn, *args):
-        try:
-            fn(*args)
-        except CoreValidationError as e:
-            msg = str(e.message if hasattr(e, 'message') else e.messages[0])
-            self.add_error(campo, msg)
-
-    def clean(self):
-        cleaned_data = super().clean()
-        vecino = cleaned_data.get('solicitante_vecino')
-        fecha_finalizacion = cleaned_data.get('fecha_finalizacion')
-        fecha_comprometida = cleaned_data.get('fecha_comprometida')
-        meta = cleaned_data.get('id_meta')
-        en_tubo = cleaned_data.get('en_tubo')
-
-        if meta:
-            if (
-                self.profesional_real
-                and getattr(self.profesional_real, 'id_cargo_id', None)
-                and getattr(meta.id_cargo_item, 'id_cargo_id', None) != self.profesional_real.id_cargo_id
-            ):
-                self.add_error('id_meta', "La meta seleccionada no corresponde a tu cargo.")
-            self._ejecutar_validacion('id_meta', validar_periodo_abierto, meta)
-
-        if vecino:
-            self._ejecutar_validacion('solicitante_vecino', validar_datos_vecino_actividad, vecino)
-
-        if self.usuario_actual:
-            objetivo_tope = self.profesional_real or self.usuario_actual
-            self._ejecutar_validacion(None, validar_tope_diario_actividades, objetivo_tope)
-
-        if fecha_finalizacion:
-            self._ejecutar_validacion('fecha_finalizacion', validar_cierre_semanal, fecha_finalizacion)
-
-        if en_tubo and not fecha_comprometida:
-            self.add_error('fecha_comprometida', "Si la actividad genera un compromiso en el Tubo, debe indicar una fecha comprometida.")
-
-        if fecha_comprometida and fecha_finalizacion:
-            self._ejecutar_validacion('fecha_comprometida', validar_rango_fechas, fecha_finalizacion, fecha_comprometida)
-
-        return cleaned_data
-
-    def save(self, commit=True):
-        instancia = super().save(commit=False)
-        if self.profesional_real:
-            instancia.id_profesional = self.profesional_real
-        if commit:
-            instancia.save()
-            self.save_m2m()
-        return instancia
-
     
 class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
@@ -425,6 +274,99 @@ class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
         return cleaned_data
 
     
+class ActividadForm(EtiquetaFuncionarioMixin, forms.ModelForm):
+    class Meta:
+        model = Actividad
+        exclude = ['codigo_unico', 'estado']
+
+        widgets = {
+            'solicitud_problema': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Describe el problema o solicitud...'}),
+            'accion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Describe la acción realizada o a tomar...'}),
+            'solicitante_profesional': forms.Select(attrs={'class': 'form-select'}),
+            'solicitante_vecino': forms.Select(attrs={'class': 'form-select'}),
+            'estado_progreso': forms.Select(attrs={'class': 'form-select'}),
+            'es_coordinacion_preparatoria': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'en_tubo': forms.CheckboxInput(attrs={'class': 'form-check-input', 'role': 'switch'}),
+            'id_profesional': forms.Select(attrs={'class': 'form-select'}),
+            'id_meta': forms.Select(attrs={'class': 'form-select'}),
+            'id_organizacion': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_comprometida': forms.DateInput(
+                format='%Y-%m-%d',
+                attrs={'type': 'date', 'class': 'form-control'}
+            ),
+            'fecha_finalizacion': forms.DateInput(
+                format='%Y-%m-%d',
+                attrs={'type': 'date', 'class': 'form-control'}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        hoy = date.today()
+        filtro = Q(
+            estado=True,
+            id_cargo_item__estado=True,
+            id_periodo__estado=True,
+            id_periodo__fecha_inicio__lte=hoy,
+            id_periodo__fecha_termino__gte=hoy,
+        )
+        if self.instance.pk and self.instance.id_meta_id:
+            filtro |= Q(pk=self.instance.id_meta_id)
+        self.fields['id_meta'].queryset = (
+            self.fields['id_meta'].queryset
+            .filter(filtro)
+            .select_related('id_cargo_item__id_item', 'id_periodo')
+            .distinct()
+        )
+        self.fields['id_meta'].label_from_instance = etiqueta_meta
+
+        if 'id_organizacion' in self.fields:
+            valor_actual_org = (
+                self.instance.id_organizacion_id
+                if self.instance and self.instance.pk and self.instance.id_organizacion_id
+                else None
+            )
+            limitar_a_opciones_activas(self.fields['id_organizacion'], valor_actual_org)
+
+        if 'id_profesional' in self.fields:
+            configurar_campo_responsable(self.fields['id_profesional'])
+
+    def clean_id_meta(self):
+        meta = self.cleaned_data.get('id_meta')
+        if meta and not meta.id_periodo.esta_vigente:
+            raise forms.ValidationError(
+                f'El período "{meta.id_periodo.nombre}" de esta meta no está vigente (cerrado o fuera de fecha). '
+                'No se pueden registrar ni modificar actividades en él.'
+            )
+        return meta
+
+    def clean_id_organizacion(self):
+        org = self.cleaned_data.get('id_organizacion')
+        if org and not org.estado:
+            es_misma_instancia = (
+                self.instance and self.instance.pk and self.instance.id_organizacion_id == org.pk
+            )
+            if not es_misma_instancia:
+                raise forms.ValidationError("No puedes seleccionar una organización comunitaria inactiva.")
+        return org
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('en_tubo') and not cleaned_data.get('id_organizacion') and 'id_organizacion' not in self.errors:
+            self.add_error('id_organizacion', MENSAJE_TUBO_SIN_ORGANIZACION)
+
+        try:
+            validar_meta_corresponde_a_profesional(
+                cleaned_data.get('id_profesional'),
+                cleaned_data.get('id_meta'),
+            )
+        except CoreValidationError as e:
+            msg = str(e.message if hasattr(e, 'message') else e.messages[0])
+            self.add_error('id_meta', msg)
+
+        return cleaned_data
+
+
 class ActividadDelegadoForm(ActividadForm):
     def __init__(self, *args, **kwargs):
         delegacion = kwargs.pop('delegacion', None)
@@ -456,8 +398,22 @@ class ActividadDelegadoForm(ActividadForm):
                     self.fields['id_organizacion'].queryset.filter(filtro_org).distinct().order_by('nombre')
                 )
 
-
-
+    def datos_filtro_metas(self):
+        """Entrega el mapa profesional->cargo y meta->cargo para filtrar en el navegador."""
+        profesionales_cargo = {
+            str(p.pk): p.id_cargo_id
+            for p in self.fields['id_profesional'].queryset
+        }
+        metas_cargo = {
+            str(m.pk): m.id_cargo_item.id_cargo_id
+            for m in self.fields['id_meta'].queryset
+            if m.id_cargo_item_id
+        }
+        return {
+            'profesionales_cargo': profesionales_cargo,
+            'metas_cargo': metas_cargo,
+        }
+    
 class AusenciaForm(EtiquetaFuncionarioMixin, forms.ModelForm):
     class Meta:
         model = Ausencia

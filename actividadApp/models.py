@@ -140,17 +140,49 @@ class Evidencia(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Sobrescribe el método save para:
-        1. Comprimir y redimensionar la imagen automáticamente con Pillow.
-        2. Nombrar el archivo combinando el código de la actividad, fecha/hora y un sufijo único.
+        Guarda y optimiza imágenes con Pillow, o renombra conservando la extensión
+        si se trata de un documento PDF.
         """
-        if self.archivo_foto and not self.archivo_foto._committed:
-            try:
-                codigo_actividad = self.id_actividad.codigo_unico if self.id_actividad_id else "general"
-                nombre_base = f"{codigo_actividad}_{datetime.now():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:8]}"
-                self.archivo_foto = optimizar_imagen(self.archivo_foto, nombre_base)
-            except Exception as e:
-                print(f"No se pudo optimizar la imagen: {e}")
+        if self.archivo_foto:
+            nombre_original = (getattr(self.archivo_foto, 'name', '') or '').lower()
+            es_pdf = nombre_original.endswith('.pdf')
+
+            if es_pdf:
+                codigo_actividad = self.id_actividad.codigo_unico if self.id_actividad else "general"
+                fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
+                sufijo_unico = uuid.uuid4().hex[:8]
+                self.archivo_foto.name = f"{codigo_actividad}_{fecha_actual}_{sufijo_unico}.pdf"
+            else:
+                try:
+                    img = Image.open(self.archivo_foto)
+
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+
+                    max_ancho = 1280
+                    if img.width > max_ancho:
+                        output_alto = int((max_ancho / img.width) * img.height)
+                        img = img.resize((max_ancho, output_alto), Image.Resampling.LANCZOS)
+
+                    output = BytesIO()
+                    img.save(output, format='JPEG', quality=85, optimize=True)
+                    output.seek(0)
+
+                    codigo_actividad = self.id_actividad.codigo_unico if self.id_actividad else "general"
+                    fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    sufijo_unico = uuid.uuid4().hex[:8]
+                    nombre_archivo = f"{codigo_actividad}_{fecha_actual}_{sufijo_unico}.jpg"
+
+                    self.archivo_foto = InMemoryUploadedFile(
+                        output,
+                        'ImageField',
+                        nombre_archivo,
+                        'image/jpeg',
+                        sys.getsizeof(output),
+                        None
+                    )
+                except Exception as e:
+                    print(f"No se pudo optimizar la imagen: {e}")
 
         super().save(*args, **kwargs)
 

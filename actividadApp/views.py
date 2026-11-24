@@ -415,7 +415,8 @@ def registrar_actividad_delegado(request):
 
     context = {
         'form': form,
-        'titulo': 'Registrar Nueva Actividad'
+        'titulo': 'Registrar Nueva Actividad',  # (o el título de editar)
+        'filtro_metas_data': form.datos_filtro_metas(),
     }
     return render(request, 'delegado/form_actividad.html', context)
 

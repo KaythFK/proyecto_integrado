@@ -85,4 +85,42 @@
         </div>
     </div>
 </div>
+
+{{ filtro_metas_data|json_script:"filtro-metas-data" }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const dataEl = document.getElementById('filtro-metas-data');
+    const selectProf = document.getElementById('id_id_profesional');
+    const selectMeta = document.getElementById('id_id_meta');
+
+    if (!dataEl || !selectProf || !selectMeta) return;
+
+    const { profesionales_cargo, metas_cargo } = JSON.parse(dataEl.textContent);
+    const todasLasOpciones = Array.from(selectMeta.options).map(opt => ({
+        value: opt.value,
+        text: opt.text,
+    }));
+
+    function filtrarMetas() {
+        const profId = selectProf.value;
+        const cargoId = profesionales_cargo[profId];
+        const valorActual = selectMeta.value;
+
+        selectMeta.innerHTML = '';
+
+        todasLasOpciones.forEach(opt => {
+            const esVacia = opt.value === '';
+            const coincideCargo = !profId || (cargoId && metas_cargo[opt.value] === cargoId);
+
+            if (esVacia || coincideCargo) {
+                const nuevaOpt = new Option(opt.text, opt.value, false, opt.value === valorActual);
+                selectMeta.add(nuevaOpt);
+            }
+        });
+    }
+
+    selectProf.addEventListener('change', filtrarMetas);
+    filtrarMetas();
+});
+</script>
 {% endblock %}
