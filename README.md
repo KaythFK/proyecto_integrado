@@ -106,6 +106,3 @@ La base de datos se respalda con `mysqldump -u usuario -p --single-transaction m
 
 Kathalyna Higuera y Beatriz López.
 
-## Integrantes
-
-Kathalyna Higuera y Beatriz López.
