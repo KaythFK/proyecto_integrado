@@ -4,7 +4,7 @@
 {% block title %}{{ titulo }}{% endblock %}
 
 {% block cabecera %}
-<h3 class="text-white fw-bold m-0 text-center">Inscripción de Beneficiarios</h3>
+<h3 class="text-white fw-bold m-0 text-center">Configuración de Celebración Local</h3>
 {% endblock %}
 
 {% block contenido %}
@@ -21,25 +21,22 @@
                 <div class="card-body py-3 px-4">
                     <div class="row g-2 small">
                         <div class="col-12 col-md-4">
-                            <span class="text-muted">Evento:</span>
-                            <strong class="text-dark">{{ evento.celebracion.nombre }}</strong>
+                            <span class="text-muted">Celebración Global:</span>
+                            <strong class="text-dark">{{ celebracion.nombre }}</strong>
                         </div>
                         <div class="col-12 col-md-4">
                             <span class="text-muted">Delegación:</span>
-                            <strong class="text-dark">{{ evento.delegacion.nombre }}</strong>
+                            <strong class="text-dark">{{ delegacion.nombre }}</strong>
                         </div>
                         <div class="col-12 col-md-4">
-                            <span class="text-muted">Fecha y lugar:</span>
-                            <strong class="text-dark">
-                                {{ evento.fecha_ejecucion|date:"d/m/Y"|default:"Por definir" }}
-                                {% if evento.lugar %}· {{ evento.lugar }}{% endif %}
-                            </strong>
+                            <span class="text-muted">Responsable Global:</span>
+                            <strong class="text-dark">{{ celebracion.responsable_global|default:"Sin asignar" }}</strong>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <form method="POST" id="formInscribirBeneficiarios" novalidate>
+            <form method="POST" novalidate>
                 {% csrf_token %}
 
                 {% if form.non_field_errors %}
@@ -50,167 +47,51 @@
                     </div>
                 {% endif %}
 
-                <div class="row g-4 mb-4">
-                    <!-- Columna Vecinos -->
-                    <div class="col-12 col-lg-6">
-                        <div class="border rounded p-3 bg-white shadow-sm h-100 d-flex flex-column">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="fw-bold text-dark">
-                                    Vecinos <span class="badge bg-primary ms-1" id="contadorVecinos">0 seleccionados</span>
-                                </span>
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary" onclick="alternarGrupo('vecino', true)">Marcar visibles</button>
-                                    <button type="button" class="btn btn-outline-secondary" onclick="alternarGrupo('vecino', false)">Limpiar</button>
-                                </div>
-                            </div>
-
-                            <input type="text"
-                                   class="form-control form-control-sm borde-guinda mb-2 filtro-beneficiario"
-                                   data-grupo="vecino"
-                                   placeholder="Filtrar vecinos por nombre o RUT...">
-
-                            <div class="border rounded p-2 overflow-auto flex-grow-1" style="max-height: 270px;">
-                                {% for valor, etiqueta in form.fields.vecinos.choices %}
-                                    <label class="form-check d-flex align-items-center gap-2 py-2 px-2 border-bottom item-beneficiario"
-                                           data-grupo="vecino"
-                                           data-texto="{{ etiqueta|lower }}"
-                                           style="cursor: pointer;">
-                                        <input class="form-check-input m-0 check-beneficiario"
-                                               type="checkbox"
-                                               name="vecinos"
-                                               value="{{ valor }}"
-                                               data-grupo="vecino"
-                                               {% if valor|stringformat:"s" in form.vecinos.value|default_if_none:"" %}checked{% endif %}>
-                                        <span class="small text-dark">{{ etiqueta }}</span>
-                                    </label>
-                                {% empty %}
-                                    <div class="text-muted small text-center py-4">No hay vecinos activos disponibles.</div>
-                                {% endfor %}
-                            </div>
-
-                            {% for error in form.vecinos.errors %}
-                                <div class="text-danger small fw-bold mt-2">{{ error }}</div>
-                            {% endfor %}
-                        </div>
+                <div class="mb-4 p-3 rounded caja-gris">
+                    <div class="form-check form-switch fs-5 mb-0">
+                        {{ form.activa }}
+                        <label class="form-check-label fw-bold text-dark fs-6 ms-2" for="{{ form.activa.id_for_label }}">
+                            {{ form.activa.label }}
+                        </label>
                     </div>
-
-                    <!-- Columna Cargas Familiares -->
-                    <div class="col-12 col-lg-6">
-                        <div class="border rounded p-3 bg-white shadow-sm h-100 d-flex flex-column">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="fw-bold text-dark">
-                                    Cargas Familiares <span class="badge bg-info text-dark ms-1" id="contadorCarga">0 seleccionados</span>
-                                </span>
-                                <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-secondary" onclick="alternarGrupo('carga', true)">Marcar visibles</button>
-                                    <button type="button" class="btn btn-outline-secondary" onclick="alternarGrupo('carga', false)">Limpiar</button>
-                                </div>
-                            </div>
-
-                            <input type="text"
-                                   class="form-control form-control-sm borde-guinda mb-2 filtro-beneficiario"
-                                   data-grupo="carga"
-                                   placeholder="Filtrar cargas familiares por nombre o RUT...">
-
-                            <div class="border rounded p-2 overflow-auto flex-grow-1" style="max-height: 270px;">
-                                {% for valor, etiqueta in form.fields.cargas_familiares.choices %}
-                                    <label class="form-check d-flex align-items-center gap-2 py-2 px-2 border-bottom item-beneficiario"
-                                           data-grupo="carga"
-                                           data-texto="{{ etiqueta|lower }}"
-                                           style="cursor: pointer;">
-                                        <input class="form-check-input m-0 check-beneficiario"
-                                               type="checkbox"
-                                               name="cargas_familiares"
-                                               value="{{ valor }}"
-                                               data-grupo="carga"
-                                               {% if valor|stringformat:"s" in form.cargas_familiares.value|default_if_none:"" %}checked{% endif %}>
-                                        <span class="small text-dark">{{ etiqueta }}</span>
-                                    </label>
-                                {% empty %}
-                                    <div class="text-muted small text-center py-4">No hay cargas familiares activas disponibles.</div>
-                                {% endfor %}
-                            </div>
-
-                            {% for error in form.cargas_familiares.errors %}
-                                <div class="text-danger small fw-bold mt-2">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="p-3 rounded mb-4 caja-gris">
-                    <label class="form-label fw-bold text-dark" for="{{ form.observacion.id_for_label }}">
-                        {{ form.observacion.label }}
-                    </label>
-                    {{ form.observacion }}
-                    {% for error in form.observacion.errors %}
+                    {% for error in form.activa.errors %}
                         <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                     {% endfor %}
                 </div>
 
-                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mt-4">
-                    <span class="fw-bold texto-guinda" id="resumenTotalSeleccionados">
-                        Total seleccionados: 0
-                    </span>
-                    <div class="d-grid gap-3 d-sm-flex">
-                        <a href="{% url 'comunidadApp:panel_beneficiarios_celebracion' %}?evento={{ evento.pk }}"
-                           class="btn btn-secondary px-4 py-2 fw-bold shadow-sm">
-                            Cancelar
-                        </a>
-                        <button type="submit" class="btn text-white px-5 py-2 fw-bold shadow-sm fondo-rojo">
-                            Inscribir Seleccionados
-                        </button>
+                <div class="row g-3 mb-4">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold text-dark" for="{{ form.fecha_ejecucion.id_for_label }}">
+                            {{ form.fecha_ejecucion.label }}
+                        </label>
+                        {{ form.fecha_ejecucion }}
+                        {% for error in form.fecha_ejecucion.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
                     </div>
+
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold text-dark" for="{{ form.lugar.id_for_label }}">
+                            {{ form.lugar.label }}
+                        </label>
+                        {{ form.lugar }}
+                        {% for error in form.lugar.errors %}
+                            <div class="text-danger small fw-bold mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="d-grid gap-3 d-md-flex justify-content-md-end mt-4">
+                    <a href="{% url 'comunidadApp:panel_celebraciones_delegacion' %}{% if delegacion %}?delegacion={{ delegacion.pk }}{% endif %}"
+                       class="btn btn-secondary px-4 py-2 fw-bold shadow-sm">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn text-white px-5 py-2 fw-bold shadow-sm fondo-rojo">
+                        Guardar Configuración Local
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-
-<script>
-function actualizarContadores() {
-    const vecinosMarcados = document.querySelectorAll('.check-beneficiario[data-grupo="vecino"]:checked').length;
-    const cargasMarcadas = document.querySelectorAll('.check-beneficiario[data-grupo="carga"]:checked').length;
-    const total = vecinosMarcados + cargasMarcadas;
-
-    const badgeVecinos = document.getElementById('contadorVecinos');
-    const badgeCarga = document.getElementById('contadorCarga');
-    const resumenTotal = document.getElementById('resumenTotalSeleccionados');
-
-    if (badgeVecinos) badgeVecinos.textContent = vecinosMarcados + (vecinosMarcados === 1 ? ' seleccionado' : ' seleccionados');
-    if (badgeCarga) badgeCarga.textContent = cargasMarcadas + (cargasMarcadas === 1 ? ' seleccionado' : ' seleccionados');
-    if (resumenTotal) resumenTotal.textContent = 'Total seleccionados: ' + total;
-}
-
-function alternarGrupo(grupo, marcar) {
-    document.querySelectorAll('.item-beneficiario[data-grupo="' + grupo + '"]').forEach(function (label) {
-        if (label.classList.contains('d-none')) return;
-        const checkbox = label.querySelector('.check-beneficiario');
-        if (checkbox) checkbox.checked = marcar;
-    });
-    actualizarContadores();
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.filtro-beneficiario').forEach(function (input) {
-        input.addEventListener('input', function () {
-            const grupo = input.dataset.grupo;
-            const termino = input.value.trim().toLowerCase();
-
-            document.querySelectorAll('.item-beneficiario[data-grupo="' + grupo + '"]').forEach(function (label) {
-                const texto = label.dataset.texto || '';
-                const coincide = !termino || texto.includes(termino);
-                label.classList.toggle('d-none', !coincide);
-                label.classList.toggle('d-flex', coincide);
-            });
-        });
-    });
-
-    document.querySelectorAll('.check-beneficiario').forEach(function (cb) {
-        cb.addEventListener('change', actualizarContadores);
-    });
-
-    actualizarContadores();
-});
-</script>
 {% endblock %}
