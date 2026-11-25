@@ -104,11 +104,13 @@
                                         </button>
                                     </li>
                                     {% endwith %}
+                                    {% if not actividad.aprobada %}
                                     <li>
                                         <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'actividadApp:editar_actividad_delegado' actividad.id_actividad %}">
                                             <i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar
                                         </a>
                                     </li>
+                                    {% endif %}
                                     <li>
                                         <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'actividadApp:lista_evidencias' %}?q={{ actividad.codigo_unico }}">
                                             <i class="bi bi-camera me-2 texto-guinda"></i>Evidencias
@@ -130,7 +132,7 @@
                                 </span>
 
                                 <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Activar/Desactivar">
-                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch"
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch" {% if actividad.aprobada %}disabled title="Actividad aprobada"{% endif %}
                                            {% if actividad.estado %}checked{% endif %}
                                            onclick="confirmarCambioActividad(event, '{{ actividad.id_actividad }}', '{{ actividad.codigo_unico }}', '{{ actividad.estado }}')">
                                 </div>

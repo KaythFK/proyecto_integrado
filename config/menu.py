@@ -30,6 +30,7 @@ MENU_POR_ROL = {
             ('Frecuencia de registros', 'activity', 'monitoreoApp:frecuencia_registros'),
             ('Informe de gestión', 'file-earmark-bar-graph', 'monitoreoApp:informe_gestion'),
             ('Todas las actividades', 'list-check', 'tuboApp:listar_todas'),
+            ('Tubo de cartas', 'envelope-paper', 'tuboApp:lista_cartas'),
         ]),
     ],
     'delegado': [
@@ -38,6 +39,7 @@ MENU_POR_ROL = {
         ('Mi equipo', 'people', [
             ('Actividades del equipo', 'clipboard-check', 'actividadApp:actividades_delegacion'),
             ('Tubo de compromisos', 'kanban', 'monitoreoApp:tubo_delegacion'),
+            ('Tubo de cartas', 'envelope-paper', 'tuboApp:lista_cartas'),
             ('Revisar evidencias', 'camera', 'actividadApp:lista_evidencias'),
             ('Metas', 'bullseye', 'monitoreoApp:listar_metas'),
             ('Ausencias del equipo', 'calendar-x', 'actividadApp:lista_ausencias'),
@@ -55,6 +57,7 @@ MENU_POR_ROL = {
             ('Mis gestiones', 'list-task', 'actividadApp:mis_gestiones'),
             ('Mis evidencias', 'camera', 'actividadApp:lista_evidencias'),
             ('Tubo de la delegación', 'kanban', 'monitoreoApp:tubo_delegacion'),
+            ('Tubo de cartas', 'envelope-paper', 'tuboApp:lista_cartas'),
             ('Organizaciones Comunitarias', 'diagram-3', 'comunidadApp:lista_organizaciones'),
             ('Vecinos', 'person', 'administracionApp:lista_vecinos'),
             ('Vínculos y Cargas', 'person-hearts', 'comunidadApp:panel_profesional'),
@@ -79,6 +82,47 @@ def alertas_pendientes(request):
     return Alerta.objects.filter(id_destinatario=profesional, estado=True, revision=False).count()
 
 
+def _enlaces_del_rol(rol):
+    enlaces = []
+    for texto, icono, destino in MENU_POR_ROL[rol]:
+        if isinstance(destino, list):
+            enlaces += [(texto, t, n) for t, i, n in destino]
+        else:
+            enlaces.append((None, texto, destino))
+    if rol == 'administrador':
+        from administracionApp.views import SECCIONES_PANEL_ADMIN
+        for seccion, tarjetas in SECCIONES_PANEL_ADMIN:
+            enlaces += [(seccion, texto, nombre) for texto, descripcion, icono, nombre in tarjetas]
+    enlaces.append((None, 'Mi perfil', 'usuariosApp:mi_perfil'))
+    return enlaces
+
+
+def migas_de_pan(rol, vista_actual, ruta):
+    """Ruta de navegación: Inicio, la sección del menú y la página actual (si no está en el menú, se toma del título)."""
+    inicio_nombre = MENU_POR_ROL[rol][0][2]
+    if vista_actual == inicio_nombre:
+        return []
+    inicio = {'texto': 'Inicio', 'url': reverse(inicio_nombre)}
+    enlaces = _enlaces_del_rol(rol)
+    exacto = next((e for e in enlaces if e[2] == vista_actual), None)
+    if exacto:
+        grupo, texto, _ = exacto
+        return [inicio] + ([{'texto': grupo}] if grupo else []) + [{'texto': texto, 'actual': True}]
+    candidatos = []
+    for grupo, texto, nombre in enlaces:
+        url = reverse(nombre)
+        if nombre != inicio_nombre and url.count('/') > 2 and ruta.startswith(url):
+            candidatos.append((len(url), grupo or '', texto, url))
+    migas = [inicio]
+    if candidatos:
+        _, grupo, texto, url = max(candidatos)
+        if grupo:
+            migas.append({'texto': grupo})
+        migas.append({'texto': texto, 'url': url})
+    migas.append({'texto': '', 'actual': True, 'desde_titulo': True})
+    return migas
+
+
 def menu_lateral(request):
     rol = rol_usuario(request)['rol_menu']
     if rol not in MENU_POR_ROL:
@@ -96,4 +140,5 @@ def menu_lateral(request):
                 enlace['contador'] = alertas_pendientes(request)
             menu.append(enlace)
     menu.append(_enlace('Mi perfil', 'person-circle', 'usuariosApp:mi_perfil', vista_actual))
-    return {'menu_lateral': menu}
+    ruta = request.path if hasattr(request, 'path') else ''
+    return {'menu_lateral': menu, 'migas': migas_de_pan(rol, vista_actual, ruta) if vista_actual else []}

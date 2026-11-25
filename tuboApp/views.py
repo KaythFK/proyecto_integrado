@@ -1,8 +1,9 @@
+import uuid
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
 from usuariosApp.decorators import role_required 
-from .models import Compromiso, HistorialIncumplimiento, ObservacionCompromiso
+from .models import CartaTubo, Compromiso, HistorialIncumplimiento, ObservacionCompromiso
 from actividadApp.models import Actividad
 from django.contrib import messages
 from django.db import transaction
@@ -10,17 +11,17 @@ from django.utils import timezone
 from django.urls import reverse
 from datetime import date
 from actividadApp.models import Actividad
-from .forms import ObservacionRegistroForm
+from .forms import CartaTuboForm, ObservacionRegistroForm
 from monitoreoApp.views import datos_graficos_panel, elegir_periodo, resumen_indicadores
 from monitoreoApp.services import registrar_incumplimiento, resumen_compromisos
 from actividadApp.filters import ActividadFilter
 from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades, validar_acceso_observaciones
 
 # --- NUEVOS IMPORTS PARA AUDITORÍA ---
-from administracionApp.models import Profesional, Auditoria
+from administracionApp.models import Delegacion, Profesional, Auditoria
 import json
 from django.forms.models import model_to_dict
-from config.utils import puede_modificar_compromiso
+from config.utils import puede_modificar_compromiso, rechazar_si_aprobada, con_marca_aprobada, paginar
 from .filters import CompromisoFilter, buscar_compromisos
 from django.core.exceptions import PermissionDenied
 
@@ -88,6 +89,9 @@ def reasignar_compromiso(request, id_compromiso):
 
     if not puede_modificar_compromiso(request.user, compromiso):
         raise PermissionDenied('No tienes permiso para reasignar este compromiso: pertenece a otro funcionario o delegación.')
+    bloqueo = rechazar_si_aprobada(request, compromiso.id_actividad, destino)
+    if bloqueo:
+        return bloqueo
 
     if not compromiso.estado or compromiso.estado_progreso == 'REALIZADO':
         messages.error(request, 'Solo se pueden reasignar compromisos activos que no estén realizados.')
@@ -156,6 +160,9 @@ def actualizar_progreso_tubo(request, id_compromiso):
 
         if not puede_modificar_compromiso(request.user, compromiso):
             raise PermissionDenied('No tienes permiso para modificar este compromiso: pertenece a otro funcionario o delegación.')
+        bloqueo = rechazar_si_aprobada(request, compromiso.id_actividad, url_tubo_segun_rol(request.user))
+        if bloqueo:
+            return bloqueo
         if solo_profesional(request.user) and compromiso.estado_progreso == 'REALIZADO':
             messages.error(request, 'El compromiso ya está realizado; solo el Delegado puede modificarlo.')
             return redirect(url_tubo_segun_rol(request.user))
@@ -208,6 +215,9 @@ def actualizar_progreso_tubo(request, id_compromiso):
 def cambiar_estado_tubo(request, id_compromiso):
     if request.method == 'POST':
         compromiso = get_object_or_404(Compromiso, id_compromiso=id_compromiso)
+        bloqueo = rechazar_si_aprobada(request, compromiso.id_actividad, 'tuboApp:tubo')
+        if bloqueo:
+            return bloqueo
         if compromiso.estado and (compromiso.esta_vencido or HistorialIncumplimiento.objects.filter(compromiso=compromiso, estado=True).exists()):
             messages.error(request, f'El compromiso de la actividad {compromiso.id_actividad.codigo_unico} tiene un incumplimiento registrado y no se puede inhabilitar.')
             return redirect('tuboApp:tubo')
@@ -268,7 +278,7 @@ def dashboard_coordinador(request):
 @login_required
 @role_required('Coordinador')
 def listar_todas_actividades(request):
-    todas = Actividad.objects.all().prefetch_related('evidencia_set').order_by('-fecha_registro')
+    todas = con_marca_aprobada(Actividad.objects.all()).prefetch_related('evidencia_set').order_by('-fecha_registro')
     filtro = ActividadFilter(request.GET, queryset=todas)
     recordar_filtros(request, 'tuboApp:listar_todas')
 
@@ -330,3 +340,145 @@ def detalle_actividad(request, pk):
         'url_volver': url_volver,
         'texto_volver': texto_volver,
     })
+
+
+def es_rol_global(user):
+    return user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
+
+
+def cartas_visibles(user):
+    cartas = CartaTubo.objects.select_related('delegacion', 'encargado', 'registrado_por')
+    if es_rol_global(user):
+        return cartas
+    profesional = getattr(user, 'profesional', None)
+    if profesional is None:
+        return cartas.none()
+    return cartas.filter(delegacion_id=profesional.id_delegacion_id)
+
+
+def puede_editar_carta(user, carta):
+    if user.groups.filter(name='Administrador').exists():
+        return True
+    profesional = getattr(user, 'profesional', None)
+    if profesional is None or carta.delegacion_id != profesional.id_delegacion_id:
+        return False
+    if user.groups.filter(name='Delegado').exists():
+        return True
+    return (user.groups.filter(name='Profesional').exists()
+            and profesional.pk in (carta.encargado_id, carta.registrado_por_id)
+            and carta.estado_carta not in CartaTubo.ESTADOS_CERRADOS)
+
+
+def puede_aprobar_carta(user):
+    return user.groups.filter(name__in=['Administrador', 'Delegado']).exists()
+
+
+def delegacion_propia(user):
+    if user.groups.filter(name='Administrador').exists():
+        return None
+    return user.profesional.id_delegacion
+
+
+@login_required
+@role_required('Administrador', 'Coordinador', 'Delegado', 'Profesional')
+def lista_cartas(request):
+    cartas = cartas_visibles(request.user)
+    query = (request.GET.get('q') or '').strip()
+    estado_carta = request.GET.get('estado_carta') or ''
+    encargado = request.GET.get('encargado') or ''
+    delegacion = request.GET.get('delegacion') or ''
+    desde, hasta = request.GET.get('desde') or '', request.GET.get('hasta') or ''
+
+    if query:
+        cartas = cartas.filter(
+            Q(codigo__icontains=query) | Q(remitente__icontains=query) | Q(tema__icontains=query) |
+            Q(numero_oficina_partes__icontains=query) | Q(telefono_contacto__icontains=query)
+        )
+    if encargado.isdigit():
+        cartas = cartas.filter(encargado_id=encargado)
+    if delegacion.isdigit() and es_rol_global(request.user):
+        cartas = cartas.filter(delegacion_id=delegacion)
+    if desde:
+        cartas = cartas.filter(fecha_recepcion__gte=desde)
+    if hasta:
+        cartas = cartas.filter(fecha_recepcion__lte=hasta)
+
+    conteo = {clave: 0 for clave, _ in CartaTubo.OPCIONES_ESTADO}
+    for clave in cartas.filter(estado=True).values_list('estado_carta', flat=True):
+        conteo[clave] += 1
+    if estado_carta in conteo:
+        cartas = cartas.filter(estado_carta=estado_carta)
+
+    cartas = list(cartas.order_by('-fecha_recepcion', '-id_carta'))
+    for carta in cartas:
+        carta.editable = puede_editar_carta(request.user, carta)
+
+    pagina, parametros = paginar(request, cartas)
+    visibles = cartas_visibles(request.user)
+    encargados = Profesional.objects.filter(pk__in=visibles.values('encargado_id')).order_by('nombres')
+    return render(request, 'administrador/tubo/lista_cartas.html', {
+        'cartas': pagina,
+        'pagina': pagina,
+        'parametros': parametros,
+        'resumen': [(clave, nombre, conteo[clave]) for clave, nombre in CartaTubo.OPCIONES_ESTADO],
+        'total_activas': sum(conteo.values()),
+        'estados': CartaTubo.OPCIONES_ESTADO,
+        'encargados': encargados,
+        'delegaciones': Delegacion.objects.filter(estado=True).order_by('nombre') if es_rol_global(request.user) else None,
+        'filtros': {'q': query, 'estado_carta': estado_carta, 'encargado': encargado, 'delegacion': delegacion, 'desde': desde, 'hasta': hasta},
+        'puede_crear': not request.user.groups.filter(name='Coordinador').exists() or request.user.groups.filter(name='Administrador').exists(),
+        'puede_desactivar': puede_aprobar_carta(request.user),
+    })
+
+
+@login_required
+@role_required('Administrador', 'Delegado', 'Profesional')
+def crear_carta(request):
+    delegacion = delegacion_propia(request.user)
+    form = CartaTuboForm(request.POST or None, delegacion=delegacion, puede_aprobar=puede_aprobar_carta(request.user))
+    if request.method == 'POST':
+        if form.is_valid():
+            carta = form.save(commit=False)
+            if delegacion is not None:
+                carta.delegacion = delegacion
+            carta.registrado_por = getattr(request.user, 'profesional', None)
+            carta.codigo = f"CAR-{date.today().year}-{uuid.uuid4().hex[:6].upper()}"
+            carta.save()
+            registrar_auditoria(request, "CREACION", "CartaTubo", carta)
+            messages.success(request, f'Carta registrada con el código {carta.codigo}.')
+            return redirect('tuboApp:lista_cartas')
+        messages.error(request, 'Revisa los datos marcados en el formulario.')
+    return render(request, 'administrador/tubo/form_carta.html', {'form': form, 'titulo': 'Registrar carta'})
+
+
+@login_required
+@role_required('Administrador', 'Delegado', 'Profesional')
+def editar_carta(request, id_carta):
+    carta = get_object_or_404(cartas_visibles(request.user), pk=id_carta)
+    if not puede_editar_carta(request.user, carta):
+        messages.error(request, 'Solo puedes modificar las cartas a tu cargo que aún no estén aprobadas ni finalizadas.')
+        return redirect('tuboApp:lista_cartas')
+    datos_antiguos = model_to_dict(carta)
+    form = CartaTuboForm(request.POST or None, instance=carta, delegacion=delegacion_propia(request.user),
+                         puede_aprobar=puede_aprobar_carta(request.user))
+    if request.method == 'POST':
+        if form.is_valid():
+            carta = form.save()
+            registrar_auditoria(request, "EDICION", "CartaTubo", carta, datos_antiguos)
+            messages.success(request, f'La carta {carta.codigo} fue actualizada.')
+            return redirect('tuboApp:lista_cartas')
+        messages.error(request, 'Revisa los datos marcados en el formulario.')
+    return render(request, 'administrador/tubo/form_carta.html', {'form': form, 'titulo': f'Editar carta {carta.codigo}', 'carta': carta})
+
+
+@login_required
+@role_required('Administrador', 'Delegado')
+def cambiar_estado_carta(request, id_carta):
+    if request.method == 'POST':
+        carta = get_object_or_404(cartas_visibles(request.user), pk=id_carta)
+        datos_antiguos = model_to_dict(carta)
+        carta.estado = not carta.estado
+        carta.save(update_fields=['estado'])
+        registrar_auditoria(request, "CAMBIO_ESTADO", "CartaTubo", carta, datos_antiguos)
+        messages.success(request, f'La carta {carta.codigo} fue {"reactivada" if carta.estado else "desactivada"}.')
+    return redirect('tuboApp:lista_cartas')

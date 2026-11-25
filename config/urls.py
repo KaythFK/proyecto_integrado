@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path, re_path
 from administracionApp import views
-from django.views.generic import RedirectView
+from usuariosApp import views as vistas_usuarios
 from django.conf import settings
 from config.archivos_protegidos import servir_archivo
 
@@ -12,7 +12,7 @@ urlpatterns = [
     path('actividades/', include('actividadApp.urls')),
     path('monitoreo/', include('monitoreoApp.urls')), 
     path('usuarios/', include('usuariosApp.urls')),
-    path('', RedirectView.as_view(pattern_name='usuariosApp:login'), name='raiz'),
+    path('', vistas_usuarios.landing, name='raiz'),
     path('comunidad/', include('comunidadApp.urls')),
 ]
 

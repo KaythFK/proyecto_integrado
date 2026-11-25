@@ -41,12 +41,22 @@
             {% endfor %}
 
             <div class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label fw-bold texto-guinda" for="{{ form.tipo_gestion.id_for_label }}">{{ form.tipo_gestion.label }}</label>
                     {{ form.tipo_gestion }}
                     {% for error in form.tipo_gestion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold texto-guinda" for="{{ form.subtipo_gestion.id_for_label }}">{{ form.subtipo_gestion.label }}</label>
+                    <select name="{{ form.subtipo_gestion.html_name }}" id="{{ form.subtipo_gestion.id_for_label }}" class="form-select">
+                        <option value="">Sin subtipo</option>
+                        {% for subtipo in form.fields.subtipo_gestion.queryset %}
+                        <option value="{{ subtipo.pk }}" data-tipo="{{ subtipo.tipo_gestion_id }}" {% if form.subtipo_gestion.value|stringformat:'s' == subtipo.pk|stringformat:'s' %}selected{% endif %}>{{ subtipo.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                    {% for error in form.subtipo_gestion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4">
                     <label class="form-label fw-bold texto-guinda" for="{{ form.fecha_ejecucion.id_for_label }}">{{ form.fecha_ejecucion.label }}</label>
                     {{ form.fecha_ejecucion }}
                     {% for error in form.fecha_ejecucion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
@@ -67,5 +77,25 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const tipo = document.getElementById('{{ form.tipo_gestion.id_for_label }}');
+    const subtipo = document.getElementById('{{ form.subtipo_gestion.id_for_label }}');
+    function filtrarSubtipos() {
+        let visibles = 0;
+        subtipo.querySelectorAll('option[data-tipo]').forEach(function (opcion) {
+            const corresponde = opcion.dataset.tipo === tipo.value;
+            opcion.hidden = !corresponde;
+            opcion.disabled = !corresponde;
+            if (corresponde) visibles++;
+            if (!corresponde && opcion.selected) subtipo.value = '';
+        });
+        subtipo.disabled = visibles === 0;
+    }
+    tipo.addEventListener('change', filtrarSubtipos);
+    filtrarSubtipos();
+});
+</script>
 
 {% endblock %}

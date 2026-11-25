@@ -179,22 +179,35 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
    TARJETAS DEL PANEL DEL ADMINISTRADOR
    ========================================= */
 .panel-seccion {
-    background-color: #ffd3ca;
+    background-color: #fff;
+    border: 1px solid #D9D7D7;
     border-radius: 14px;
-    padding: 16px 18px 20px;
+    overflow: hidden;
     margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+.panel-seccion-cuerpo {
+    background-color: #F8F8F9;
+    padding: 18px;
 }
 .panel-seccion-titulo {
-    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #ECEBEB;
+    color: #8B1D19;
+    border-bottom: 1px solid #DCDADA;
+    box-shadow: inset 5px 0 0 #8B1D19;
+    padding: 12px 18px;
+    font-size: 0.9rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #8B1D19;
-    margin-bottom: 12px;
+    margin-bottom: 0;
 }
 .panel-tarjeta {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     height: 100%;
     overflow: hidden;
     background-color: #fff;
@@ -202,10 +215,11 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
     border-radius: 12px;
     color: #1a202c;
     text-decoration: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .panel-tarjeta:hover, .panel-tarjeta:focus-visible {
     transform: translateY(-2px);
+    border-color: #8B1D19;
     box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
     color: #1a202c;
 }
@@ -214,13 +228,16 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 58px;
-    background-color: #C41230;
-    color: #fff;
-    font-size: 1.4rem;
-    transition: background-color 0.15s ease;
+    width: 46px;
+    height: 46px;
+    margin-left: 12px;
+    border-radius: 12px;
+    background-color: #F8E9E8;
+    color: #8B1D19;
+    font-size: 1.35rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
-.panel-tarjeta:hover .panel-tarjeta-icono, .panel-tarjeta:focus-visible .panel-tarjeta-icono { background-color: #8B1D19; }
+.panel-tarjeta:hover .panel-tarjeta-icono, .panel-tarjeta:focus-visible .panel-tarjeta-icono { background-color: #8B1D19; color: #fff; }
 .panel-tarjeta-cuerpo { padding: 12px 14px; }
 .panel-tarjeta-texto { display: block; font-weight: 700; font-size: 1rem; color: #1a202c; }
 .panel-tarjeta-detalle { display: block; font-size: 0.85rem; color: #4a5568; }
@@ -277,6 +294,22 @@ NUEVAS REGLAS PARA ALERTAS DE VENCIMIENTO
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.10) !important;
 }
 
+/* Migas de pan */
+.migas-sgr .breadcrumb { font-size: .85rem; }
+.migas-sgr .breadcrumb-item a { color: #8B1D19; text-decoration: none; }
+.migas-sgr .breadcrumb-item a:hover { text-decoration: underline; }
+.migas-sgr .breadcrumb-item.active { color: #495057; font-weight: 600; }
+
+/* Avisos que se cierran solos */
+.avisos-flotantes { position: fixed; top: 1rem; right: 1rem; z-index: 1090; width: min(380px, calc(100vw - 2rem)); display: flex; flex-direction: column; gap: .5rem; }
+.avisos-flotantes .alert { margin-bottom: 0; }
+
+/* Estado vacío en las tablas */
+.estado-vacio { padding: 1.5rem 0; color: #6C757D; }
+.estado-vacio .bi { display: block; font-size: 2.2rem; color: #ADB5BD; margin-bottom: .4rem; }
+
+/* Sin el botón propio del navegador para mostrar la contraseña */
+input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
 
 
 /* =========================================

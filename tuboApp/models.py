@@ -97,3 +97,48 @@ class HistorialIncumplimiento(models.Model):
     class Meta:
         db_table = 'historial_incumplimiento'
         verbose_name_plural = 'Historiales de Incumplimiento'
+
+
+class CartaTubo(models.Model):
+    OPCIONES_DESTINATARIO = [
+        ('ALCALDESA', 'Alcaldesa'),
+        ('DELEGADO', 'Delegado'),
+        ('OTRO', 'Otro'),
+    ]
+    OPCIONES_ESTADO = [
+        ('EN_PROCESO', 'En proceso'),
+        ('APROBADA', 'Aprobada'),
+        ('FINALIZADA', 'Finalizada'),
+        ('NO_APLICA', 'No aplica'),
+    ]
+    ESTADOS_CERRADOS = ('APROBADA', 'FINALIZADA')
+
+    id_carta = models.AutoField(primary_key=True)
+    codigo = models.CharField(max_length=20, unique=True, editable=False)
+    fecha_recepcion = models.DateField()
+    numero_oficina_partes = models.CharField(max_length=30, blank=True)
+    destinatario = models.CharField(max_length=20, choices=OPCIONES_DESTINATARIO, default='ALCALDESA')
+    remitente = models.CharField(max_length=150)
+    telefono_contacto = models.CharField(max_length=30, blank=True)
+    tema = models.TextField()
+    fecha_actividad = models.DateField(blank=True, null=True)
+    encargado = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_encargado', related_name='cartas_a_cargo')
+    estado_carta = models.CharField(max_length=20, choices=OPCIONES_ESTADO, default='EN_PROCESO')
+    pronunciamiento = models.CharField(max_length=150, blank=True)
+    derivada_a = models.CharField(max_length=150, blank=True)
+    observacion = models.TextField(blank=True)
+    delegacion = models.ForeignKey('administracionApp.Delegacion', models.DO_NOTHING, db_column='id_delegacion')
+    registrado_por = models.ForeignKey('administracionApp.Profesional', models.DO_NOTHING, db_column='id_registrado_por', related_name='cartas_registradas', blank=True, null=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    estado = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Carta {self.codigo} - {self.remitente}"
+
+    class Meta:
+        db_table = 'carta_tubo'
+        verbose_name_plural = 'Tubo de cartas'
+        indexes = [
+            models.Index(fields=['delegacion', 'estado_carta'], name='carta_delegacion_estado_idx'),
+            models.Index(fields=['fecha_recepcion'], name='carta_fecha_recepcion_idx'),
+        ]

@@ -52,7 +52,7 @@
                 <tr class="{% if not ges.estado %}table-secondary text-muted opacity-75{% endif %}">
                     <td><small class="fw-bold text-dark">{{ ges.fecha_registro|date:"d/m/Y H:i" }}</small></td>
                     <td><span class="badge bg-dark">{{ ges.actividad.codigo_unico }}</span></td>
-                    <td><span class="badge bg-secondary">{{ ges.tipo_gestion.nombre }}</span></td>
+                    <td><span class="badge bg-secondary">{{ ges.tipo_gestion.nombre }}</span>{% if ges.subtipo_gestion %}<div class="small text-muted mt-1">{{ ges.subtipo_gestion.nombre }}</div>{% endif %}</td>
                     <td><small class="text-muted">{{ ges.descripcion|truncatechars:50 }}</small></td>
                     <td><small class="fw-bold">{{ ges.profesional.nombres }} {{ ges.profesional.apellido_paterno }}</small></td>
                     <td class="text-center">

@@ -103,16 +103,17 @@
                         <form method="POST" action="{% url 'administracionApp:actualizar_progreso_actividad' actividad.id_actividad %}">
                             {% csrf_token %}
                             <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
-                                <select name="nuevo_estado" class="form-select form-select-sm select-estado-sgr" {% if not actividad.estado %}disabled{% endif %}>
+                                <select name="nuevo_estado" class="form-select form-select-sm select-estado-sgr" {% if not actividad.estado or actividad.aprobada %}disabled{% endif %}>
                                     <option value="PENDIENTE" {% if actividad.estado_progreso == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
                                     <option value="EN_PROCESO" {% if actividad.estado_progreso == 'EN_PROCESO' %}selected{% endif %}>En Proceso</option>
                                     <option value="FINALIZADA" {% if actividad.estado_progreso == 'FINALIZADA' %}selected{% endif %}>Finalizada</option>
                                 </select>
                                 
-                                <button type="submit" class="btn btn-sm text-white fondo-guinda redondeado-6" {% if not actividad.estado %}disabled{% endif %}>
+                                <button type="submit" class="btn btn-sm text-white fondo-guinda redondeado-6" {% if not actividad.estado or actividad.aprobada %}disabled{% endif %}>
                                     Ok
                                 </button>
                             </div>
+                            {% if actividad.aprobada %}<span class="badge bg-success mt-1"><i class="bi bi-lock-fill"></i> Aprobada</span>{% endif %}
                         </form>
                     </td>
                     
@@ -124,32 +125,27 @@
                     
                     <!-- COLUMNA ACCIONES REORGANIZADA Y LIMPIA -->
                     <td class="text-center">
-                        <div class="d-flex flex-column align-items-center gap-2">
-                            
-                            <!-- Fila 1: Editar y Gestiones (Textos restaurados para máxima claridad) -->
-                            <div class="d-flex justify-content-center gap-2 w-100">
-                                <a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" title="Editar">
-                                    <i class="bi bi-pencil-square"></i> Editar
-                                </a>
-                                <a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6" title="Ver Gestiones">
-                                    <i class="bi bi-briefcase"></i> Gestiones
-                                </a>
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                            <div class="dropdown">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i> Acciones
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
+                                    {% if not actividad.aprobada %}
+                                    <li><a href="{% url 'administracionApp:editar_actividad' actividad.id_actividad %}" class="dropdown-item fw-semibold text-dark py-2"><i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar</a></li>
+                                    {% endif %}
+                                    <li><a href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}" class="dropdown-item fw-semibold text-dark py-2"><i class="bi bi-briefcase me-2 texto-guinda"></i>Gestiones</a></li>
+                                    <li><a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="dropdown-item fw-semibold text-dark py-2"><i class="bi bi-chat-left-text me-2 texto-guinda"></i>Observaciones</a></li>
+                                </ul>
                             </div>
 
-                            <!-- Fila 2: Burbuja de texto para Mensajes -->
-                            <a href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6 w-100" title="Ver historial de mensajes">
-                                <i class="bi bi-chat-left-text"></i> Observaciones
-                            </a>
-
-                            <!-- Fila 3: Tarjeta de Estado y Switch Centrado -->
-                            <div class="d-flex flex-column align-items-center p-2 bg-light rounded border shadow-sm w-100 mt-1">
-                                <span class="badge mb-2 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="badge mb-1 {% if actividad.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
                                     {% if actividad.estado %}Activo{% else %}Inactivo{% endif %}
                                 </span>
 
-                                <div class="form-check form-switch p-0 m-0 d-flex justify-content-center w-100">
-                                    <input class="form-check-input m-0 switch-estado-sgr shadow-sm" type="checkbox" role="switch"
-                                        style="margin-left: 0; cursor: pointer; width: 2.5em; height: 1.2em;"
+                                <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100" title="Activar/Desactivar">
+                                    <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch" {% if actividad.aprobada %}disabled title="Actividad aprobada"{% endif %}
                                         {% if actividad.estado %}checked{% endif %}
                                         onclick="confirmarCambio(event, '{{ actividad.id_actividad }}', '{{ actividad.codigo_unico }}', '{{ actividad.estado }}')">
                                 </div>
@@ -233,6 +229,7 @@
             </tbody>
         </table>
     </div>
+    {% include 'parciales/paginacion.html' %}
 
 </div>
 

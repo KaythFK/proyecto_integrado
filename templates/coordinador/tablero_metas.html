@@ -213,47 +213,20 @@
                     </td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
-                            <button type="button"
-                                class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6"
-                                data-id="{{ meta.id_meta }}"
-                                data-version="{{ meta.version|default:1 }}"
-                                data-periodo="{{ meta.id_periodo }}"
-                                data-periodo-estado="{% if meta.id_periodo.esta_abierto %}Abierto{% else %}Cerrado{% endif %}"
-                                data-cargo="{{ meta.id_cargo_item.id_cargo|default:'Sin cargo' }}"
-                                data-item="{{ meta.id_cargo_item.id_item|default:'Sin ítem' }}"
-                                data-cargo-item="{{ meta.id_cargo_item|default:'Sin asignar' }}"
-                                data-objetivo="{{ meta.valor_objetivo }} {{ meta.unidad }}"
-                                data-ponderador="{{ meta.ponderador }}%"
-                                data-fecha-inicio="{{ meta.fecha_inicio|date:'d/m/Y'|default:'No definida' }}"
-                                data-fecha-termino="{{ meta.fecha_termino|date:'d/m/Y'|default:'No definida' }}"
-                                data-autor="{{ meta.autor|default:'Sistema / No registrado' }}"
-                                data-fecha-creacion="{{ meta.fecha_creacion|date:'d/m/Y H:i'|default:'No registrada' }}"
-                                data-estado="{% if meta.estado %}Activa{% else %}Inactiva{% endif %}"
-                                onclick="verDetalleMeta(this)">
-                                <i class="bi bi-eye"></i> Ver detalle
-                            </button>
-
-                            {% if meta.id_periodo.esta_abierto %}
-                                <a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}"
-                                   class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
-                                    <i class="bi bi-pencil-square"></i> Editar
-                                </a>
-                            {% else %}
-                                <button type="button"
-                                    class="btn btn-sm btn-secondary px-3 shadow-sm redondeado-6"
-                                    disabled
-                                    title="Período cerrado">
-                                    <i class="bi bi-lock"></i> Editar
+                            <div class="dropdown">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i> Acciones
                                 </button>
-                            {% endif %}
-
-                           
-                            <a href="{% url 'monitoreoApp:historial_meta' meta.id_meta %}"
-                               class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6"
-                               title="Ver historial de versiones">
-                                <i class="bi bi-clock-history"></i> Historial
-                            </a>
-                            
+                                <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
+                                    <li><button type="button" class="dropdown-item fw-semibold text-dark py-2" data-id="{{ meta.id_meta }}" data-version="{{ meta.version|default:1 }}" data-periodo="{{ meta.id_periodo }}" data-periodo-estado="{% if meta.id_periodo.esta_abierto %}Abierto{% else %}Cerrado{% endif %}" data-cargo="{{ meta.id_cargo_item.id_cargo|default:'Sin cargo' }}" data-item="{{ meta.id_cargo_item.id_item|default:'Sin ítem' }}" data-cargo-item="{{ meta.id_cargo_item|default:'Sin asignar' }}" data-objetivo="{{ meta.valor_objetivo }} {{ meta.unidad }}" data-ponderador="{{ meta.ponderador }}%" data-fecha-inicio="{{ meta.fecha_inicio|date:'d/m/Y'|default:'No definida' }}" data-fecha-termino="{{ meta.fecha_termino|date:'d/m/Y'|default:'No definida' }}" data-autor="{{ meta.autor|default:'Sistema / No registrado' }}" data-fecha-creacion="{{ meta.fecha_creacion|date:'d/m/Y H:i'|default:'No registrada' }}" data-estado="{% if meta.estado %}Activa{% else %}Inactiva{% endif %}" onclick="verDetalleMeta(this)"><i class="bi bi-eye me-2 texto-guinda"></i>Ver detalle</button></li>
+                                    {% if meta.id_periodo.esta_abierto %}
+                                    <li><a href="{% url 'monitoreoApp:editar_meta' meta.id_meta %}" class="dropdown-item fw-semibold text-dark py-2"><i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar</a></li>
+                                    {% else %}
+                                    <li><button type="button" class="dropdown-item fw-semibold text-muted py-2" disabled title="Período cerrado"><i class="bi bi-lock me-2 texto-guinda"></i>Editar</button></li>
+                                    {% endif %}
+                                    <li><a href="{% url 'monitoreoApp:historial_meta' meta.id_meta %}" class="dropdown-item fw-semibold text-dark py-2" title="Ver historial de versiones"><i class="bi bi-clock-history me-2 texto-guinda"></i>Historial</a></li>
+                                </ul>
+                            </div>
 
                             <div class="d-flex flex-column align-items-center ms-1">
                                 <span class="badge mb-1 {% if meta.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">

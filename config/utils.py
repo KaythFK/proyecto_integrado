@@ -6,6 +6,9 @@ from django.db import models
 from administracionApp.models import Delegacion, Periodo, Profesional
 from actividadApp.models import Evidencia, Actividad
 from django.db.models import Q
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.timezone import localdate, make_aware
 from decimal import Decimal, InvalidOperation
 def validar_y_formatear_rut(rut_ingresado):
@@ -133,6 +136,39 @@ def validar_acceso_actividad(user, actividad):
         if user.groups.filter(name='Profesional').exists() and actividad.id_profesional_id == profesional.pk:
             return
     raise PermissionDenied('No tienes permiso para acceder a esta actividad: está asignada a otro funcionario o delegación.')
+
+
+def actividad_aprobada(actividad):
+    return Evidencia.objects.filter(id_actividad=actividad, estado=True, estado_revision='APROBADO').exists()
+
+
+def paginar(request, objetos, por_pagina=25):
+    """Devuelve la página pedida y los parámetros de la búsqueda sin 'page', para armar los enlaces."""
+    from django.core.paginator import Paginator
+    if hasattr(objetos, 'ordered') and not objetos.ordered:
+        objetos = objetos.order_by('pk')
+    pagina = Paginator(objetos, por_pagina).get_page(request.GET.get('page'))
+    parametros = request.GET.copy()
+    parametros.pop('page', None)
+    return pagina, parametros.urlencode()
+
+
+def con_marca_aprobada(actividades):
+    """Agrega a cada actividad el atributo aprobada para ocultar sus acciones de edición."""
+    from django.db.models import Exists, OuterRef
+    aprobadas = Evidencia.objects.filter(id_actividad=OuterRef('pk'), estado=True, estado_revision='APROBADO')
+    return actividades.annotate(aprobada=Exists(aprobadas))
+
+
+def rechazar_si_aprobada(request, actividad, url_respaldo):
+    """Si la actividad ya tiene una evidencia aprobada, avisa y devuelve la redirección; si no, devuelve None."""
+    if not actividad_aprobada(actividad):
+        return None
+    messages.error(request, f'La actividad {actividad.codigo_unico} ya fue aprobada y no se puede modificar.')
+    anterior = request.META.get('HTTP_REFERER')
+    if anterior and url_has_allowed_host_and_scheme(anterior, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(anterior)
+    return redirect(url_respaldo)
 
 
 def puede_modificar_compromiso(user, compromiso):

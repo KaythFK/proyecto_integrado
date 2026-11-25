@@ -61,7 +61,7 @@
                     <td>
                         <strong>{{ ges.profesional.nombres }} {{ ges.profesional.apellido_paterno }}</strong>
                     </td>
-                    <td><span class="badge bg-secondary">{{ ges.tipo_gestion.nombre }}</span></td>
+                    <td><span class="badge bg-secondary">{{ ges.tipo_gestion.nombre }}</span>{% if ges.subtipo_gestion %}<div class="small text-muted mt-1">{{ ges.subtipo_gestion.nombre }}</div>{% endif %}</td>
                     <td><small class="text-muted">{{ ges.descripcion }}</small></td>
                     <td class="text-center">
                         {% if ges.estado %}

@@ -64,24 +64,24 @@
                         <small class="text-muted">RUT: {{ afi.vecino.rut }}</small>
                     </td>
                     <td>
-                        <a href="{% url 'comunidadApp:detalle_organizacion' afi.organizacion.pk %}" class="fw-bold text-decoration-none texto-guinda">
-                            {{ afi.organizacion.nombre }}
-                        </a><br>
-                        <span class="badge {% if afi.organizacion.tipo == 'FUNCIONAL' %}bg-info text-dark{% else %}bg-primary{% endif %} texto-075">
-                            {{ afi.organizacion.get_tipo_display }}
-                        </span>
-                    </td>
-                    <td><span class="badge bg-secondary">{{ afi.cargo_organizacion }}</span></td>
-                    <td class="text-center">{{ afi.fecha_ingreso|date:"d/m/Y"|default:"Sin registro" }}</td>
-
-                    <td class="text-center">
-                        <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
-                            <a href="{% url 'comunidadApp:detalle_organizacion' afi.organizacion.pk %}" class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6" title="Ver organización y nómina">
-                                Organización
-                            </a>
-                            <a href="{% url 'comunidadApp:editar_afiliacion' afi.id_afiliacion %}" class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6" title="Editar">
-                                <i class="bi bi-pencil-square"></i> Editar
-                            </a>
+                        <div class="dropdown">
+                            <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                <i class="bi bi-three-dots-vertical"></i> Acciones
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
+                                <li><a href="{% url 'comunidadApp:detalle_organizacion' afi.organizacion.pk %}" class="dropdown-item fw-semibold text-dark py-2">{{ afi.organizacion.nombre }}</a></li><br>
+                                <span class="badge {% if afi.organizacion.tipo == 'FUNCIONAL' %}bg-info text-dark{% else %}bg-primary{% endif %} texto-075">
+                                {{ afi.organizacion.get_tipo_display }}
+                                </span>
+                                </td>
+                                <td><span class="badge bg-secondary">{{ afi.cargo_organizacion }}</span></td>
+                                <td class="text-center">{{ afi.fecha_ingreso|date:"d/m/Y"|default:"Sin registro" }}</td>
+                                <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
+                                <li><a href="{% url 'comunidadApp:detalle_organizacion' afi.organizacion.pk %}" class="dropdown-item fw-semibold text-dark py-2" title="Ver organización y nómina">Organización</a></li>
+                                <li><a href="{% url 'comunidadApp:editar_afiliacion' afi.id_afiliacion %}" class="dropdown-item fw-semibold text-dark py-2" title="Editar"><i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar</a></li>
+                            </ul>
+                        </div>
 
                             <div class="d-flex flex-column align-items-center">
                                 <span class="badge mb-1 {% if afi.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
@@ -104,6 +104,7 @@
             </tbody>
         </table>
     </div>
+    {% include 'parciales/paginacion.html' %}
 </div>
 
 <!-- Modal Estado -->

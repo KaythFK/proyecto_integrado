@@ -39,6 +39,10 @@
                     data-bs-toggle="tab" data-bs-target="#tab-gestion" type="button">Tipos de Gestión</button>
         </li>
         <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activa == 'subtipo' %}active{% endif %}"
+                    data-bs-toggle="tab" data-bs-target="#tab-subtipo" type="button">Subtipos de Gestión</button>
+        </li>
+        <li class="nav-item" role="presentation">
             <button class="nav-link {% if tab_activa == 'celebracion' %}active{% endif %}" 
                     data-bs-toggle="tab" data-bs-target="#tab-celebracion" type="button">Tipos de Celebración</button>
         </li>
@@ -244,6 +248,51 @@
             </div>
         </div>
 
+        <div class="tab-pane fade {% if tab_activa == 'subtipo' %}show active{% endif %}" id="tab-subtipo">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-3">
+                <h5 class="fw-bold m-0 texto-guinda">Catálogo de Subtipos de Gestión</h5>
+                <button class="btn text-white fw-bold align-self-stretch align-self-md-auto fondo-rojo" onclick="abrirModalSubtipo('crear', '', '', '')">
+                    + Nuevo Subtipo
+                </button>
+            </div>
+
+            <div class="alert alert-light border-start border-4 border-secondary small text-muted mb-4">
+                <i class="bi bi-info-circle-fill me-1 texto-guinda"></i>
+                <strong>¿Qué es este catálogo?</strong> Detalla cada tipo de gestión en subtipos de atención (por ejemplo, dentro de "Visita a terreno": inspección, entrega de información). El funcionario lo elige al registrar una gestión.
+            </div>
+
+            <div class="table-responsive shadow-sm rounded">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark"><tr><th>ID</th><th>Tipo de gestión</th><th>Subtipo</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead>
+                    <tbody>
+                        {% for sub in subtipos %}
+                        <tr>
+                            <td>#{{ sub.id_subtipo_gestion }}</td>
+                            <td>{{ sub.tipo_gestion.nombre }}</td>
+                            <td class="fw-bold">{{ sub.nombre }}</td>
+                            <td>{% if sub.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
+                            <td class="text-center">
+                                <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
+                                    <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" onclick="abrirModalSubtipo('editar', '{{ sub.id_subtipo_gestion }}', '{{ sub.nombre|escapejs }}', '{{ sub.tipo_gestion_id }}')"><i class="bi bi-pencil-square"></i> Editar</button>
+
+                                    <div class="d-flex flex-column align-items-center">
+                                        <span class="badge mb-1 {% if sub.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
+                                            {% if sub.estado %}Activo{% else %}Inactivo{% endif %}
+                                        </span>
+                                        <div class="form-check form-switch m-0 fs-5 d-flex justify-content-center w-100">
+                                            <input class="form-check-input switch-estado m-0 switch-estado-sgr" type="checkbox" role="switch" {% if sub.estado %}checked{% endif %}
+                                            onclick="abrirModalEstado(event, 'subtipo', '{{ sub.id_subtipo_gestion }}', '{{ sub.nombre|escapejs }}', '{{ sub.estado }}')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %} <tr><td colspan="5" class="text-center text-muted py-4">No hay subtipos de gestión registrados.</td></tr> {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- PESTAÑA 5: TIPOS DE CELEBRACIÓN (HU-40 / CA1) -->
         <div class="tab-pane fade {% if tab_activa == 'celebracion' %}show active{% endif %}" id="tab-celebracion">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-3">
@@ -357,6 +406,43 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalSubtipo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header text-white fondo-guinda">
+                <h5 class="modal-title fw-bold" id="tituloModalSubtipo">Subtipo de Gestión</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{% url 'administracionApp:gestionar_catalogo' %}">
+                {% csrf_token %}
+                <input type="hidden" name="accion" id="inputAccionSubtipo">
+                <input type="hidden" name="tipo" value="subtipo">
+                <input type="hidden" name="id_obj" id="inputIdObjSubtipo">
+
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="fw-bold mb-2" for="inputTipoSubtipo">Tipo de gestión *</label>
+                        <select name="tipo_gestion" id="inputTipoSubtipo" class="form-select" required>
+                            <option value="">Selecciona un tipo</option>
+                            {% for tipo in tipos_activos %}
+                            <option value="{{ tipo.id_tipo_gestion }}">{{ tipo.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold mb-2" for="inputNombreSubtipo">Nombre del subtipo *</label>
+                        <input type="text" name="nombre" id="inputNombreSubtipo" class="form-control" required minlength="3" maxlength="100">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 d-flex justify-content-center gap-2 flex-wrap">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn text-white px-4 fw-bold fondo-rojo">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal para Cambiar Estado -->
 <div class="modal fade" id="modalEstadoCatalogos" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -404,6 +490,15 @@ function abrirModalCatalogoArea(accion, id_obj, nombre_actual, correo_actual) {
     
     document.getElementById('tituloModalCatalogoArea').innerText = (accion === 'crear') ? 'Nueva Área de Apoyo' : 'Editar Área de Apoyo';
     new bootstrap.Modal(document.getElementById('modalCatalogoArea')).show();
+}
+
+function abrirModalSubtipo(accion, id_obj, nombre_actual, id_tipo) {
+    document.getElementById('inputAccionSubtipo').value = accion;
+    document.getElementById('inputIdObjSubtipo').value = id_obj;
+    document.getElementById('inputNombreSubtipo').value = nombre_actual;
+    document.getElementById('inputTipoSubtipo').value = id_tipo;
+    document.getElementById('tituloModalSubtipo').innerText = (accion === 'crear') ? 'Nuevo Subtipo de Gestión' : 'Editar Subtipo de Gestión';
+    new bootstrap.Modal(document.getElementById('modalSubtipo')).show();
 }
 
 function abrirModalEstado(event, tipo, id_obj, nombre, estadoStr) {
