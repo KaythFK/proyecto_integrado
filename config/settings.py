@@ -93,6 +93,11 @@ DATABASES = {
     }
 }
 
+if 'mysql' in (DATABASES['default']['ENGINE'] or ''):
+    DATABASES['default']['OPTIONS'] = {
+        'init_command': "SET default_storage_engine=INNODB, sql_mode='STRICT_TRANS_TABLES'",
+    }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

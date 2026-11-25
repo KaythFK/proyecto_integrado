@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.db.models import Q, Max
+from django.db.models import Max, Prefetch, Q
 from django.core.paginator import Paginator
 from .filters import AuditoriaFilter
 from usuariosApp.models import ClaveTemporal, asignar_rol
@@ -555,7 +555,9 @@ def cambiar_estado_delegacion(request, id_delegacion):
 def lista_cargos(request):
     query = request.GET.get('q')
     # Añadimos prefetch_related para traer los ítems de la matriz de forma eficiente sin saturar la base de datos
-    cargos = Cargo.objects.prefetch_related('cargoitem_set__id_item').all()
+    cargos = Cargo.objects.prefetch_related(
+        Prefetch('cargoitem_set', queryset=CargoItem.objects.filter(estado=True).select_related('id_item'))
+    ).all()
     
     if query:
         cargos = cargos.filter(nombre__icontains=query).distinct()
@@ -1162,16 +1164,16 @@ def configurar_matriz_cargo(request, pk):
             cargo.fecha_inicio = fecha_inicio
             cargo.fecha_termino = fecha_termino
             cargo.save()
+            cargo.refresh_from_db(fields=['fecha_inicio', 'fecha_termino'])
 
             # 4. Actualizar la matriz de ítems
-            CargoItem.objects.filter(id_cargo=cargo).delete()
-            for item_id, p in datos_items:
-                item_catalogo = CatalagoItem.objects.get(pk=item_id)
-                CargoItem.objects.create(
+            seleccionados = {int(item_id): p for item_id, p in datos_items}
+            CargoItem.objects.filter(id_cargo=cargo, estado=True).exclude(id_item_id__in=seleccionados).update(estado=False)
+            for item_id, p in seleccionados.items():
+                CargoItem.objects.update_or_create(
                     id_cargo=cargo,
-                    id_item=item_catalogo,
-                    ponderacion=p,
-                    estado=True
+                    id_item=CatalagoItem.objects.get(pk=item_id),
+                    defaults={'ponderacion': p, 'estado': True},
                 )
 
             # 5. Auditoría centralizada con los parámetros correctos
