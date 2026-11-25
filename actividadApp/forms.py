@@ -14,7 +14,8 @@ from config.utils import (
     validar_cierre_semanal,
     validar_periodo_abierto,
     validar_rango_fechas,
-    validar_meta_corresponde_a_profesional
+    validar_meta_corresponde_a_profesional,
+    validar_actividad_permite_evidencias,
     # <-- Validador modular de imágenes
 )
 from datetime import date
@@ -639,6 +640,26 @@ class EvidenciaForm(forms.ModelForm):
     def clean_archivo_foto(self):
         archivo = self.cleaned_data.get('archivo_foto')
         return validar_imagen_evidencia(archivo)
+
+
+class EvidenciaAdminForm(EvidenciaForm):
+    class Meta(EvidenciaForm.Meta):
+        exclude = ['estado', 'metadatos', 'estado_revision']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        campo = self.fields['id_actividad']
+        campo.queryset = Actividad.objects.filter(estado=True).order_by('-fecha_registro')
+        campo.label_from_instance = lambda actividad: f'{actividad.codigo_unico} - {actividad.solicitud_problema[:60]}'
+
+    def clean_id_actividad(self):
+        actividad = self.cleaned_data.get('id_actividad')
+        if actividad:
+            try:
+                validar_actividad_permite_evidencias(actividad)
+            except CoreValidationError as error:
+                raise forms.ValidationError(error.messages[0])
+        return actividad
 
 
 

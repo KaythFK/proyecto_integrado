@@ -6,7 +6,7 @@ from datetime import datetime, date, timedelta
 import uuid
 from usuariosApp.decorators import role_required
 from .models import Actividad, Evidencia, Ausencia, Retroalimentacion, Validacion, GestionActividad
-from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, ValidacionForm, GestionActividadForm, ActividadProfesionalForm
+from .forms import ActividadForm, ActividadDelegadoForm, AusenciaForm, RetroalimentacionForm, EvidenciaForm, EvidenciaAdminForm, ValidacionForm, GestionActividadForm, ActividadProfesionalForm
 from administracionApp.models import Profesional, Auditoria, Vecino, Periodo # <- Añadido Auditoria
 from monitoreoApp.models import Meta, Indicador, Alerta
 from monitoreoApp.views import estado_desviacion, resumen_indicadores
@@ -910,7 +910,7 @@ def lista_evidencias(request):
 @role_required('Administrador')
 def crear_evidencia(request):
     if request.method == 'POST':
-        form = EvidenciaForm(request.POST, request.FILES)
+        form = EvidenciaAdminForm(request.POST, request.FILES)
         if form.is_valid():
             try:
                 with transaction.atomic():
@@ -935,7 +935,7 @@ def crear_evidencia(request):
         else:
             messages.error(request, 'Por favor corrige los errores en el formulario.')
     else:
-        form = EvidenciaForm()
+        form = EvidenciaAdminForm()
         
     return render(request, 'administrador/evidencias/form_evidencia.html', {
         'form': form,

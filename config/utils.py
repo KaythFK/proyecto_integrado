@@ -272,6 +272,15 @@ def validar_imagen_evidencia(archivo):
         finally:
             if posicion_actual is not None and hasattr(archivo, 'seek'):
                 archivo.seek(posicion_actual)
+    else:
+        from PIL import Image
+        try:
+            archivo.seek(0)
+            Image.open(archivo).verify()
+        except Exception:
+            raise ValidationError("El archivo no es una imagen válida o está dañado.")
+        finally:
+            archivo.seek(0)
 
     return archivo
 
