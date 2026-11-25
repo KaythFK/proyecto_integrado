@@ -4,12 +4,11 @@ from django.db import transaction
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.forms.models import model_to_dict
-from django.core.paginator import Paginator
 from usuariosApp.decorators import role_required
 from .models import OrganizacionComunitaria, AfiliacionVecino, CargaFamiliar, VinculoFamiliar, Celebracion, CelebracionDelegacion, CatalogoCelebracion, BeneficiarioCelebracion
 from .forms import OrganizacionComunitariaForm, AfiliacionVecinoForm, CargaFamiliarForm, VincularCargaForm, CatalogoCelebracion, CelebracionForm
 from administracionApp.models import Profesional, Auditoria, Vecino
-from config.utils import delegacion_del_profesional
+from config.utils import delegacion_del_profesional, paginar
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.db.models import Case, When, Value, IntegerField
 from django.core.exceptions import ValidationError
@@ -86,17 +85,12 @@ def lista_organizaciones(request):
             Q(subtipo__icontains=query)
         ).distinct()
 
-    paginator = Paginator(organizaciones, 15)  # Cambia 15 por la cantidad de filas por página que prefieras
-    page_obj = paginator.get_page(request.GET.get('page'))
-
-    query_params = request.GET.copy()
-    query_params.pop('page', None)
-
+    pagina, parametros = paginar(request, organizaciones)
     return render(request, 'administrador/organizaciones/lista_organizaciones.html', {
-        'organizaciones': page_obj,
-        'page_obj': page_obj,
+        'organizaciones': pagina,
+        'pagina': pagina,
+        'parametros': parametros,
         'query': query,
-        'query_string': query_params.urlencode(),
         'delegacion_profesional': delegacion_prof if delegacion_prof else None,
     })
 
@@ -259,8 +253,11 @@ def lista_afiliaciones(request):
             Q(tipo=OrganizacionComunitaria.TipoOrganizacion.FUNCIONAL)
         ).distinct()
 
+    pagina, parametros = paginar(request, afiliaciones)
     return render(request, 'administrador/afiliaciones/lista_afiliaciones.html', {
-        'afiliaciones': afiliaciones,
+        'afiliaciones': pagina,
+        'pagina': pagina,
+        'parametros': parametros,
         'organizaciones_filtro': organizaciones_filtro,
         'organizacion_seleccionada': organizacion_id,
         'query': query,

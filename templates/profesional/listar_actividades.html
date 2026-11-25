@@ -101,16 +101,17 @@
                                 <form method="POST" action="{% url 'actividadApp:actualizar_progreso_actividad' actividad.id_actividad %}">
                                     {% csrf_token %}
                                     <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
-                                        <select name="nuevo_estado" class="form-select form-select-sm select-estado-sgr" {% if not actividad.estado %}disabled{% endif %}>
+                                        <select name="nuevo_estado" class="form-select form-select-sm select-estado-sgr" {% if not actividad.estado or actividad.aprobada %}disabled{% endif %}>
                                             <option value="PENDIENTE" {% if actividad.estado_progreso == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
                                             <option value="EN_PROCESO" {% if actividad.estado_progreso == 'EN_PROCESO' %}selected{% endif %}>En Proceso</option>
                                             <option value="FINALIZADA" {% if actividad.estado_progreso == 'FINALIZADA' %}selected{% endif %}>Finalizada</option>
                                         </select>
                                         
-                                        <button type="submit" class="btn btn-sm text-white fondo-guinda redondeado-6" {% if not actividad.estado %}disabled{% endif %}>
+                                        <button type="submit" class="btn btn-sm text-white fondo-guinda redondeado-6" {% if not actividad.estado or actividad.aprobada %}disabled{% endif %}>
                                             Ok
                                         </button>
                                     </div>
+                                    {% if actividad.aprobada %}<span class="badge bg-success mt-1"><i class="bi bi-lock-fill"></i> Aprobada</span>{% endif %}
                                 </form>
                             </td>
                             
@@ -136,11 +137,13 @@
                                                     <i class="bi bi-eye me-2 texto-guinda"></i>Ver detalle
                                                 </button>
                                             </li>
+                                            {% if not actividad.aprobada %}
                                             <li>
                                                 <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}">
                                                     <i class="bi bi-camera me-2 texto-guinda"></i>Registrar evidencia
                                                 </a>
                                             </li>
+                                            {% endif %}
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
                                                 <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'tuboApp:detalle_actividad' actividad.id_actividad %}">

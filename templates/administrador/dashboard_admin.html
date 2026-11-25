@@ -12,43 +12,10 @@
 {% include 'parciales/mensajes.html' %}
 <div class="container mt-3" style="max-width: 1500px;">
     
-    <div class="bg-panel-rojo shadow p-2" style="margin-bottom: 60px;">
-        <div id="carruselMunicipal" class="carousel slide" data-bs-ride="carousel">
-            <!-- (El contenido del carrusel se mantiene exactamente igual) -->
-            <div class="carousel-indicators">
-                <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-                <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="1" aria-label="Slide 2"></button>
-                <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="2" aria-label="Slide 3"></button>
-                <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="3" aria-label="Slide 4"></button>
-            </div>
-            <div class="carousel-inner rounded" style="border-radius: 10px !important;">
-                <div class="carousel-item active" data-bs-interval="4000">
-                    <img src="{% static 'images/inicio/permiso_circulacion.png' %}" class="d-block w-100" alt="Permiso de Circulación">
-                </div>
-                <div class="carousel-item" data-bs-interval="4000">
-                    <img src="{% static 'images/inicio/plan_seguridad.png' %}" class="d-block w-100" alt="Plan Comunal de Seguridad Pública">
-                </div>
-                <div class="carousel-item" data-bs-interval="4000">
-                    <img src="{% static 'images/inicio/aseo.png' %}" class="d-block w-100" alt="Derechos de Aseo Domiciliario">
-                </div>
-                <div class="carousel-item" data-bs-interval="4000">
-                    <img src="{% static 'images/inicio/patrimonio.png' %}" class="d-block w-100" alt="La Serena Patrimonio que enamora">
-                </div>
-            </div>
-            <button class="carousel-control-prev" type="button" data-bs-target="#carruselMunicipal" data-bs-slide="prev">
-                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                <span class="visually-hidden">Anterior</span>
-            </button>
-            <button class="carousel-control-next" type="button" data-bs-target="#carruselMunicipal" data-bs-slide="next">
-                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                <span class="visually-hidden">Siguiente</span>
-            </button>
-        </div>
-    </div>
-
     {% for seccion in secciones %}
     <section class="panel-seccion">
-        <h2 class="panel-seccion-titulo">{{ seccion.titulo }}</h2>
+        <h2 class="panel-seccion-titulo"><i class="bi bi-{{ seccion.icono }}" aria-hidden="true"></i>{{ seccion.titulo }}</h2>
+        <div class="panel-seccion-cuerpo">
         <div class="row g-3">
             {% for acceso in seccion.accesos %}
             <div class="col-12 col-sm-6 col-xl-3">
@@ -61,6 +28,7 @@
                 </a>
             </div>
             {% endfor %}
+        </div>
         </div>
     </section>
     {% endfor %}

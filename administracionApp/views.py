@@ -5,12 +5,12 @@ from .filters import AuditoriaFilter
 from usuariosApp.models import ClaveTemporal, asignar_rol
 from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria, CargoItem
 # --- IMPORTAMOS CatalogoTipoGestion ---
-from actividadApp.models import Actividad, CatalogoTipoGestion
+from actividadApp.models import Actividad, CatalogoTipoGestion, CatalogoSubtipoGestion
 from administracionApp.forms import ProfesionalForm, UsuarioSeguridadForm, DelegacionForm, CargoForm, VecinoForm, PeriodoForm
 from actividadApp.forms import ActividadForm
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
-from config.utils import verificar_periodo_activo
+from config.utils import paginar, con_marca_aprobada, rechazar_si_aprobada, verificar_periodo_activo
 from usuariosApp.decorators import role_required
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -85,6 +85,7 @@ SECCIONES_PANEL_ADMIN = [
         ('Actividades', 'Registro de intervenciones', 'clipboard-check', 'administracionApp:admin-actividades'),
         ('Gestiones', 'Acciones por actividad', 'list-task', 'actividadApp:lista_todas_gestiones'),
         ('Tubo', 'Compromisos y estados', 'kanban', 'tuboApp:tubo'),
+        ('Tubo de cartas', 'Correspondencia de Oficina de Partes', 'envelope-paper', 'tuboApp:lista_cartas'),
         ('Evidencias', 'Respaldos fotográficos', 'camera', 'actividadApp:lista_evidencias'),
         ('Validaciones', 'Revisión de evidencias', 'patch-check', 'actividadApp:lista_validaciones'),
     ]),
@@ -111,11 +112,20 @@ SECCIONES_PANEL_ADMIN = [
 ]
 
 
+ICONOS_SECCION_ADMIN = {
+    'Personas y estructura': 'people-fill',
+    'Operación': 'gear-fill',
+    'Medición': 'bar-chart-fill',
+    'Comunidad': 'house-heart-fill',
+    'Configuración': 'sliders',
+}
+
+
 @role_required('Administrador')
 @login_required
 def dashboard_admin(request):
     secciones = [
-        {'titulo': titulo, 'accesos': [
+        {'titulo': titulo, 'icono': ICONOS_SECCION_ADMIN.get(titulo, 'grid'), 'accesos': [
             {'texto': texto, 'detalle': detalle, 'icono': icono, 'url': reverse(nombre_url)}
             for texto, detalle, icono, nombre_url in accesos
         ]}
@@ -131,7 +141,7 @@ def generar_clave_segura(longitud=10):
 @login_required
 def lista_actividades(request):
     query = request.GET.get('q')
-    actividades = Actividad.objects.all().prefetch_related('gestiones__tipo_gestion').order_by('-fecha_registro')
+    actividades = con_marca_aprobada(Actividad.objects.all()).prefetch_related('gestiones__tipo_gestion').order_by('-fecha_registro')
     
     if query:
         actividades = actividades.filter(
@@ -139,8 +149,11 @@ def lista_actividades(request):
             Q(solicitud_problema__icontains=query)
         ).distinct()
         
+    pagina, parametros = paginar(request, actividades)
     context = {
-        'actividades': actividades,
+        'actividades': pagina,
+        'pagina': pagina,
+        'parametros': parametros,
         'query': query,
     }
     return render(request, 'administrador/actividades/lista_actividades.html', context)
@@ -197,6 +210,9 @@ def crear_actividad(request):
 @login_required
 def editar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+    bloqueo = rechazar_si_aprobada(request, actividad, 'administracionApp:admin-actividades')
+    if bloqueo:
+        return bloqueo
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(actividad)
@@ -242,6 +258,9 @@ def editar_actividad(request, id_actividad):
 def desactivar_actividad(request, id_actividad):
     if request.method == 'POST':
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+        bloqueo = rechazar_si_aprobada(request, actividad, 'administracionApp:admin-actividades')
+        if bloqueo:
+            return bloqueo
         
         with transaction.atomic():
             datos_antiguos = model_to_dict(actividad)
@@ -648,6 +667,8 @@ def panel_catalogos(request):
         'items': CatalagoItem.objects.all(),
         'areas': CatalagoAreaApoyo.objects.all(),
         'gestiones': CatalogoTipoGestion.objects.all(),
+        'subtipos': CatalogoSubtipoGestion.objects.select_related('tipo_gestion').order_by('tipo_gestion__nombre', 'nombre'),
+        'tipos_activos': CatalogoTipoGestion.objects.filter(estado=True).order_by('nombre'),
         'celebraciones': CatalogoCelebracion.objects.all(),
         'tab_activa': tab_activa,
     }
@@ -674,7 +695,9 @@ def gestionar_catalogo(request):
 
         ModeloActivo = modelos.get(tipo)
 
-        if ModeloActivo:
+        if tipo == 'subtipo':
+            gestionar_subtipo(request, accion, id_obj, (nombre or '').strip(), request.POST.get('tipo_gestion'))
+        elif ModeloActivo:
             try:
                 with transaction.atomic():
                     if accion == 'crear':
@@ -723,6 +746,47 @@ def gestionar_catalogo(request):
 
         base_url = reverse('administracionApp:panel_catalogos')
         return redirect(f"{base_url}?tab={tipo}")
+
+
+def gestionar_subtipo(request, accion, id_obj, nombre, id_tipo):
+    try:
+        with transaction.atomic():
+            if accion == 'estado':
+                subtipo = CatalogoSubtipoGestion.objects.get(pk=id_obj)
+                datos_antiguos = model_to_dict(subtipo)
+                subtipo.estado = not subtipo.estado
+                subtipo.save()
+                registrar_auditoria(request, "CAMBIO_ESTADO", "Subtipo", subtipo, datos_antiguos)
+                messages.success(request, f'El subtipo fue {"activado" if subtipo.estado else "desactivado"}.')
+                return
+
+            tipo_gestion = CatalogoTipoGestion.objects.filter(pk=id_tipo or None, estado=True).first()
+            if tipo_gestion is None:
+                messages.error(request, 'Debes elegir un tipo de gestión activo.')
+                return
+            if len(nombre) < 3:
+                messages.error(request, 'El nombre del subtipo debe tener al menos 3 caracteres.')
+                return
+            repetidos = CatalogoSubtipoGestion.objects.filter(tipo_gestion=tipo_gestion, nombre__iexact=nombre)
+            if accion == 'editar':
+                repetidos = repetidos.exclude(pk=id_obj)
+            if repetidos.exists():
+                messages.error(request, f'Ya existe el subtipo "{nombre}" en el tipo "{tipo_gestion.nombre}".')
+                return
+
+            if accion == 'crear':
+                subtipo = CatalogoSubtipoGestion.objects.create(tipo_gestion=tipo_gestion, nombre=nombre, estado=True)
+                registrar_auditoria(request, "CREACION", "Subtipo", subtipo)
+                messages.success(request, 'Subtipo creado con éxito.')
+            elif accion == 'editar':
+                subtipo = CatalogoSubtipoGestion.objects.get(pk=id_obj)
+                datos_antiguos = model_to_dict(subtipo)
+                subtipo.tipo_gestion, subtipo.nombre = tipo_gestion, nombre
+                subtipo.save()
+                registrar_auditoria(request, "EDICION", "Subtipo", subtipo, datos_antiguos)
+                messages.success(request, 'Subtipo actualizado correctamente.')
+    except CatalogoSubtipoGestion.DoesNotExist:
+        messages.error(request, 'El subtipo no existe.')
 
 @role_required('Administrador', 'Coordinador')
 @login_required
@@ -931,8 +995,12 @@ def lista_vecinos(request):
 
     organizaciones_filtro = OrganizacionComunitaria.objects.filter(estado=True).order_by('nombre')
 
+    pagina, parametros = paginar(request, vecinos)
     return render(request, 'administrador/vecinos/lista_vecinos.html', {
-        'vecinos': vecinos,
+        'vecinos': pagina,
+        'pagina': pagina,
+        'parametros': parametros,
+        'es_administrador': request.user.groups.filter(name='Administrador').exists(),
         'organizaciones_filtro': organizaciones_filtro,
         'organizacion_seleccionada': organizacion_id,
         'query': query,
@@ -1018,6 +1086,9 @@ def cambiar_estado_vecino(request, id_vecino):
 def actualizar_progreso_actividad(request, id_actividad):
     if request.method == 'POST':
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+        bloqueo = rechazar_si_aprobada(request, actividad, 'administracionApp:admin-actividades')
+        if bloqueo:
+            return bloqueo
         nuevo_estado = request.POST.get('nuevo_estado')
         
         estados_validos = dict(Actividad.OPCIONES_ESTADO_PROGRESO).keys()

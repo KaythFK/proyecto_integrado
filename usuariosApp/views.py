@@ -41,6 +41,11 @@ def destino_segun_rol(user):
     return 'usuariosApp:mi_perfil'
 
 
+def landing(request):
+    url_panel = reverse(destino_segun_rol(request.user)) if request.user.is_authenticated else None
+    return render(request, 'inicio/landing.html', {'url_panel': url_panel})
+
+
 @login_required
 def cambiar_clave_inicial(request):
     usuario = request.user
@@ -70,7 +75,7 @@ def cambiar_clave_inicial(request):
 def login_view(request):
     
     if request.user.is_authenticated:
-        return redirect('administracionApp:dashboard_admin') 
+        return redirect(destino_segun_rol(request.user))
 
 
     if request.method == 'POST':

@@ -74,19 +74,16 @@
                     <td>{{ vecino.direccion|default:"Sin dirección" }}</td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
-                            <a href="{% url 'actividadApp:detalle_vecino' vecino.pk %}"
-                               class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6 text-nowrap"
-                               title="Ver ficha, afiliaciones y actividades">
-                                Ficha
-                            </a>
-
-                            {% for grupo in request.user.groups.all %}
-                                {% if grupo.name == 'Administrador' %}
-                                    <a href="{% url 'administracionApp:editar_vecino' vecino.id_vecino %}"
-                                       class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6 text-nowrap"
-                                       title="Editar vecino">
-                                        <i class="bi bi-pencil-square"></i> Editar
-                                    </a>
+                            {% if es_administrador %}
+                            <div class="dropdown">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i> Acciones
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
+                                    <li><a href="{% url 'actividadApp:detalle_vecino' vecino.pk %}" class="dropdown-item fw-semibold text-dark py-2"><i class="bi bi-person-vcard me-2 texto-guinda"></i>Ficha</a></li>
+                                    <li><a href="{% url 'administracionApp:editar_vecino' vecino.id_vecino %}" class="dropdown-item fw-semibold text-dark py-2"><i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar</a></li>
+                                </ul>
+                            </div>
 
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if vecino.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
@@ -98,8 +95,11 @@
                                                 onclick="confirmarCambioVecino(event, '{{ vecino.id_vecino }}', '{{ vecino.nombres|escapejs }} {{ vecino.apellido_paterno|escapejs }}', '{{ vecino.estado }}')">
                                         </div>
                                     </div>
-                                {% endif %}
-                            {% endfor %}
+                            {% else %}
+                            <a href="{% url 'actividadApp:detalle_vecino' vecino.pk %}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6 text-nowrap" title="Ver ficha, afiliaciones y actividades">
+                                <i class="bi bi-person-vcard"></i> Ficha
+                            </a>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -111,6 +111,7 @@
             </tbody>
         </table>
     </div>
+    {% include 'parciales/paginacion.html' %}
 </div>
 
 <!-- Modal Estado Vecino -->

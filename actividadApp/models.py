@@ -103,12 +103,30 @@ class CatalogoTipoGestion(models.Model):
         db_table = 'catalogo_tipo_gestion'
         verbose_name_plural = 'Catálogo Tipos de Gestión'
 
+
+class CatalogoSubtipoGestion(models.Model):
+    id_subtipo_gestion = models.AutoField(primary_key=True)
+    tipo_gestion = models.ForeignKey(CatalogoTipoGestion, models.DO_NOTHING, db_column='id_tipo_gestion', related_name='subtipos')
+    nombre = models.CharField(max_length=100)
+    estado = models.BooleanField(default=True)
+
+    def __str__(self):
+        return str(self.nombre)
+
+    class Meta:
+        db_table = 'catalogo_subtipo_gestion'
+        verbose_name_plural = 'Catálogo Subtipos de Gestión'
+        constraints = [
+            models.UniqueConstraint(fields=['tipo_gestion', 'nombre'], name='subtipo_unico_por_tipo'),
+        ]
+
 class GestionActividad(models.Model):
 
     id_gestion = models.AutoField(primary_key=True)
     # related_name='gestiones' permite consultar desde la actividad: mi_actividad.gestiones.all()
     actividad = models.ForeignKey(Actividad, on_delete=models.CASCADE, db_column='id_actividad', related_name='gestiones')
     tipo_gestion = models.ForeignKey(CatalogoTipoGestion, models.DO_NOTHING, db_column='id_tipo_gestion')
+    subtipo_gestion = models.ForeignKey(CatalogoSubtipoGestion, models.DO_NOTHING, db_column='id_subtipo_gestion', blank=True, null=True)
     descripcion = models.TextField()
     fecha_registro = models.DateTimeField(auto_now_add=True)
     fecha_ejecucion = models.DateField(blank=True, null=True)
@@ -116,7 +134,7 @@ class GestionActividad(models.Model):
     estado = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"Gestión: {self.get_tipo_gestion_display()} - Actividad {self.actividad.codigo_unico}"
+        return f"Gestión: {self.tipo_gestion.nombre} - Actividad {self.actividad.codigo_unico}"
 
     class Meta:
         db_table = 'gestion_actividad'

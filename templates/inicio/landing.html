@@ -1,0 +1,174 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGR - Ilustre Municipalidad de La Serena</title>
+    <meta name="description" content="Sistema de Gestión de Resultados de las delegaciones municipales de La Serena. Uso exclusivo de funcionarios municipales.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { color: #212529; background: #FFFFFF; }
+        .barra { background: #8B1D19; box-shadow: 0 2px 10px rgba(0, 0, 0, .25); position: relative; z-index: 2; }
+        .barra img { height: 52px; }
+        .barra .nombre { color: #FFFFFF; font-weight: 700; line-height: 1.1; }
+        .barra .nombre small { display: block; font-weight: 400; font-size: .8rem; opacity: .85; }
+        .btn-ingresar { background: #FFFFFF; color: #8B1D19; font-weight: 700; border-radius: 6px; padding: .5rem 1.4rem; }
+        .btn-ingresar:hover, .btn-ingresar:focus { background: #F1E1E0; color: #6E1512; }
+        .btn-principal { background: #8B1D19; color: #FFFFFF; font-weight: 700; border-radius: 6px; padding: .8rem 2rem; font-size: 1.1rem; }
+        .btn-principal:hover, .btn-principal:focus { background: #6E1512; color: #FFFFFF; }
+        .portada { background: linear-gradient(120deg, #6E1512 0%, #8B1D19 50%, #A8172B 100%); }
+        .portada .tarjeta { background: #FFFFFF; border-radius: 18px; box-shadow: 0 20px 50px rgba(0, 0, 0, .35); }
+        .sello { width: 190px; height: 190px; border-radius: 50%; background: linear-gradient(160deg, #8B1D19, #5E120F); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(139, 29, 25, .35); }
+        .sello img { width: 125px; }
+        .portada h1 { color: #8B1D19; font-weight: 800; font-size: clamp(2rem, 4vw, 2.8rem); line-height: 1.15; }
+        .portada .lead { color: #495057; font-size: 1.15rem; }
+        .etiqueta { display: inline-block; color: #8B1D19; background: #FFFFFF; border: 1px solid #E4C3C1; border-radius: 20px; padding: .25rem .9rem; font-size: .85rem; font-weight: 600; }
+        .titulo-seccion { color: #8B1D19; font-weight: 800; }
+        .linea-titulo { width: 60px; height: 4px; background: #C41230; border-radius: 2px; }
+        .marco-carrusel { background: #4A0E0C; border-radius: 14px; padding: 8px; max-width: 1000px; margin: 0 auto; }
+        .marco-carrusel .carousel-inner { border-radius: 10px; }
+        .fondo-gris { background: #F5F5F6; }
+        .pasos li { display: flex; gap: 1.5rem; padding: 1.1rem 0; border-bottom: 1px solid #DCDCDC; }
+        .pasos li:first-child { border-top: 1px solid #DCDCDC; }
+        .pasos .numero { color: #C41230; font-weight: 800; font-size: 1.1rem; min-width: 2rem; }
+        .pasos h3 { color: #8B1D19; font-weight: 700; margin-bottom: .2rem; font-size: 1.05rem; }
+        .pie { background: #1F1F1F; color: #CFCFCF; font-size: .9rem; }
+        .pie strong { color: #FFFFFF; }
+        .pie .escudo-pie { height: 64px; }
+        @media (max-width: 575.98px) {
+            .barra img { height: 42px; }
+            .barra .nombre { font-size: .9rem; }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="barra py-2" aria-label="Encabezado municipal">
+        <div class="container d-flex align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <img src="{% static 'images/logo_blanco.png' %}" alt="Escudo de la Ilustre Municipalidad de La Serena">
+                <div class="nombre">Ilustre Municipalidad de La Serena<small>Sistema de Gestión de Resultados</small></div>
+            </div>
+            {% if url_panel %}
+            <a class="btn btn-ingresar text-nowrap" href="{{ url_panel }}">Ir a mi panel</a>
+            {% else %}
+            <a class="btn btn-ingresar" href="{% url 'usuariosApp:login' %}">Ingresar</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <header class="portada py-4 py-lg-5">
+        <div class="container">
+            <div class="tarjeta p-4 p-lg-5">
+                <div class="row g-4 align-items-center">
+                    <div class="col-lg-8">
+                        <span class="etiqueta mb-3">Uso exclusivo de funcionarios municipales</span>
+                        <h1 class="mt-3 mb-3">Sistema de Gestión de Resultados</h1>
+                        <div class="linea-titulo mb-3"></div>
+                        <p class="lead mb-4">Registro, seguimiento y evaluación de la gestión de las delegaciones municipales, con información oportuna para acompañar a los equipos.</p>
+                        {% if url_panel %}
+                        <a class="btn btn-principal" href="{{ url_panel }}">Ir a mi panel</a>
+                        {% else %}
+                        <a class="btn btn-principal" href="{% url 'usuariosApp:login' %}">Ingresar al sistema</a>
+                        {% endif %}
+                    </div>
+                    <div class="col-lg-4 d-none d-lg-flex justify-content-center">
+                        <div class="sello"><img src="{% static 'images/logo_blanco.png' %}" alt=""></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="py-5" aria-labelledby="titulo-sobre">
+            <div class="container">
+                <div class="row g-5 align-items-start">
+                    <div class="col-lg-4">
+                        <h2 class="titulo-seccion mb-2" id="titulo-sobre">Sobre el sistema</h2>
+                        <div class="linea-titulo mb-3"></div>
+                    </div>
+                    <div class="col-lg-8">
+                        <p class="fs-5 mb-3">El Sistema de Gestión de Resultados centraliza en una sola plataforma el registro, seguimiento y evaluación del trabajo que realizan las delegaciones municipales en los territorios.</p>
+                        <p class="text-muted mb-0">Su propósito es contar con información oportuna y confiable para acompañar a los equipos, controlar los compromisos adquiridos con los vecinos y medir la gestión de forma justa, considerando los días hábiles, las ausencias justificadas y las metas de cada período.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-5 fondo-gris" aria-labelledby="titulo-funciona">
+            <div class="container">
+                <div class="row g-5">
+                    <div class="col-lg-4">
+                        <h2 class="titulo-seccion mb-2" id="titulo-funciona">Cómo funciona</h2>
+                        <div class="linea-titulo mb-3"></div>
+                        <p class="text-muted">Acompaña cada atención desde que se registra hasta que se refleja en los resultados.</p>
+                    </div>
+                    <div class="col-lg-8">
+                        <ol class="list-unstyled pasos mb-0">
+                            <li><span class="numero" aria-hidden="true">01</span><div><h3>Registra la gestión en terreno</h3><p class="text-muted mb-0">Actividades, gestiones y atenciones a vecinos y organizaciones, respaldadas con evidencia fotográfica.</p></div></li>
+                            <li><span class="numero" aria-hidden="true">02</span><div><h3>Valida lo realizado</h3><p class="text-muted mb-0">Cada evidencia se revisa antes de sumar al avance, para que los resultados reflejen trabajo comprobado.</p></div></li>
+                            <li><span class="numero" aria-hidden="true">03</span><div><h3>Da seguimiento a los compromisos</h3><p class="text-muted mb-0">Controla plazos y estados de lo comprometido con la comunidad, y alerta cuando algo está por vencer.</p></div></li>
+                            <li><span class="numero" aria-hidden="true">04</span><div><h3>Mide el cumplimiento de metas</h3><p class="text-muted mb-0">Calcula indicadores y semáforo por período según los umbrales definidos por la institución.</p></div></li>
+                            <li><span class="numero" aria-hidden="true">05</span><div><h3>Entrega informes trazables</h3><p class="text-muted mb-0">Genera informes exportables a Excel y deja registro de auditoría de las operaciones relevantes.</p></div></li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-5" aria-labelledby="titulo-informa">
+            <div class="container">
+                <h2 class="titulo-seccion mb-2" id="titulo-informa">La Serena informa</h2>
+                <div class="linea-titulo mb-3"></div>
+                <p class="text-muted mb-4">Campañas y avisos vigentes de la Ilustre Municipalidad de La Serena.</p>
+                <div class="marco-carrusel shadow">
+                    <div id="carruselMunicipal" class="carousel slide" data-bs-ride="carousel">
+                        <div class="carousel-indicators">
+                            <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Diapositiva 1"></button>
+                            <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="1" aria-label="Diapositiva 2"></button>
+                            <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="2" aria-label="Diapositiva 3"></button>
+                            <button type="button" data-bs-target="#carruselMunicipal" data-bs-slide-to="3" aria-label="Diapositiva 4"></button>
+                        </div>
+                        <div class="carousel-inner">
+                            <div class="carousel-item active" data-bs-interval="4000">
+                                <img src="{% static 'images/inicio/permiso_circulacion.png' %}" class="d-block w-100" alt="Permiso de Circulación">
+                            </div>
+                            <div class="carousel-item" data-bs-interval="4000">
+                                <img src="{% static 'images/inicio/plan_seguridad.png' %}" class="d-block w-100" alt="Plan Comunal de Seguridad Pública">
+                            </div>
+                            <div class="carousel-item" data-bs-interval="4000">
+                                <img src="{% static 'images/inicio/aseo.png' %}" class="d-block w-100" alt="Derechos de Aseo Domiciliario">
+                            </div>
+                            <div class="carousel-item" data-bs-interval="4000">
+                                <img src="{% static 'images/inicio/patrimonio.png' %}" class="d-block w-100" alt="La Serena, patrimonio que enamora">
+                            </div>
+                        </div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#carruselMunicipal" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Anterior</span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#carruselMunicipal" data-bs-slide="next">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="visually-hidden">Siguiente</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="pie py-4">
+        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <img src="{% static 'images/logo_blanco.png' %}" class="escudo-pie" alt="Escudo de la Ilustre Municipalidad de La Serena">
+                <div><strong>Ilustre Municipalidad de La Serena</strong><br>© 2026 Sistema de Gestión de Resultados</div>
+            </div>
+            <div class="text-md-end">Sistema de uso interno. El acceso queda registrado.</div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -12,9 +12,10 @@ from monitoreoApp.models import Meta, Indicador, Alerta
 from monitoreoApp.views import estado_desviacion, resumen_indicadores
 from monitoreoApp.services import dias_aviso_vencimiento, registrar_incumplimiento
 from .filters import ActividadFilter
+from django.urls import reverse
 from config.utils import recordar_filtros, url_con_filtros, url_listado_actividades, delegacion_del_delegado
 from tuboApp.models import Compromiso
-from config.utils import puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias, rol_usuario, validar_imagen_evidencia
+from config.utils import con_marca_aprobada, rechazar_si_aprobada, puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias, rol_usuario, validar_imagen_evidencia
 from django.db import transaction
 from config.utils import validar_evidencia_no_duplicada
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -127,7 +128,7 @@ def dashboard_profesional(request):
 @role_required('Profesional')
 def listar_actividades(request):
     profesional_actual = request.user.profesional
-    propias = Actividad.objects.filter(id_profesional=profesional_actual).prefetch_related('gestiones__tipo_gestion').order_by('-fecha_registro')
+    propias = con_marca_aprobada(Actividad.objects.filter(id_profesional=profesional_actual)).prefetch_related('gestiones__tipo_gestion').order_by('-fecha_registro')
     filtro = ActividadFilter(request.GET, queryset=propias, ocultar=('delegacion', 'funcionario'))
     recordar_filtros(request, 'actividadApp:listar_actividades')
 
@@ -193,6 +194,9 @@ def registrar_actividad(request, actividad_id=None):
 def editar_actividad(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
     validar_acceso_actividad(request.user, actividad)
+    bloqueo = rechazar_si_aprobada(request, actividad, 'actividadApp:listar_actividades')
+    if bloqueo:
+        return bloqueo
     if request.method == 'POST':
         datos_antiguos = model_to_dict(actividad)
         form = ActividadForm(request.POST, instance=actividad)
@@ -297,6 +301,9 @@ def registrar_evidencia(request, actividad_id):
 def desactivar_actividad(request, codigo_unico):
     actividad = get_object_or_404(Actividad, codigo_unico=codigo_unico)
     validar_acceso_actividad(request.user, actividad)
+    bloqueo = rechazar_si_aprobada(request, actividad, 'actividadApp:listar_actividades')
+    if bloqueo:
+        return bloqueo
     datos_antiguos = model_to_dict(actividad)
     actividad.estado = not actividad.estado 
     actividad.save()
@@ -314,6 +321,9 @@ def actualizar_estado_tubo(request, id_compromiso):
 
         if not puede_modificar_compromiso(request.user, compromiso):
             raise PermissionDenied('No tienes permiso para modificar este compromiso: está asignado a otro funcionario.')
+        bloqueo = rechazar_si_aprobada(request, compromiso.id_actividad, 'actividadApp:dashboard_profesional')
+        if bloqueo:
+            return bloqueo
 
         nuevo_estado = request.POST.get('estado_progreso')
         registrar_incumplimiento(compromiso)
@@ -352,7 +362,7 @@ login_required
 @role_required('Delegado')
 def actividades_delegacion(request):
     delegacion_actual = request.user.profesional.id_delegacion
-    del_equipo = Actividad.objects.filter(id_profesional__id_delegacion=delegacion_actual).order_by('-fecha_registro')
+    del_equipo = con_marca_aprobada(Actividad.objects.filter(id_profesional__id_delegacion=delegacion_actual)).order_by('-fecha_registro')
     equipo = Profesional.objects.filter(id_delegacion=delegacion_actual, estado=True)
     filtro = ActividadFilter(request.GET, queryset=del_equipo, profesionales=equipo, ocultar=('delegacion',))
     recordar_filtros(request, 'actividadApp:actividades_delegacion')
@@ -426,6 +436,9 @@ def registrar_actividad_delegado(request):
 def editar_actividad_delegado(request, id_actividad):
     delegacion_actual = request.user.profesional.id_delegacion
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad, id_profesional__id_delegacion=delegacion_actual)
+    bloqueo = rechazar_si_aprobada(request, actividad, 'actividadApp:actividades_delegacion')
+    if bloqueo:
+        return bloqueo
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(actividad)
@@ -470,6 +483,9 @@ def cambiar_estado_actividad_delegado(request, id_actividad):
     if request.method == 'POST':
         delegacion_actual = request.user.profesional.id_delegacion
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad, id_profesional__id_delegacion=delegacion_actual)
+        bloqueo = rechazar_si_aprobada(request, actividad, 'actividadApp:actividades_delegacion')
+        if bloqueo:
+            return bloqueo
         
         try:
             with transaction.atomic():
@@ -492,6 +508,9 @@ def actualizar_progreso_actividad(request, id_actividad):
     if request.method == 'POST':
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
         validar_acceso_actividad(request.user, actividad)
+        bloqueo = rechazar_si_aprobada(request, actividad, 'actividadApp:listar_actividades')
+        if bloqueo:
+            return bloqueo
         
         # NUEVO ESCUDO: Verificamos que no esté finalizada antes de intentar cambiarla
         try:
@@ -927,6 +946,10 @@ def crear_evidencia(request):
 @role_required('Administrador', 'Profesional')
 def editar_evidencia(request, id_evidencia):
     evidencia = get_object_or_404(Evidencia, pk=id_evidencia)
+    validar_acceso_actividad(request.user, evidencia.id_actividad)
+    bloqueo = rechazar_si_aprobada(request, evidencia.id_actividad, 'actividadApp:lista_evidencias')
+    if bloqueo:
+        return bloqueo
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(evidencia)
@@ -954,6 +977,10 @@ def editar_evidencia(request, id_evidencia):
 def cambiar_estado_evidencia(request, id_evidencia):
     if request.method == 'POST':
         evidencia = get_object_or_404(Evidencia, pk=id_evidencia)
+        validar_acceso_actividad(request.user, evidencia.id_actividad)
+        bloqueo = rechazar_si_aprobada(request, evidencia.id_actividad, 'actividadApp:lista_evidencias')
+        if bloqueo:
+            return bloqueo
         
         with transaction.atomic():
             datos_antiguos = model_to_dict(evidencia)
@@ -1188,6 +1215,9 @@ def lista_gestiones(request, id_actividad):
 def crear_gestion(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
     validar_acceso_actividad(request.user, actividad)
+    bloqueo = rechazar_si_aprobada(request, actividad, reverse('actividadApp:lista_gestiones', args=[actividad.pk]))
+    if bloqueo:
+        return bloqueo
     
     if request.method == 'POST':
         form = GestionActividadForm(request.POST)
@@ -1224,6 +1254,9 @@ def crear_gestion(request, id_actividad):
 def editar_gestion(request, id_gestion):
     gestion = get_object_or_404(GestionActividad, id_gestion=id_gestion)
     validar_acceso_actividad(request.user, gestion.actividad)
+    bloqueo = rechazar_si_aprobada(request, gestion.actividad, reverse('actividadApp:lista_gestiones', args=[gestion.actividad_id]))
+    if bloqueo:
+        return bloqueo
     
     if request.method == 'POST':
         datos_antiguos = model_to_dict(gestion) # --- AUDITORÍA ---
@@ -1255,6 +1288,9 @@ def cambiar_estado_gestion(request, id_gestion):
     if request.method == 'POST':
         gestion = get_object_or_404(GestionActividad, id_gestion=id_gestion)
         validar_acceso_actividad(request.user, gestion.actividad)
+        bloqueo = rechazar_si_aprobada(request, gestion.actividad, reverse('actividadApp:lista_gestiones', args=[gestion.actividad_id]))
+        if bloqueo:
+            return bloqueo
         
         with transaction.atomic():
             datos_antiguos = model_to_dict(gestion) # --- AUDITORÍA ---
@@ -1422,6 +1458,9 @@ def cambiar_estado_actividad_coordinador(request, id_actividad):
     """ Vista exclusiva para que el Coordinador cambie el estado mediante POST """
     if request.method == 'POST':
         actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
+        bloqueo = rechazar_si_aprobada(request, actividad, 'tuboApp:listar_todas')
+        if bloqueo:
+            return bloqueo
         
         with transaction.atomic():
             from django.forms.models import model_to_dict

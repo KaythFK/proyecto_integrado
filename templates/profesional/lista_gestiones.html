@@ -58,7 +58,7 @@
                         {% if ges.fecha_ejecucion %}<small class="text-muted d-block">Ejecución: {{ ges.fecha_ejecucion|date:"d/m/Y" }}</small>{% endif %}
                     </td>
                     <td><span class="badge bg-dark">{{ ges.actividad.codigo_unico }}</span></td>
-                    <td><span class="badge bg-secondary">{{ ges.tipo_gestion.nombre }}</span></td>
+                    <td><span class="badge bg-secondary">{{ ges.tipo_gestion.nombre }}</span>{% if ges.subtipo_gestion %}<div class="small text-muted mt-1">{{ ges.subtipo_gestion.nombre }}</div>{% endif %}</td>
                     <td><small class="text-muted">{{ ges.descripcion|truncatechars:60 }}</small></td>
                     <td class="text-center">
                         {% if ges.estado %}
@@ -69,17 +69,16 @@
                     </td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                            <!-- Botón Editar -->
-                            <a href="{% url 'actividadApp:editar_gestion' ges.id_gestion %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" title="Editar Gestión">
-                                <i class="bi bi-pencil-square"></i> Editar
-                            </a>
-                            
-                            <!-- Botón Ver Actividad -->
-                            <a href="{% url 'actividadApp:lista_gestiones' ges.actividad.id_actividad %}" class="btn btn-sm btn-outline-dark px-3 shadow-sm redondeado-6" title="Ver Actividad">
-                                <i class="bi bi-briefcase"></i> Ver actividad
-                            </a>
+                            <div class="dropdown">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i> Acciones
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
+                                    <li><a href="{% url 'actividadApp:editar_gestion' ges.id_gestion %}" class="dropdown-item fw-semibold text-dark py-2" title="Editar Gestión"><i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar</a></li>
+                                    <li><a href="{% url 'actividadApp:lista_gestiones' ges.actividad.id_actividad %}" class="dropdown-item fw-semibold text-dark py-2" title="Ver Actividad"><i class="bi bi-briefcase me-2 texto-guinda"></i>Ver actividad</a></li>
+                                </ul>
+                            </div>
 
-                            <!-- Switch de Estado (Igual que en las actividades) -->
                             <div class="d-flex flex-column align-items-center">
                                 <span class="badge mb-1 {% if ges.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-065">
                                     {% if ges.estado %}Activo{% else %}Inactivo{% endif %}

@@ -678,13 +678,14 @@ class ValidacionForm(EtiquetaFuncionarioMixin, forms.ModelForm):
 class GestionActividadForm(forms.ModelForm):
     class Meta:
         model = GestionActividad
-        fields = ['tipo_gestion', 'fecha_ejecucion', 'descripcion']
+        fields = ['tipo_gestion', 'subtipo_gestion', 'fecha_ejecucion', 'descripcion']
         
         widgets = {
             'tipo_gestion': forms.Select(attrs={
                 'class': 'form-select',
                 'required': True
             }),
+            'subtipo_gestion': forms.Select(attrs={'class': 'form-select'}),
             'fecha_ejecucion': forms.DateInput(attrs={
                 'class': 'form-control', 
                 'type': 'date'
@@ -698,6 +699,7 @@ class GestionActividadForm(forms.ModelForm):
         
         labels = {
             'tipo_gestion': 'Tipo de Gestión (*)',
+            'subtipo_gestion': 'Subtipo de Gestión',
             'fecha_ejecucion': 'Fecha de Ejecución (Opcional)',
             'descripcion': 'Descripción Detallada (*)'
         }
@@ -705,3 +707,14 @@ class GestionActividadForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         limitar_a_opciones_activas(self.fields['tipo_gestion'], self.instance.tipo_gestion_id)
+        limitar_a_opciones_activas(self.fields['subtipo_gestion'], self.instance.subtipo_gestion_id)
+        self.fields['subtipo_gestion'].queryset = self.fields['subtipo_gestion'].queryset.select_related('tipo_gestion')
+        self.fields['subtipo_gestion'].empty_label = 'Sin subtipo'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tipo = cleaned_data.get('tipo_gestion')
+        subtipo = cleaned_data.get('subtipo_gestion')
+        if tipo and subtipo and subtipo.tipo_gestion_id != tipo.pk:
+            self.add_error('subtipo_gestion', f'El subtipo "{subtipo.nombre}" no pertenece al tipo de gestión "{tipo.nombre}".')
+        return cleaned_data

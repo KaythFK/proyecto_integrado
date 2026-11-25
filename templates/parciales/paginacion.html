@@ -1,0 +1,30 @@
+{% if pagina.paginator.count %}
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-4 mb-4 gap-2">
+    <small class="text-muted">Mostrando <strong>{{ pagina.start_index }}–{{ pagina.end_index }}</strong> de <strong>{{ pagina.paginator.count }}</strong> registros</small>
+    {% if pagina.paginator.num_pages > 1 %}
+    <nav aria-label="Paginación">
+        <ul class="pagination pagination-sm paginacion-sgr mb-0">
+            {% if pagina.has_previous %}
+                <li class="page-item"><a class="page-link fw-bold" href="?{% if parametros %}{{ parametros }}&{% endif %}page={{ pagina.previous_page_number }}">Anterior</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+            {% endif %}
+
+            {% for numero in pagina.paginator.page_range %}
+                {% if pagina.number == numero %}
+                    <li class="page-item active" aria-current="page"><span class="page-link">{{ numero }}</span></li>
+                {% elif numero >= pagina.number|add:'-2' and numero <= pagina.number|add:'2' %}
+                    <li class="page-item"><a class="page-link" href="?{% if parametros %}{{ parametros }}&{% endif %}page={{ numero }}">{{ numero }}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagina.has_next %}
+                <li class="page-item"><a class="page-link fw-bold" href="?{% if parametros %}{{ parametros }}&{% endif %}page={{ pagina.next_page_number }}">Siguiente</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endif %}

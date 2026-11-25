@@ -61,17 +61,16 @@
                     
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-2 flex-nowrap">
-                            <a href="{% url 'comunidadApp:detalle_organizacion' org.id_organizacion %}"
-                               class="btn btn-sm btn-outline-dark px-2 shadow-sm redondeado-6 text-nowrap"
-                               title="Ver ficha y nómina de vecinos">
-                                <i class="bi bi-people-fill"></i> Nómina
-                            </a>
-                            <a href="{% url 'comunidadApp:editar_organizacion' org.id_organizacion %}"
-                               class="btn btn-sm text-white px-2 shadow-sm fondo-guinda redondeado-6 text-nowrap"
-                               title="Editar">
-                                <i class="bi bi-pencil-square"></i> Editar
-                            </a>
-                            
+                            <div class="dropdown">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i> Acciones
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
+                                    <li><a href="{% url 'comunidadApp:detalle_organizacion' org.id_organizacion %}" class="dropdown-item fw-semibold text-dark py-2" title="Ver ficha y nómina de vecinos"><i class="bi bi-people-fill me-2 texto-guinda"></i>Nómina</a></li>
+                                    <li><a href="{% url 'comunidadApp:editar_organizacion' org.id_organizacion %}" class="dropdown-item fw-semibold text-dark py-2" title="Editar"><i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar</a></li>
+                                </ul>
+                            </div>
+
                             <div class="d-flex flex-column align-items-center">
                                 <span class="badge mb-1 {% if org.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
                                     {% if org.estado %}Activo{% else %}Inactivo{% endif %}
@@ -93,46 +92,7 @@
             </tbody>
         </table>
     </div>
-
-    {% if page_obj and page_obj.paginator.num_pages > 1 %}
-    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-4 mb-5 gap-2">
-        <small class="text-muted">
-            Página <strong>{{ page_obj.number }}</strong> de <strong>{{ page_obj.paginator.num_pages }}</strong>
-            ({{ page_obj.paginator.count }} registros)
-        </small>
-        <nav aria-label="Paginación de organizaciones">
-            <ul class="pagination pagination-sm mb-0">
-                {% if page_obj.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link texto-guinda fw-bold" href="?page={{ page_obj.previous_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">Anterior</a>
-                    </li>
-                {% else %}
-                    <li class="page-item disabled"><span class="page-link text-muted">Anterior</span></li>
-                {% endif %}
-
-                {% for num in page_obj.paginator.page_range %}
-                    {% if page_obj.number == num %}
-                        <li class="page-item active">
-                            <span class="page-link fondo-guinda border-0 text-white fw-bold">{{ num }}</span>
-                        </li>
-                    {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
-                        <li class="page-item">
-                            <a class="page-link texto-guinda" href="?page={{ num }}{% if query_string %}&{{ query_string }}{% endif %}">{{ num }}</a>
-                        </li>
-                    {% endif %}
-                {% endfor %}
-
-                {% if page_obj.has_next %}
-                    <li class="page-item">
-                        <a class="page-link texto-guinda fw-bold" href="?page={{ page_obj.next_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">Siguiente</a>
-                    </li>
-                {% else %}
-                    <li class="page-item disabled"><span class="page-link text-muted">Siguiente</span></li>
-                {% endif %}
-            </ul>
-        </nav>
-    </div>
-    {% endif %}
+    {% include 'parciales/paginacion.html' %}
 </div>
 
 <!-- Modal Estado (Reciclado de Actividades) -->
