@@ -846,7 +846,10 @@ def lista_celebraciones(request):
     tipo_id = (request.GET.get('tipo') or '').strip()
     es_gestor = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
 
-    celebraciones = Celebracion.objects.select_related('tipo').order_by('-estado', '-fecha_tentativa', '-id_celebracion')
+    celebraciones = (
+        Celebracion.objects.select_related('tipo', 'responsable_global')
+        .order_by('-estado', '-fecha_tentativa', '-id_celebracion')
+    )
 
     # CA3 (KAN-400): Delegaciones y profesionales visualizan solo celebraciones globales activas
     if not es_gestor:
@@ -859,7 +862,9 @@ def lista_celebraciones(request):
         celebraciones = celebraciones.filter(
             Q(nombre__icontains=query) |
             Q(descripcion__icontains=query) |
-            Q(tipo__nombre__icontains=query)
+            Q(tipo__nombre__icontains=query) |
+            Q(responsable_global__nombres__icontains=query) |
+            Q(responsable_global__apellido_paterno__icontains=query)
         ).distinct()
 
     catalogos = CatalogoCelebracion.objects.filter(estado=True).order_by('nombre')
@@ -883,6 +888,7 @@ def crear_celebracion(request):
                 with transaction.atomic():
                     celebracion = form.save(commit=False)
                     celebracion.estado = True
+                    celebracion.responsable_global = getattr(request.user, 'profesional', None)
                     celebracion.save()
                     registrar_auditoria(request, "CREACION", "Celebracion", celebracion)
 
@@ -900,11 +906,11 @@ def crear_celebracion(request):
         'titulo': 'Crear Celebración Global',
     })
 
-
 @login_required
 @role_required('Administrador', 'Coordinador')
 def editar_celebracion(request, id_celebracion):
     celebracion = get_object_or_404(Celebracion, pk=id_celebracion)
+    profesional_actual = getattr(request.user, 'profesional', None)
 
     if request.method == 'POST':
         datos_antiguos = model_to_dict(celebracion)
@@ -912,7 +918,10 @@ def editar_celebracion(request, id_celebracion):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    celebracion_guardada = form.save()
+                    celebracion_guardada = form.save(commit=False)
+                    if not celebracion_guardada.responsable_global and profesional_actual:
+                        celebracion_guardada.responsable_global = profesional_actual
+                    celebracion_guardada.save()
                     registrar_auditoria(request, "EDICION", "Celebracion", celebracion_guardada, datos_antiguos)
 
                 messages.success(request, 'La celebración global fue actualizada correctamente.')
@@ -928,7 +937,6 @@ def editar_celebracion(request, id_celebracion):
         'form': form,
         'titulo': 'Editar Celebración Global',
     })
-
 
 @login_required
 @role_required('Administrador', 'Coordinador')
@@ -990,7 +998,7 @@ def panel_celebraciones_delegacion(request):
 
     celebraciones_globales = (
         Celebracion.objects.filter(estado=True, tipo__estado=True)
-        .select_related('tipo')
+        .select_related('tipo', 'responsable_global')
         .order_by('fecha_tentativa', '-id_celebracion')
     )
 
@@ -998,7 +1006,9 @@ def panel_celebraciones_delegacion(request):
         celebraciones_globales = celebraciones_globales.filter(
             Q(nombre__icontains=query) |
             Q(descripcion__icontains=query) |
-            Q(tipo__nombre__icontains=query)
+            Q(tipo__nombre__icontains=query) |
+            Q(responsable_global__nombres__icontains=query) |
+            Q(responsable_global__apellido_paterno__icontains=query)
         ).distinct()
 
     locales_por_celebracion = {}
@@ -1006,7 +1016,7 @@ def panel_celebraciones_delegacion(request):
         locales_qs = CelebracionDelegacion.objects.filter(
             delegacion=delegacion,
             celebracion__in=celebraciones_globales,
-        ).select_related('celebracion')
+        ).select_related('celebracion', 'responsable_delegacion')
         locales_por_celebracion = {loc.celebracion_id: loc for loc in locales_qs}
 
     items_delegacion = []
@@ -1018,6 +1028,7 @@ def panel_celebraciones_delegacion(request):
             'activa': bool(loc and loc.activa),
             'fecha_ejecucion': loc.fecha_ejecucion if loc else None,
             'lugar': loc.lugar if loc else '',
+            'responsable_delegacion': loc.responsable_delegacion if loc else None,
         })
 
     delegaciones_disponibles = (
@@ -1040,6 +1051,7 @@ def toggle_celebracion_delegacion(request, id_celebracion):
     if request.method == 'POST':
         es_gestor_global = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
         delegacion = _obtener_delegacion_activa_sesion(request)
+        profesional_actual = getattr(request.user, 'profesional', None)
 
         if not delegacion and not es_gestor_global:
             messages.error(request, 'No tienes una delegación asignada.')
@@ -1060,8 +1072,11 @@ def toggle_celebracion_delegacion(request, id_celebracion):
             datos_antiguos = model_to_dict(local)
             nuevo_estado = not local.activa
 
-            if nuevo_estado and not local.fecha_ejecucion:
-                local.fecha_ejecucion = celebracion.fecha_tentativa
+            if nuevo_estado:
+                if not local.fecha_ejecucion:
+                    local.fecha_ejecucion = celebracion.fecha_tentativa
+                if profesional_actual:
+                    local.responsable_delegacion = profesional_actual
 
             local.activa = nuevo_estado
             local.save()
@@ -1081,6 +1096,7 @@ def toggle_celebracion_delegacion(request, id_celebracion):
 def configurar_celebracion_delegacion(request, id_celebracion):
     es_gestor_global = request.user.groups.filter(name__in=['Administrador', 'Coordinador']).exists()
     delegacion = _obtener_delegacion_activa_sesion(request)
+    profesional_actual = getattr(request.user, 'profesional', None)
 
     if not delegacion and not es_gestor_global:
         messages.error(request, 'No tienes una delegación asignada.')
@@ -1106,7 +1122,10 @@ def configurar_celebracion_delegacion(request, id_celebracion):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    local_guardado = form.save()
+                    local_guardado = form.save(commit=False)
+                    if local_guardado.activa and not local_guardado.responsable_delegacion and profesional_actual:
+                        local_guardado.responsable_delegacion = profesional_actual
+                    local_guardado.save()
                     registrar_auditoria(request, "EDICION", "CelebracionDelegacion", local_guardado, datos_antiguos)
 
                 messages.success(
@@ -1127,7 +1146,6 @@ def configurar_celebracion_delegacion(request, id_celebracion):
         'delegacion': delegacion,
         'titulo': f'Configurar Evento Local — {celebracion.nombre}',
     })
-
 
 def _obtener_delegacion_operativa(request):
     """Obtiene la delegación activa para Delegado, Profesional o gestores globales."""

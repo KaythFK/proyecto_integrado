@@ -203,15 +203,24 @@ class CatalogoCelebracion(models.Model):
 
 class Celebracion(models.Model):
     id_celebracion = models.AutoField(primary_key=True)
-    nombre = models.CharField(max_length=200) 
+    nombre = models.CharField(max_length=200)
     tipo = models.ForeignKey('CatalogoCelebracion', on_delete=models.DO_NOTHING, db_column='id_catalogo')
+    responsable_global = models.ForeignKey(
+        'administracionApp.Profesional',
+        on_delete=models.DO_NOTHING,
+        db_column='id_responsable_global',
+        blank=True,
+        null=True,
+        related_name='celebraciones_globales_a_cargo',
+        verbose_name='Responsable Global',
+    )
     descripcion = models.TextField(blank=True, null=True)
     fecha_tentativa = models.DateField()
     estado = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.nombre} ({self.tipo.nombre})"
-    
+
     class Meta:
         db_table = 'celebracion_global'
         verbose_name_plural = 'Celebraciones Globales'
@@ -221,14 +230,23 @@ class CelebracionDelegacion(models.Model):
     id_cel_delegacion = models.AutoField(primary_key=True)
     celebracion = models.ForeignKey('Celebracion', on_delete=models.CASCADE, db_column='id_celebracion')
     delegacion = models.ForeignKey('administracionApp.Delegacion', on_delete=models.DO_NOTHING, db_column='id_delegacion')
-    
-    activa = models.BooleanField(default=False) 
-    fecha_ejecucion = models.DateField(blank=True, null=True) 
+    responsable_delegacion = models.ForeignKey(
+        'administracionApp.Profesional',
+        on_delete=models.DO_NOTHING,
+        db_column='id_responsable_delegacion',
+        blank=True,
+        null=True,
+        related_name='celebraciones_delegacion_a_cargo',
+        verbose_name='Responsable de Delegación',
+    )
+
+    activa = models.BooleanField(default=False)
+    fecha_ejecucion = models.DateField(blank=True, null=True)
     lugar = models.CharField(max_length=200, blank=True, null=True)
-    
+
     def __str__(self):
         return f"{self.delegacion} - {self.celebracion.nombre}"
-        
+
     class Meta:
         db_table = 'celebracion_delegacion'
         verbose_name_plural = 'Celebraciones por Delegación'
@@ -238,7 +256,6 @@ class CelebracionDelegacion(models.Model):
                 name='uq_celebracion_delegacion',
             )
         ]
-
 
 class BeneficiarioCelebracion(models.Model):
     id_beneficiario_cel = models.AutoField(primary_key=True)

@@ -28,7 +28,7 @@
     <form method="GET" class="row g-2 mb-4">
         <div class="col-12 col-md-6">
             <input type="text" name="q" value="{{ query }}" class="form-control borde-guinda"
-                   placeholder="Buscar por nombre o descripción...">
+                   placeholder="Buscar por nombre, descripción o responsable...">
         </div>
         <div class="col-12 col-md-4">
             <select name="tipo" class="form-select borde-guinda">
@@ -53,6 +53,7 @@
                         <tr>
                             <th>Celebración</th>
                             <th class="text-center">Tipo</th>
+                            <th>Responsable Global</th>
                             <th class="text-center">Fecha Tentativa</th>
                             <th class="text-center">Estado</th>
                             {% if es_gestor %}
@@ -69,6 +70,15 @@
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-info text-dark">{{ cel.tipo.nombre }}</span>
+                            </td>
+                            <td>
+                                {% if cel.responsable_global %}
+                                    <span class="small fw-semibold">
+                                        {{ cel.responsable_global.nombres }} {{ cel.responsable_global.apellido_paterno }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted small">Sin asignar</span>
+                                {% endif %}
                             </td>
                             <td class="text-center fw-semibold">
                                 {{ cel.fecha_tentativa|date:"d/m/Y" }}
@@ -101,7 +111,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if es_gestor %}5{% else %}4{% endif %}" class="text-center py-4 text-muted">
+                            <td colspan="{% if es_gestor %}6{% else %}5{% endif %}" class="text-center py-4 text-muted">
                                 No hay celebraciones globales registradas.
                             </td>
                         </tr>

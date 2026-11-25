@@ -10,10 +10,11 @@ from config.utils import (
     validar_organizacion_matriz,
     validar_fecha_no_pasada,
     limitar_a_opciones_activas,
+    configurar_campo_responsable,
 )
 from datetime import date
 from django.core.exceptions import ValidationError
-from administracionApp.models import Vecino
+from administracionApp.models import Vecino, Profesional
 from django import forms
 from django.core.exceptions import ValidationError
 from .models import CatalogoCelebracion, Celebracion
@@ -501,8 +502,6 @@ class CelebracionForm(forms.ModelForm):
 
     def clean_fecha_tentativa(self):
         fecha = self.cleaned_data.get('fecha_tentativa')
-        # Al crear valida siempre; al editar solo si cambiaron la fecha
-        # (para no bloquear editar la descripción de una celebración ya pasada)
         if fecha and (not self.instance.pk or fecha != self.instance.fecha_tentativa):
             return validar_fecha_no_pasada(fecha, 'La fecha tentativa')
         return fecha
@@ -559,7 +558,6 @@ class CelebracionDelegacionForm(forms.ModelForm):
             self.add_error('lugar', 'Debes indicar el lugar o recinto donde se realizará el evento.')
 
         return cleaned_data
-
 
 
 
