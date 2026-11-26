@@ -116,11 +116,11 @@
                         {% for it in items %}
                         <tr>
                             <td>#{{ it.id_item }}</td>
-                            <td class="fw-bold">{{ it.nombre }}</td>
+                            <td class="fw-bold">{{ it.nombre }}{% if it.cuenta_compromisos %} <span class="badge bg-secondary fw-normal ms-1" title="Los compromisos realizados del Tubo suman al avance de las metas de este ítem">Suma compromisos</span>{% endif %}</td>
                             <td>{% if it.estado %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-danger">Inactivo</span>{% endif %}</td>
                             <td class="text-center">
                                 <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
-                                    <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre|escapejs }}')"><i class="bi bi-pencil-square"></i> Editar</button>
+                                    <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6" onclick="abrirModalCatalogo('editar', 'item', '{{ it.id_item }}', '{{ it.nombre|escapejs }}', {{ it.cuenta_compromisos|yesno:'true,false' }})"><i class="bi bi-pencil-square"></i> Editar</button>
                                     
                                     <div class="d-flex flex-column align-items-center">
                                         <span class="badge mb-1 {% if it.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
@@ -363,6 +363,11 @@
                 <div class="modal-body p-4">
                     <label class="fw-bold mb-2">Nombre *</label>
                     <input type="text" name="nombre" id="inputNombre" class="form-control" required minlength="3" maxlength="100">
+                    <div class="form-check form-switch mt-3 d-none" id="bloqueCompromisos">
+                        <input class="form-check-input" type="checkbox" role="switch" name="cuenta_compromisos" id="inputCompromisos">
+                        <label class="form-check-label fw-semibold" for="inputCompromisos">Suma compromisos realizados del Tubo</label>
+                        <div class="form-text">Si se activa, cada compromiso del Tubo marcado como Realizado suma una vez al avance de las metas de este ítem, aunque su actividad no tenga evidencia aprobada.</div>
+                    </div>
                 </div>
                 <div class="modal-footer border-0 pb-4 d-flex justify-content-center gap-2 flex-wrap">
                     <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancelar</button>
@@ -472,7 +477,9 @@
 
 <script>
 // Función para el modal genérico (Servicios, Ítems, Gestiones, Celebraciones)
-function abrirModalCatalogo(accion, tipo, id_obj, nombre_actual) {
+function abrirModalCatalogo(accion, tipo, id_obj, nombre_actual, cuenta_compromisos) {
+    document.getElementById('bloqueCompromisos').classList.toggle('d-none', tipo !== 'item');
+    document.getElementById('inputCompromisos').checked = tipo === 'item' && cuenta_compromisos === true;
     document.getElementById('inputAccion').value = accion;
     document.getElementById('inputTipo').value = tipo; 
     document.getElementById('inputIdObj').value = id_obj;

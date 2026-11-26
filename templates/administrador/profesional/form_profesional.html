@@ -48,6 +48,15 @@
                             <div class="text-danger small fw-bold mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
+                    {% if es_creacion %}
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" name="enviar_credenciales" id="enviarCredenciales" checked>
+                            <label class="form-check-label fw-bold text-dark" for="enviarCredenciales">Enviar usuario y clave temporal por correo</label>
+                        </div>
+                        <div class="form-text">El profesional recibirá en su correo el usuario y una clave temporal que deberá cambiar en su primer ingreso. Si el envío falla, la clave se mostrará aquí para entregarla personalmente.</div>
+                    </div>
+                    {% endif %}
                 </div>
 
                 <!-- 2. FICHA LABORAL -->

@@ -74,10 +74,17 @@
                     <td class="text-center">
                         <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap">
                             
-                            <!-- Botón Editar estandarizado en rojo institucional sin ícono -->
-                            <a href="{% url 'administracionApp:editar_profesional' profesional.id_profesional %}" class="btn btn-sm text-white px-3 shadow-sm fondo-guinda redondeado-6">
-                                <i class="bi bi-pencil-square"></i> Editar
-                            </a>
+                            <div class="dropdown">
+                                <button class="btn btn-sm text-white px-3 shadow-sm fondo-guinda dropdown-toggle redondeado-6" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
+                                    <i class="bi bi-three-dots-vertical"></i> Acciones
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end menu-flotante shadow border-0 py-2">
+                                    <li><a href="{% url 'administracionApp:editar_profesional' profesional.id_profesional %}" class="dropdown-item fw-semibold text-dark py-2"><i class="bi bi-pencil-square me-2 texto-guinda"></i>Editar</a></li>
+                                    {% if profesional.estado and profesional.usuario_id %}
+                                    <li><button type="button" class="dropdown-item fw-semibold text-dark py-2" onclick="confirmarReenvio('{{ profesional.id_profesional }}', '{{ profesional.nombres|escapejs }} {{ profesional.apellido_paterno|escapejs }}', '{{ profesional.correo|escapejs }}')"><i class="bi bi-envelope-paper me-2 texto-guinda"></i>Reenviar credenciales</button></li>
+                                    {% endif %}
+                                </ul>
+                            </div>
                             
                             <div class="d-flex flex-column align-items-center">
                                 <span class="badge mb-1 {% if profesional.estado %}bg-success{% else %}bg-danger bg-opacity-50{% endif %} text-white texto-075">
@@ -131,8 +138,38 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalCredenciales" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white fondo-guinda">
+                <h5 class="modal-title fw-bold">Reenviar credenciales</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-1">Se generará una nueva clave temporal para</p>
+                <strong class="fs-4 text-dark text-break" id="credencialesNombre"></strong>
+                <p class="text-muted mt-3 mb-0">La clave anterior dejará de funcionar y la nueva se enviará a <strong id="credencialesCorreo"></strong>. Deberá cambiarla en su próximo ingreso.</p>
+            </div>
+            <div class="modal-footer d-flex justify-content-center gap-2 border-0 pb-4 flex-wrap">
+                <button type="button" class="btn btn-secondary fw-bold px-4 shadow-sm" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formCredenciales" method="POST" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn fw-bold px-4 text-white shadow-sm fondo-guinda">Sí, reenviar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Script -->
 <script>
+function confirmarReenvio(id, nombre, correo) {
+    document.getElementById('formCredenciales').action = "{% url 'administracionApp:reenviar_credenciales' 0 %}".replace('/0/', '/' + id + '/');
+    document.getElementById('credencialesNombre').innerText = nombre;
+    document.getElementById('credencialesCorreo').innerText = correo;
+    new bootstrap.Modal(document.getElementById('modalCredenciales')).show();
+}
+
 function confirmarCambio(event, id, nombre, estadoActualStr) {
     event.preventDefault(); 
     

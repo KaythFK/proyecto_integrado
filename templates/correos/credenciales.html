@@ -1,0 +1,36 @@
+<div style="font-family: Arial, Helvetica, sans-serif; max-width: 500px; margin: 40px auto; padding: 30px; border: 1px solid #dddddd; border-radius: 10px; text-align: center; background-color: #ffffff;">
+    <h2 style="color: #8B1D19;">Bienvenida/o al SGR</h2>
+
+    <p style="color: #555555; font-size: 16px;">
+        Hola {{ nombre }}, se creó tu cuenta en el Sistema de Gestión y Registro Territorial de la Ilustre Municipalidad de La Serena.
+    </p>
+
+    <table style="margin: 24px auto; border-collapse: collapse; font-size: 15px; text-align: left;">
+        <tr>
+            <td style="padding: 8px 14px; background-color: #f5f5f5; font-weight: bold; color: #333333;">Usuario</td>
+            <td style="padding: 8px 14px; color: #333333;">{{ usuario }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 14px; background-color: #f5f5f5; font-weight: bold; color: #333333;">Clave temporal</td>
+            <td style="padding: 8px 14px; color: #333333; font-family: Consolas, monospace; font-size: 16px;">{{ clave_temporal }}</td>
+        </tr>
+    </table>
+
+    <p style="margin: 30px 0;">
+        <a href="{{ enlace_ingreso }}" style="background-color: #8B1D19; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+            Ingresar al sistema
+        </a>
+    </p>
+
+    <p style="color: #777777; font-size: 14px;">
+        Al ingresar por primera vez el sistema te pedirá cambiar esta clave por una propia.
+    </p>
+
+    <p style="color: #999999; font-size: 12px; word-break: break-all;">
+        Si el botón no funciona, copia este enlace en tu navegador:<br>{{ enlace_ingreso }}
+    </p>
+
+    <p style="color: #999999; font-size: 13px;">
+        Si no esperabas este correo, comunícate con el administrador del sistema.
+    </p>
+</div>

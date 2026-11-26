@@ -3,6 +3,7 @@ from django.db.models import Max, Prefetch, Q
 from django.core.paginator import Paginator
 from .filters import AuditoriaFilter
 from usuariosApp.models import ClaveTemporal, asignar_rol
+from usuariosApp.correo import enviar_credenciales
 from administracionApp.models import Delegacion, Profesional, Cargo, CatalagoServicio, CatalagoItem, CatalagoAreaApoyo, Vecino, FotoPerfil, Periodo, Auditoria, CargoItem
 # --- IMPORTAMOS CatalogoTipoGestion ---
 from actividadApp.models import Actividad, CatalogoTipoGestion, CatalogoSubtipoGestion
@@ -330,13 +331,16 @@ def crear_profesional(request):
                     foto_archivo = request.FILES.get('foto_perfil')
                     if foto_archivo:
                         FotoPerfil.objects.create(usuario=nuevo_usuario, foto=foto_archivo)
-                    
+
+                creado = f'Profesional {profesional.nombres} creado con rol "{grupo_seleccionado.name}". '
+                if request.POST.get('enviar_credenciales') == 'on':
+                    entregar_credenciales(request, profesional, email, clave_temporal, creado)
+                else:
                     messages.success(
-                        request, 
-                        f'Profesional {profesional.nombres} creado con rol "{grupo_seleccionado.name}". '
-                        f'Usuario: {email} | Clave temporal: [{clave_temporal}]. Deberá cambiarla en su primer ingreso.'
+                        request,
+                        f'{creado}Usuario: {email} | Clave temporal: [{clave_temporal}]. Deberá cambiarla en su primer ingreso.'
                     )
-                    return redirect('administracionApp:directorio_profesional')
+                return redirect('administracionApp:directorio_profesional')
             except Exception as e:
                 messages.error(request, f'Error al guardar en la base de datos: {str(e)}')
         else:
@@ -348,8 +352,45 @@ def crear_profesional(request):
     return render(request, 'administrador/profesional/form_profesional.html', {
         'form_usuario': form_usuario,
         'form_profesional': form_profesional,
-        'titulo': 'Registrar Nuevo Profesional'
+        'titulo': 'Registrar Nuevo Profesional',
+        'es_creacion': True,
     })
+
+
+def entregar_credenciales(request, profesional, email, clave_temporal, prefijo=''):
+    """Envía al correo del profesional su usuario y clave temporal; si el envío falla, se la muestra al administrador."""
+    enlace = request.build_absolute_uri(reverse('usuariosApp:login'))
+    if enviar_credenciales(email, profesional.nombres, clave_temporal, enlace):
+        messages.success(request, f'{prefijo}Se enviaron el usuario y la clave temporal a {email}. Deberá cambiarla en su primer ingreso.')
+    else:
+        messages.warning(
+            request,
+            f'{prefijo}No se pudo enviar el correo con las credenciales; entrégalas personalmente. '
+            f'Usuario: {email} | Clave temporal: [{clave_temporal}]. Deberá cambiarla en su primer ingreso.'
+        )
+
+
+@role_required('Administrador')
+@login_required
+def reenviar_credenciales(request, id_profesional):
+    if request.method != 'POST':
+        return redirect('administracionApp:directorio_profesional')
+    profesional = get_object_or_404(Profesional, id_profesional=id_profesional)
+    usuario = profesional.usuario
+    if not profesional.estado or usuario is None or not usuario.is_active:
+        messages.error(request, 'Solo se pueden reenviar credenciales a profesionales activos con usuario en el sistema.')
+        return redirect('administracionApp:directorio_profesional')
+
+    clave_temporal = generar_clave_segura(10)
+    with transaction.atomic():
+        usuario.set_password(clave_temporal)
+        usuario.save()
+        ClaveTemporal.objects.update_or_create(usuario=usuario)
+        registrar_auditoria(request, "REENVIO_CREDENCIALES", "Profesional", profesional)
+
+    entregar_credenciales(request, profesional, usuario.email or usuario.username, clave_temporal,
+                          f'Se generó una nueva clave temporal para {profesional.nombres}. ')
+    return redirect('administracionApp:directorio_profesional')
 
 
 @role_required('Administrador')
@@ -644,7 +685,7 @@ def cambiar_estado_cargo(request, id_cargo):
 
 # --- MODIFICADO: AÑADIDO CATALOGOTIPOGESTION ---
 
-@role_required('Administrador', 'Coordinador', 'Profesional')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def panel_catalogos(request):
     tab_activa = request.GET.get('tab', 'servicio')
@@ -662,7 +703,7 @@ def panel_catalogos(request):
     return render(request, 'administrador/catalogos/panel_catalogos.html', context)
 
 
-@role_required('Administrador', 'Coordinador', 'Profesional')
+@role_required('Administrador', 'Coordinador')
 @login_required
 def gestionar_catalogo(request):
     if request.method == 'POST':
@@ -694,6 +735,8 @@ def gestionar_catalogo(request):
                             nuevo_registro = ModeloActivo(nombre=nombre, estado=True)
                             if tipo == 'area' and correo is not None:
                                 nuevo_registro.correo = correo
+                            if tipo == 'item':
+                                nuevo_registro.cuenta_compromisos = request.POST.get('cuenta_compromisos') == 'on'
 
                             nuevo_registro.full_clean()
                             nuevo_registro.save()
@@ -710,6 +753,8 @@ def gestionar_catalogo(request):
                             obj.nombre = nombre
                             if tipo == 'area' and correo is not None:
                                 obj.correo = correo
+                            if tipo == 'item':
+                                obj.cuenta_compromisos = request.POST.get('cuenta_compromisos') == 'on'
 
                             obj.full_clean()
                             obj.save()

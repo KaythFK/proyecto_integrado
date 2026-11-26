@@ -16,6 +16,7 @@ urlpatterns = [
     path('profesionales/crear/', views.crear_profesional, name='crear_profesional'),
     path('profesionales/editar/<int:id_profesional>/', views.editar_profesional, name='editar_profesional'),
     path('profesionales/estado/<int:id_profesional>/', views.cambiar_estado_profesional, name='cambiar_estado_profesional'),
+    path('profesionales/credenciales/<int:id_profesional>/', views.reenviar_credenciales, name='reenviar_credenciales'),
     #Delegaciones
     path('delegaciones/', views.delegaciones, name='delegaciones'),
     path('delegaciones/crear/', views.crear_delegacion, name='crear_delegacion'),

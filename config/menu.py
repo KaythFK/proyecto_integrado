@@ -55,7 +55,6 @@ MENU_POR_ROL = {
             ('Registrar actividad', 'plus-circle', 'actividadApp:registrar_actividad'),
             ('Mis actividades', 'clipboard-check', 'actividadApp:listar_actividades'),
             ('Mis gestiones', 'list-task', 'actividadApp:mis_gestiones'),
-            ('Catalogos', 'book', 'administracionApp:panel_catalogos'),
             ('Mis evidencias', 'camera', 'actividadApp:lista_evidencias'),
             ('Tubo de la delegación', 'kanban', 'monitoreoApp:tubo_delegacion'),
             ('Tubo de cartas', 'envelope-paper', 'tuboApp:lista_cartas'),

@@ -17,7 +17,7 @@ from config.utils import recordar_filtros, url_con_filtros, url_listado_activida
 from tuboApp.models import Compromiso
 from config.utils import con_marca_aprobada, rechazar_si_aprobada, puede_modificar_compromiso, validar_acceso_actividad, filtrar_evidencias_por_rol, validar_actividad_permite_evidencias, validar_actividad_finalizada, validar_datos_vecino_actividad, validar_tope_diario_actividades, validar_cierre_semanal, validar_evidencia_no_duplicada, validar_actividad_permite_evidencias, rol_usuario, validar_imagen_evidencia
 from django.db import transaction
-from config.utils import validar_evidencia_no_duplicada
+from config.utils import validar_evidencia_no_duplicada, gestiones_activas, MAXIMO_GESTIONES_POR_ATENCION
 from django.core.exceptions import ValidationError, PermissionDenied
 import json
 from django.forms.models import model_to_dict
@@ -349,6 +349,9 @@ def actualizar_estado_tubo(request, id_compromiso):
                 else:
                     actividad.estado_progreso = nuevo_estado
                 actividad.save()
+
+                from monitoreoApp.services import sincronizar_indicadores_actividad
+                sincronizar_indicadores_actividad(actividad)
 
                 registrar_auditoria(request, "CAMBIO_PROGRESO", "Compromiso", compromiso, datos_antiguos)
                 registrar_auditoria(request, "CAMBIO_PROGRESO", "Actividad", actividad, datos_antiguos_actividad)
@@ -1203,11 +1206,13 @@ def lista_gestiones(request, id_actividad):
             Q(tipo_gestion__nombre__icontains=query) |
             Q(descripcion__icontains=query)
         ).distinct()
-    
+
     return render(request, 'profesional/lista_gestiones.html', {
         'actividad': actividad,
         'gestiones': gestiones,
-        'query': query
+        'query': query,
+        'limite_gestiones': gestiones_activas(actividad) >= MAXIMO_GESTIONES_POR_ATENCION,
+        'maximo_gestiones': MAXIMO_GESTIONES_POR_ATENCION,
     })
 
 @login_required
@@ -1218,7 +1223,10 @@ def crear_gestion(request, id_actividad):
     bloqueo = rechazar_si_aprobada(request, actividad, reverse('actividadApp:lista_gestiones', args=[actividad.pk]))
     if bloqueo:
         return bloqueo
-    
+    if gestiones_activas(actividad) >= MAXIMO_GESTIONES_POR_ATENCION:
+        messages.error(request, f'Esta atención ya tiene {MAXIMO_GESTIONES_POR_ATENCION} gestiones activas, el máximo permitido. Desactiva una para registrar otra.')
+        return redirect('actividadApp:lista_gestiones', id_actividad=actividad.id_actividad)
+
     if request.method == 'POST':
         form = GestionActividadForm(request.POST)
         if form.is_valid():
@@ -1291,7 +1299,10 @@ def cambiar_estado_gestion(request, id_gestion):
         bloqueo = rechazar_si_aprobada(request, gestion.actividad, reverse('actividadApp:lista_gestiones', args=[gestion.actividad_id]))
         if bloqueo:
             return bloqueo
-        
+        if not gestion.estado and gestiones_activas(gestion.actividad) >= MAXIMO_GESTIONES_POR_ATENCION:
+            messages.error(request, f'No se puede habilitar: la atención ya tiene {MAXIMO_GESTIONES_POR_ATENCION} gestiones activas.')
+            return redirect(request.META.get('HTTP_REFERER', '/'))
+
         with transaction.atomic():
             datos_antiguos = model_to_dict(gestion) # --- AUDITORÍA ---
             nuevo_estado = not gestion.estado
