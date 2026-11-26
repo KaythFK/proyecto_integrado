@@ -137,6 +137,11 @@
                                                     <i class="bi bi-eye me-2 texto-guinda"></i>Ver detalle
                                                 </button>
                                             </li>
+                                            <li>
+                                                <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'actividadApp:lista_gestiones' actividad.id_actividad %}">
+                                                    <i class="bi bi-list-task me-2 texto-guinda"></i>Gestiones
+                                                </a>
+                                            </li>
                                             {% if not actividad.aprobada %}
                                             <li>
                                                 <a class="dropdown-item fw-semibold text-dark py-2" href="{% url 'actividadApp:registrar_evidencia' actividad.id_actividad %}">

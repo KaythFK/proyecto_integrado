@@ -14,12 +14,21 @@
 
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <div>
-            <h4 class="fw-bold m-0 texto-guinda">Gestiones registradas</h4>
-            <small class="text-muted">Acciones realizadas en todas tus actividades</small>
+            <h4 class="fw-bold m-0 texto-guinda">
+                Gestiones registradas{% if actividad %} — <span class="badge bg-dark">{{ actividad.codigo_unico }}</span>{% endif %}
+            </h4>
+            <small class="text-muted">Acciones realizadas en {% if actividad %}esta actividad{% else %}todas tus actividades{% endif %}</small>
         </div>
-        <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary fw-bold shadow-sm redondeado-8">
-            Ir a mis actividades
-        </a>
+        <div class="d-flex flex-wrap gap-2">
+            {% if actividad and not actividad.aprobada %}
+                <a href="{% url 'actividadApp:crear_gestion' actividad.id_actividad %}" class="btn text-white fw-bold shadow-sm fondo-rojo redondeado-8">
+                    + Nueva Gestión
+                </a>
+            {% endif %}
+            <a href="{% url 'actividadApp:listar_actividades' %}" class="btn btn-outline-secondary fw-bold shadow-sm redondeado-8">
+                Ir a mis actividades
+            </a>
+        </div>
     </div>
 
     <div class="row mb-4">
@@ -100,7 +109,7 @@
                 {% empty %}
                 <tr>
                     <td colspan="6" class="text-center text-muted py-4">
-                        {% if query %}No se encontraron gestiones para "{{ query }}".{% else %}Aún no has registrado gestiones. Puedes hacerlo desde "Mis actividades".{% endif %}
+                        {% if query %}No se encontraron gestiones para "{{ query }}".{% else %}Aún no has registrado gestiones en esta actividad.{% endif %}
                     </td>
                 </tr>
                 {% endfor %}

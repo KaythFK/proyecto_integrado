@@ -60,4 +60,7 @@ urlpatterns = [
     path('coordinador/actividad/<int:id_actividad>/gestiones/', views.gestiones_coordinador, name='gestiones_coordinador'),
     path('coordinador/actividad/<int:id_actividad>/cambiar-estado/', views.cambiar_estado_actividad_coordinador, name='cambiar_estado_actividad_coordinador'),
 
+    #Gestiones para delegado
+    path('delegado/actividad/<int:id_actividad>/gestiones/', views.gestiones_delegado, name='gestiones_delegado'),
+
 ]
