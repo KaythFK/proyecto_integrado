@@ -399,6 +399,15 @@ def _es_vigente_en_fecha(obj, fecha_ref):
     return True
 
 
+def sincronizar_indicadores_actividad(actividad):
+    """Recalcula los indicadores del funcionario en la meta de la actividad (por ejemplo, al cerrar su compromiso)."""
+    from monitoreoApp.models import Indicador
+    if not actividad.id_meta_id or not actividad.id_profesional_id:
+        return
+    for indicador in Indicador.objects.filter(meta_id_meta_id=actividad.id_meta_id, id_funcionario_id=actividad.id_profesional_id, estado=True):
+        sincronizar_indicador(indicador, guardar=True)
+
+
 def asegurar_indicadores_profesional(profesional, periodo_id=None, fecha_referencia=None):
     """
     [KAN-414 / KAN-415] Asegura indicadores en 0 para las metas activas del cargo
@@ -631,14 +640,14 @@ def sincronizar_indicador(indicador, guardar=True):
     if not meta or not funcionario:
         return indicador
 
-    from config.utils import actividades_que_ponderan
+    from config.utils import actividades_que_ponderan, avance_por_compromisos
     avance_real = actividades_que_ponderan(Evidencia.objects.filter(
         estado=True,
         estado_revision='APROBADO',
         id_actividad__estado=True,
         id_actividad__id_meta=meta,
         id_actividad__id_profesional=funcionario,
-    ), prefijo='id_actividad__').count()
+    ), prefijo='id_actividad__').count() + avance_por_compromisos(meta, funcionario)
 
     calculo = calcular_indicadores_meta(avance_real, meta)
     ajuste = ajuste_del_indicador(meta, funcionario, calculo['cumplimiento'])

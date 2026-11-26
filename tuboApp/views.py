@@ -197,6 +197,9 @@ def actualizar_progreso_tubo(request, id_compromiso):
                     actividad.estado_progreso = estado_actividad
                     actividad.save()
 
+                    from monitoreoApp.services import sincronizar_indicadores_actividad
+                    sincronizar_indicadores_actividad(actividad)
+
                     # 5. REGISTRAR AUDITORÍA DOBLE
                     registrar_auditoria(request, "CAMBIO_PROGRESO", "Compromiso", compromiso, datos_antiguos_compromiso)
                     registrar_auditoria(request, "CAMBIO_PROGRESO", "Actividad", actividad, datos_antiguos_actividad)

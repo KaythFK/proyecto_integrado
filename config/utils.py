@@ -648,6 +648,38 @@ def actividades_que_ponderan(actividades, prefijo=''):
             .exclude(**{f'{prefijo}solicitante_profesional__usuario__groups__name': 'Delegado'}))
 
 
+MAXIMO_GESTIONES_POR_ATENCION = 3
+
+
+def gestiones_activas(actividad):
+    from actividadApp.models import GestionActividad
+    return GestionActividad.objects.filter(actividad=actividad, estado=True).count()
+
+
+def avance_por_compromisos(meta, profesional=None):
+    """
+    Compromisos del Tubo realizados que suman al avance cuando el ítem de la meta lo configura.
+    Cada actividad suma una sola vez: no se cuentan las que ya suman por evidencia aprobada.
+    """
+    from django.core.exceptions import ObjectDoesNotExist
+    from django.db.models import Exists, OuterRef
+    if meta is None:
+        return 0
+    try:
+        configurado = meta.id_cargo_item.id_item.cuenta_compromisos
+    except (ObjectDoesNotExist, AttributeError):
+        return 0
+    if not configurado:
+        return 0
+    from tuboApp.models import Compromiso
+    realizado = Compromiso.objects.filter(id_actividad=OuterRef('pk'), estado=True, estado_progreso='REALIZADO')
+    aprobada = Evidencia.objects.filter(id_actividad=OuterRef('pk'), estado=True, estado_revision='APROBADO')
+    actividades = Actividad.objects.filter(id_meta=meta, estado=True).filter(Exists(realizado)).exclude(Exists(aprobada))
+    if profesional is not None:
+        actividades = actividades.filter(id_profesional=profesional)
+    return actividades_que_ponderan(actividades).distinct().count()
+
+
 def calcular_avance_actividades_aprobadas(meta, profesional=None):
     """
     Contabiliza las actividades activas asociadas a la meta que tengan
@@ -666,7 +698,7 @@ def calcular_avance_actividades_aprobadas(meta, profesional=None):
     if profesional is not None:
         qs = qs.filter(id_profesional=profesional)
 
-    total = actividades_que_ponderan(qs).distinct().count()
+    total = actividades_que_ponderan(qs).distinct().count() + avance_por_compromisos(meta, profesional)
     return Decimal(str(total)).quantize(Decimal('0.01'))
 
 

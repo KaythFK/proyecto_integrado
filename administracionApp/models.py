@@ -89,6 +89,7 @@ class CatalagoItem(models.Model):
     id_item = models.AutoField(primary_key=True)
     nombre = models.CharField(unique=True, max_length=45)
     estado = models.BooleanField(default=True)
+    cuenta_compromisos = models.BooleanField(default=False, verbose_name='Suma compromisos realizados del Tubo')
 
     def __str__(self):    
         nombre = getattr(self, 'nombre', None) 
