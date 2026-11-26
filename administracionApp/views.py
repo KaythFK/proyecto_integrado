@@ -643,23 +643,8 @@ def cambiar_estado_cargo(request, id_cargo):
     return redirect('administracionApp:lista_cargos')
 
 # --- MODIFICADO: AÑADIDO CATALOGOTIPOGESTION ---
-@role_required('Administrador', 'Coordinador')
-@login_required
-def panel_catalogos(request):
-    tab_activa = request.GET.get('tab', 'servicio')
-    
-    context = {
-        'servicios': CatalagoServicio.objects.all(),
-        'items': CatalagoItem.objects.all(),
-        'areas': CatalagoAreaApoyo.objects.all(),
-        # --- NUEVO ---
-        'gestiones': CatalogoTipoGestion.objects.all(),
-        'tab_activa': tab_activa
-    }
-    return render(request, 'administrador/catalogos/panel_catalogos.html', context)
 
-
-@role_required('Administrador', 'Coordinador')
+@role_required('Administrador', 'Coordinador', 'Profesional')
 @login_required
 def panel_catalogos(request):
     tab_activa = request.GET.get('tab', 'servicio')
@@ -677,7 +662,7 @@ def panel_catalogos(request):
     return render(request, 'administrador/catalogos/panel_catalogos.html', context)
 
 
-@role_required('Administrador', 'Coordinador')
+@role_required('Administrador', 'Coordinador', 'Profesional')
 @login_required
 def gestionar_catalogo(request):
     if request.method == 'POST':

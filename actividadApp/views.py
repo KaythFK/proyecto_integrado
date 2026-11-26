@@ -1189,7 +1189,7 @@ def cambiar_estado_validacion(request, id_validacion):
 
 
 @login_required
-@role_required('Profesional', 'Delegado', 'Administrador')
+@role_required('Profesional', 'Administrador')
 def lista_gestiones(request, id_actividad):
     """ Muestra la tabla de gestiones para una actividad específica con su barra de búsqueda """
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
@@ -1211,7 +1211,7 @@ def lista_gestiones(request, id_actividad):
     })
 
 @login_required
-@role_required('Profesional', 'Delegado', 'Administrador')
+@role_required('Profesional', 'Administrador')
 def crear_gestion(request, id_actividad):
     actividad = get_object_or_404(Actividad, id_actividad=id_actividad)
     validar_acceso_actividad(request.user, actividad)
@@ -1250,7 +1250,7 @@ def crear_gestion(request, id_actividad):
     })
 
 @login_required
-@role_required('Profesional', 'Delegado', 'Administrador')
+@role_required('Profesional', 'Administrador')
 def editar_gestion(request, id_gestion):
     gestion = get_object_or_404(GestionActividad, id_gestion=id_gestion)
     validar_acceso_actividad(request.user, gestion.actividad)
@@ -1283,7 +1283,7 @@ def editar_gestion(request, id_gestion):
     })
 
 @login_required
-@role_required('Profesional', 'Delegado', 'Administrador')
+@role_required('Profesional', 'Administrador')
 def cambiar_estado_gestion(request, id_gestion):
     if request.method == 'POST':
         gestion = get_object_or_404(GestionActividad, id_gestion=id_gestion)
@@ -1341,6 +1341,45 @@ def mis_gestiones(request):
     return render(request, 'profesional/mis_gestiones.html', {
         'gestiones': gestiones,
         'query': query
+    })
+
+
+@login_required
+@role_required('Delegado')
+def gestiones_delegado(request, id_actividad):
+    """Vista exclusiva de consulta para que el Delegado revise las gestiones de una actividad de su delegación."""
+    delegacion_actual = getattr(getattr(request.user, 'profesional', None), 'id_delegacion', None)
+    if not delegacion_actual:
+        raise PermissionDenied("Tu usuario no tiene una delegación asociada.")
+
+    actividad = get_object_or_404(
+        Actividad,
+        id_actividad=id_actividad,
+        id_profesional__id_delegacion=delegacion_actual,
+    )
+    validar_acceso_actividad(request.user, actividad)
+
+    gestiones = (
+        GestionActividad.objects.filter(actividad=actividad)
+        .select_related('tipo_gestion', 'subtipo_gestion', 'profesional')
+        .order_by('-fecha_registro')
+    )
+
+    query = request.GET.get('q')
+    if query:
+        gestiones = gestiones.filter(
+            Q(tipo_gestion__nombre__icontains=query) |
+            Q(subtipo_gestion__nombre__icontains=query) |
+            Q(descripcion__icontains=query) |
+            Q(profesional__nombres__icontains=query) |
+            Q(profesional__apellido_paterno__icontains=query)
+        ).distinct()
+
+    return render(request, 'delegado/lista_gestiones.html', {
+        'actividad': actividad,
+        'gestiones': gestiones,
+        'query': query,
+        'delegacion_nombre': delegacion_actual.nombre,
     })
 
 
